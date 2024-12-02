@@ -57,7 +57,28 @@ const DataViewer = () => {
         );
         setFilteredDonnees(filtered);
     };
+    const handleDelete = async (id) => {
+        if (window.confirm('Voulez-vous vraiment supprimer cet enregistrement ?')) {
+            try {
+                const response = await fetch(`${API_URL}/api/donnees/${id}`, {
+                    method: 'DELETE',
+                });
 
+                if (response.ok) {
+                    // Mettre à jour les données en filtrant l'élément supprimé
+                    const updatedDonnees = donnees.filter((donnee) => donnee.id !== id);
+                    setDonnees(updatedDonnees);
+                    setFilteredDonnees(updatedDonnees);
+                    alert('Enregistrement supprimé avec succès.');
+                } else {
+                    alert('Erreur lors de la suppression de l\'enregistrement.');
+                }
+            } catch (error) {
+                console.error('Erreur lors de la suppression :', error);
+                alert('Une erreur est survenue.');
+            }
+        }
+    };
     useEffect(() => {
         fetchData();
     }, []);
@@ -111,46 +132,126 @@ const DataViewer = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                enqueteur
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                envoie
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 N° Dossier
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Ref
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Type
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Nom
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Prénom
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Date Naissance
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ville
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Lieu de naissance
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Code Postal
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Demande
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Contestation
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Deces
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Date butoir
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Ville
                             </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredDonnees.map((donnee, index) => (
                             <tr key={index} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {/* Nouvelle cellule pour les boutons */}
+                                <td className="px-2 py-2 text-xs flex space-x-1">
+                                    {/* Bouton Supprimer */}
+                                    <button
+                                        onClick={() => handleDelete(donnee.id)}
+                                        className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
+                                    >
+                                        Supp
+                                    </button>
+
+                                    {/* Bouton MAJ */}
+                                    <button
+                                        onClick={() => handleUpdate(donnee.id)}
+                                        className="px-2 py-1 bg-green-500 text-white rounded hover:bg-blue-600 text-xs"
+                                    >
+                                        MAJ
+                                    </button>
+
+                                    {/* Bouton Histo */}
+                                    <button
+                                        onClick={() => handleHistory(donnee.id)}
+                                        className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
+                                    >
+                                        Histo
+                                    </button>
+                                </td>
+                                <td className="px-6 py-4  text-sm">
+                                    {/* Colonne enqueteur si nécessaire */}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.dateRetourEspere}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
                                     {donnee.numeroDossier}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-2 py-2 text-xs">
+                                    {donnee.referenceDossier ? donnee.referenceDossier.substring(0, 4) + '...' : ''}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.typeDemande}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
                                     {donnee.nom}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-2 py-2  text-xs">
                                     {donnee.prenom}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-2 py-2  text-xs">
                                     {donnee.dateNaissance}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    {donnee.ville}
+                                <td className="px-2 py-2 text-xs">
+                                    {donnee.lieuNaissance}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-2 py-2  text-xs">
                                     {donnee.codePostal}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.numeroDemande}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.numeroDemandeContestee}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.dateDeces}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.dateRetourEspere}
+                                </td>
+                                <td className="px-2 py-2  text-xs">
+                                    {donnee.ville}
                                 </td>
                             </tr>
                         ))}

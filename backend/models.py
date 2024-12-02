@@ -98,6 +98,12 @@ class Donnee(db.Model):
         """Convertit l'objet en dictionnaire"""
         return {
             'id': self.id,
+            'dateRetourEspere': self.dateRetourEspere.strftime('%d/%m/%Y') if self.dateRetourEspere else None,
+            'typeDemande': self.typeDemande,
+            'numeroDemande': self.numeroDemande,
+            'numeroDemandeContestee': self.numeroDemandeContestee,
+            'dateDeces': self.dateDeces.strftime('%d/%m/%Y') if self.dateDeces else None,
+            
             'fichier_id': self.fichier_id,
             'numeroDossier': self.numeroDossier,
             'referenceDossier': self.referenceDossier,

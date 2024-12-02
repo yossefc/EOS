@@ -137,7 +137,6 @@ def create_app():
                 
                 derniers_fichiers = (Fichier.query
                                 .order_by(Fichier.date_upload.desc())
-                                .limit(5)
                                 .all())
                 
                 fichiers_info = [{
@@ -209,6 +208,19 @@ def create_app():
     def get_donnees_alt():
             """Route alternative pour la récupération des données"""
             return get_donnees()
+    
+    @app.route('/api/donnees/<int:id>', methods=['DELETE'])
+    def delete_donnee(id):
+        try:
+            donnee = Donnee.query.get_or_404(id)
+            db.session.delete(donnee)
+            db.session.commit()
+            return jsonify({'message': 'Enregistrement supprimé avec succès'}), 200
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erreur lors de la suppression : {str(e)}")
+            return jsonify({'error': 'Erreur lors de la suppression'}), 500
+        
     return app
 
 # Création de l'application
