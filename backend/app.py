@@ -221,6 +221,41 @@ def create_app():
             app.logger.error(f"Erreur lors de la suppression : {str(e)}")
             return jsonify({'error': 'Erreur lors de la suppression'}), 500
         
+    from flask import request
+
+    @app.route('/api/donnees', methods=['POST'])
+    def add_donnee():
+        try:
+            data = request.json
+            nouvelle_donnee = Donnee(
+                numeroDossier=data.get('numeroDossier'),
+                referenceDossier=data.get('referenceDossier'),
+                typeDemande=data.get('typeDemande'),
+                nom=data.get('nom'),
+                prenom=data.get('prenom'),
+                dateNaissance=datetime.strptime(data.get('dateNaissance'), '%Y-%m-%d').date() if data.get('dateNaissance') else None,
+                lieuNaissance=data.get('lieuNaissance'),
+                codePostal=data.get('codePostal'),
+                ville=data.get('ville'),
+                adresse1=data.get('adresse1'),
+                adresse2=data.get('adresse2'),
+                adresse3=data.get('adresse3'),
+                telephonePersonnel=data.get('telephonePersonnel')
+            )
+            db.session.add(nouvelle_donnee)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Données ajoutées avec succès',
+                'data': nouvelle_donnee.to_dict()
+            }), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
     return app
 
 # Création de l'application

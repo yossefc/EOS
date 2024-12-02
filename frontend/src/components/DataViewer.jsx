@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Table, RefreshCw, Search } from 'lucide-react';
+import UpdateModal from './UpdateModal';
 
 const API_URL = 'http://localhost:5000';
 
-const DataViewer = () => {
+function DataViewer() {
     const [donnees, setDonnees] = useState([]);
     const [filteredDonnees, setFilteredDonnees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedData, setSelectedData] = useState(null);
+    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -57,6 +60,7 @@ const DataViewer = () => {
         );
         setFilteredDonnees(filtered);
     };
+
     const handleDelete = async (id) => {
         if (window.confirm('Voulez-vous vraiment supprimer cet enregistrement ?')) {
             try {
@@ -65,7 +69,6 @@ const DataViewer = () => {
                 });
 
                 if (response.ok) {
-                    // Mettre à jour les données en filtrant l'élément supprimé
                     const updatedDonnees = donnees.filter((donnee) => donnee.id !== id);
                     setDonnees(updatedDonnees);
                     setFilteredDonnees(updatedDonnees);
@@ -79,6 +82,25 @@ const DataViewer = () => {
             }
         }
     };
+
+    const handleUpdate = (donnee) => {
+        setSelectedData(donnee);
+        setIsUpdateModalOpen(true);
+    };
+
+    const handleModalClose = (shouldRefresh) => {
+        setIsUpdateModalOpen(false);
+        setSelectedData(null);
+        if (shouldRefresh) {
+            fetchData();
+        }
+    };
+
+    const handleHistory = (id) => {
+        console.log('Historique pour ID:', id);
+        // Implémentez la logique d'historique ici
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -133,6 +155,10 @@ const DataViewer = () => {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                            {/* Autres en-têtes de colonnes */}
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 enqueteur
                             </th>
                             <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -182,25 +208,19 @@ const DataViewer = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredDonnees.map((donnee, index) => (
                             <tr key={index} className="hover:bg-gray-50">
-                                {/* Nouvelle cellule pour les boutons */}
                                 <td className="px-2 py-2 text-xs flex space-x-1">
-                                    {/* Bouton Supprimer */}
                                     <button
                                         onClick={() => handleDelete(donnee.id)}
                                         className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
                                     >
                                         Supp
                                     </button>
-
-                                    {/* Bouton MAJ */}
                                     <button
-                                        onClick={() => handleUpdate(donnee.id)}
+                                        onClick={() => handleUpdate(donnee)}
                                         className="px-2 py-1 bg-green-500 text-white rounded hover:bg-blue-600 text-xs"
                                     >
                                         MAJ
                                     </button>
-
-                                    {/* Bouton Histo */}
                                     <button
                                         onClick={() => handleHistory(donnee.id)}
                                         className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
@@ -208,51 +228,23 @@ const DataViewer = () => {
                                         Histo
                                     </button>
                                 </td>
-                                <td className="px-6 py-4  text-sm">
-                                    {/* Colonne enqueteur si nécessaire */}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.dateRetourEspere}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.numeroDossier}
-                                </td>
+                                <td className="px-2 py-2 text-xs">{/* Cellule enqueteur */}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.dateRetourEspere}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.numeroDossier}</td>
                                 <td className="px-2 py-2 text-xs">
                                     {donnee.referenceDossier ? donnee.referenceDossier.substring(0, 4) + '...' : ''}
                                 </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.typeDemande}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.nom}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.prenom}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.dateNaissance}
-                                </td>
-                                <td className="px-2 py-2 text-xs">
-                                    {donnee.lieuNaissance}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.codePostal}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.numeroDemande}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.numeroDemandeContestee}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.dateDeces}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.dateRetourEspere}
-                                </td>
-                                <td className="px-2 py-2  text-xs">
-                                    {donnee.ville}
-                                </td>
+                                <td className="px-2 py-2 text-xs">{donnee.typeDemande}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.nom}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.prenom}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.dateNaissance}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.lieuNaissance}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.codePostal}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.numeroDemande}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.numeroDemandeContestee}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.dateDeces}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.dateRetourEspere}</td>
+                                <td className="px-2 py-2 text-xs">{donnee.ville}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -264,8 +256,16 @@ const DataViewer = () => {
                     Aucune donnée disponible
                 </div>
             )}
+
+            {isUpdateModalOpen && (
+                <UpdateModal
+                    isOpen={isUpdateModalOpen}
+                    onClose={handleModalClose}
+                    data={selectedData}
+                />
+            )}
         </div>
     );
-};
+}
 
 export default DataViewer;
