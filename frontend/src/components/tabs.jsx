@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { BarChart2, FileText, Database, Users, ClipboardList, FileUp, FileDown } from 'lucide-react';
+import { BarChart2, FileText, Database, Users, ClipboardList, FileUp, FileDown,User  } from 'lucide-react';
 import StatsViewer from './StatsViewer';
 import ImportHandler from './ImportHandler'; // Nouveau composant d'import
 import DataViewer from './DataViewer';
 import EnqueteurViewer from './EnqueteurViewer';
 import AssignmentViewer from './AssignmentViewer';
+import EnqueteurDashboard from './EnqueteurDashboard';
 import ExportHandler from './ExportHandler'; // Nouveau composant d'export
 
 const Tabs = () => {
@@ -30,6 +31,12 @@ const Tabs = () => {
             label: 'Import de fichiers',
             icon: <FileUp className="w-4 h-4" />,
             component: <ImportHandler onImportComplete={handleImportComplete} />
+        },
+        {
+            id: 'enqueteur-interface',
+            label: 'Interface Enquêteur',
+            icon: <User className="w-4 h-4" />,
+            component: <EnqueteurDashboard />
         },
         {
             id: 'data',

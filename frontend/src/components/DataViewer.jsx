@@ -182,13 +182,29 @@ const DataViewer = () => {
             }
         }
     };
-
-    const handleUpdate = (donnee) => {
-        console.log("Ouverture du modal pour:", donnee);
-        setSelectedData(donnee);
-        setIsUpdateModalOpen(true);
+    const handleUpdate = async (donnee) => {
+        try {
+            setLoading(true);
+            // Récupérer les données enquêteur en même temps
+            const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${donnee.id}`);
+            if (response.data.success && response.data.data) {
+                // Fusionner les données
+                setSelectedData({
+                    ...donnee,
+                    enqueteur_data: response.data.data
+                });
+            } else {
+                setSelectedData(donnee);
+            }
+            setIsUpdateModalOpen(true);
+        } catch (error) {
+            console.error("Erreur lors de la récupération des données:", error);
+            setSelectedData(donnee);
+            setIsUpdateModalOpen(true);
+        } finally {
+            setLoading(false);
+        }
     };
-
     const handleModalClose = (shouldRefresh) => {
         setIsUpdateModalOpen(false);
         setSelectedData(null);

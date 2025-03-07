@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-  User, Phone, MapPin, Building2, Calendar, Info,
+  User, Phone, MapPin, Building2, Calendar, Info, Save,
   CreditCard, MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X, Search, Building
+  Check, AlertCircle, X, Search, Building, FileText, 
+  CheckCircle
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
@@ -576,64 +577,81 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto">
       <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         {/* En-tête */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 sm:p-6 rounded-t-xl sticky top-0 z-10">
+        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 rounded-t-xl sticky top-0 z-10 shadow-md">
           <div className="flex justify-between items-start">
-            <div className="text-white space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Dossier n° {data?.numeroDossier}</h2>
-              <p className="text-sm sm:text-base">{data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'}</p>
+            <div className="text-white">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <FileText className="w-6 h-6" />
+                Dossier n° {data?.numeroDossier}
+              </h2>
+              <p className="mt-1 opacity-90">
+                {data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'} - {data?.nom} {data?.prenom}
+              </p>
 
-              {/* Éléments demandés */}
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Éléments demandés :</p>
+              <div className="mt-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {elementsDemandes.map(code => (
-                    <span key={code} className="bg-blue-500/20 px-2 py-1 rounded text-xs sm:text-sm">
+                    <span key={code} className="px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-sm font-medium flex items-center">
+                      {code === 'A' && <MapPin className="w-3.5 h-3.5 mr-1" />}
+                      {code === 'T' && <Phone className="w-3.5 h-3.5 mr-1" />}
+                      {code === 'D' && <Calendar className="w-3.5 h-3.5 mr-1" />}
+                      {code === 'B' && <Building className="w-3.5 h-3.5 mr-1" />}
+                      {code === 'E' && <Briefcase className="w-3.5 h-3.5 mr-1" />}
+                      {code === 'R' && <CircleDollarSign className="w-3.5 h-3.5 mr-1" />}
                       {TYPE_RECHERCHE[code] || code}
                     </span>
                   ))}
                 </div>
-              </div>
 
-              {/* Éléments obligatoires */}
-              {elementsObligatoires.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Éléments obligatoires :</p>
+                {/* Éléments obligatoires avec style amélioré */}
+                {elementsObligatoires.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {elementsObligatoires.map(code => (
-                      <span key={code} className="bg-red-500/20 px-2 py-1 rounded text-xs sm:text-sm flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span key={code} className="px-3 py-1 bg-red-500/30 backdrop-blur-sm rounded-full text-sm font-medium flex items-center">
+                        <AlertCircle className="w-3.5 h-3.5 mr-1" />
                         {TYPE_RECHERCHE[code] || code}
                       </span>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-            <button onClick={() => onClose(false)} className="text-white/70 hover:text-white">
+            
+            <button 
+              onClick={() => onClose(false)} 
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full p-2 transition-colors"
+            >
               <X className="w-6 h-6" />
             </button>
           </div>
         </div>
 
-        {/* Messages d'erreur ou de succès */}
-        {error && (
-          <div className="m-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {success && (
-          <div className="m-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2">
-            <Check className="w-5 h-5 flex-shrink-0" />
-            <span>{success}</span>
-          </div>
-        )}
+        {(error || success) && (
+            <div className="m-4">
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3 shadow-sm">
+                  <div className="bg-red-100 p-2 rounded-full">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div className="flex-1">{error}</div>
+                </div>
+              )}
+              
+              {success && (
+                <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-3 shadow-sm">
+                  <div className="bg-green-100 p-2 rounded-full">
+                    <Check className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div className="flex-1">{success}</div>
+                </div>
+              )}
+            </div>
+          )}
 
         <form onSubmit={handleSubmit}>
           {/* Navigation par onglets */}
-          <div className="px-4 border-b overflow-x-auto">
-            <div className="flex space-x-2">
+          <div className="px-4 border-b overflow-x-auto bg-white sticky top-[96px] z-5 shadow-sm">
+            <div className="flex space-x-3">
               {tabs.map(tab => {
                 // Cacher l'onglet décès si pas nécessaire
                 if (tab.id === 'deces' && !showDeathInfo && !formData.elements_retrouves.includes('D')) {
@@ -665,10 +683,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-3 text-sm font-medium whitespace-nowrap inline-flex items-center gap-1
+                    className={`px-4 py-3 text-sm font-medium whitespace-nowrap inline-flex items-center gap-2 border-b-2 transition-colors
                       ${activeTab === tab.id
-                        ? 'border-b-2 border-blue-500 text-blue-600'
-                        : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
                       }`}
                   >
                     {tab.icon && <tab.icon className="w-4 h-4" />}
@@ -682,12 +700,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           <div className="p-4">
             {/* Contenu des onglets */}
             {activeTab === 'infos' && (
-              <div className="space-y-4">
-                {/* Informations générales en lecture seule */}
-                <div className="bg-gray-50 rounded-lg p-4 border">
-                  <h3 className="text-lg font-medium mb-4">Informations générales du dossier</h3>
+              <div className="p-6 space-y-6">
+                <div className="bg-gray-50 rounded-xl p-6 border shadow-sm">
+                  <h3 className="text-lg font-medium mb-5 text-gray-800 flex items-center gap-2">
+                    <Info className="w-5 h-5 text-blue-500" />
+                    Informations générales du dossier
+                  </h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {/* Informations de base */}
                     <div>
                       <p className="text-sm text-gray-500">Numéro de dossier</p>
@@ -755,10 +775,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     </div>
                   </div>
 
-                  {/* Résultat de l'enquête */}
-                  <div className="mt-6 border-t pt-4">
-                    <h4 className="font-medium mb-3">Résultat de l'enquête</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Section résultat améliorée */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 shadow-sm mt-6">
+                    <h3 className="text-lg font-medium mb-5 text-gray-800 flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-blue-500" />
+                      Résultat de l'enquête
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                       <div>
                         <label className="block text-sm text-gray-600 mb-1">Code résultat</label>
                         <select
@@ -1583,30 +1607,34 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             )}
           </div>
 
-          {/* Boutons d'action */}
-          <div className="p-4 flex justify-end gap-3 border-t sticky bottom-0 bg-white z-10">
+          <div className="p-4 flex justify-end gap-4 border-t sticky bottom-0 bg-white z-10 shadow-md">
             <button
               type="button"
               onClick={() => onClose(false)}
-              className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50 focus:outline-none"
+              className="px-5 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               disabled={isLoading.submit}
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none flex items-center"
+              className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
               disabled={isLoading.submit}
             >
               {isLoading.submit ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   Enregistrement...
                 </>
-              ) : 'Enregistrer'}
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Enregistrer
+                </>
+              )}
             </button>
           </div>
         </form>
