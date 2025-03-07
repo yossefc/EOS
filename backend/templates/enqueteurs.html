@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestion des Enquêteurs</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .enqueteur {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gestion des Enquêteurs</h1>
+    
+    <!-- Formulaire d'ajout d'enquêteur -->
+    <div style="margin-bottom: 30px;">
+        <h2>Ajouter un nouvel enquêteur</h2>
+        <form id="addEnqueteurForm">
+            <div class="form-group">
+                <label for="nom">Nom:</label>
+                <input type="text" id="nom" name="nom" required>
+            </div>
+            <div class="form-group">
+                <label for="prenom">Prénom:</label>
+                <input type="text" id="prenom" name="prenom" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="telephone">Téléphone:</label>
+                <input type="text" id="telephone" name="telephone">
+            </div>
+            <button type="submit" class="btn">Ajouter</button>
+        </form>
+    </div>
+
+    <!-- Liste des enquêteurs -->
+    <h2>Liste des enquêteurs</h2>
+    <div id="enqueteursList"></div>
+
+    <script>
+        // Charger la liste des enquêteurs
+        function loadEnqueteurs() {
+            fetch('/api/enqueteurs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('enqueteursList');
+                        container.innerHTML = '';
+                        data.data.forEach(enqueteur => {
+                            const div = document.createElement('div');
+                            div.className = 'enqueteur';
+                            div.innerHTML = `
+                                <h3>${enqueteur.prenom} ${enqueteur.nom}</h3>
+                                <p>Email: ${enqueteur.email}</p>
+                                <p>Téléphone: ${enqueteur.telephone || 'Non renseigné'}</p>
+                                <a href="/api/enqueteurs/${enqueteur.id}/vpn-config" class="btn" download>
+                                    Télécharger la configuration VPN
+                                </a>
+                            `;
+                            container.appendChild(div);
+                        });
+                    }
+                })
+                .catch(error => console.error('Erreur:', error));
+        }
+
+        // Gérer l'ajout d'un nouvel enquêteur
+        document.getElementById('addEnqueteurForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = {
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                email: document.getElementById('email').value,
+                telephone: document.getElementById('telephone').value
+            };
+
+            fetch('/api/enqueteurs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Réinitialiser le formulaire
+                    document.getElementById('addEnqueteurForm').reset();
+                    // Recharger la liste
+                    loadEnqueteurs();
+                    alert('Enquêteur ajouté avec succès !');
+                } else {
+                    alert('Erreur: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'ajout de l\'enquêteur');
+            });
+        });
+
+        // Charger la liste au chargement de la page
+        loadEnqueteurs();
+    </script>
+</body>
+</html>
