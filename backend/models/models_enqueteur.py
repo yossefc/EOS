@@ -92,6 +92,9 @@ class DonneeEnqueteur(db.Model):
     memo3 = db.Column(db.String(64))
     memo4 = db.Column(db.String(64))
     memo5 = db.Column(db.String(1000))
+    
+    # Notes personnelles (nouveau champ)
+    notes_personnelles = db.Column(db.Text)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -104,88 +107,88 @@ class DonneeEnqueteur(db.Model):
             'donnee_id': self.donnee_id,
             'code_resultat': self.code_resultat,
             'elements_retrouves': self.elements_retrouves,
-            'adresse': {
-                'adresse1': self.adresse1,
-                'adresse2': self.adresse2,
-                'adresse3': self.adresse3,
-                'adresse4': self.adresse4,
-                'code_postal': self.code_postal,
-                'ville': self.ville,
-                'pays': self.pays_residence
-            },
-            'telephones': {
-                'personnel': self.telephone_personnel,
-                'chez_employeur': self.telephone_chez_employeur
-            },
-            'employeur': {
-                'nom': self.nom_employeur,
-                'telephone': self.telephone_employeur,
-                'adresse': {
-                    'adresse1': self.adresse1_employeur,
-                    'adresse2': self.adresse2_employeur,
-                    'adresse3': self.adresse3_employeur,
-                    'adresse4': self.adresse4_employeur,
-                    'code_postal': self.code_postal_employeur,
-                    'ville': self.ville_employeur,
-                    'pays': self.pays_employeur
-                }
-            },
-            'banque': {
-                'domiciliation': self.banque_domiciliation,
-                'guichet': self.libelle_guichet,
-                'titulaire': self.titulaire_compte,
-                'code_banque': self.code_banque,
-                'code_guichet': self.code_guichet
-            },
-            'deces': {
-                'date': self.date_deces.strftime('%Y-%m-%d') if self.date_deces else None,
-                'numero_acte': self.numero_acte_deces,
-                'code_insee': self.code_insee_deces,
-                'code_postal': self.code_postal_deces,
-                'localite': self.localite_deces
-            },
-            'revenus': {
-                'salaire': {
-                    'montant': float(self.montant_salaire) if self.montant_salaire else None,
-                    'periode_versement': self.periode_versement_salaire,
-                    'frequence_versement': self.frequence_versement_salaire,
-                    'commentaires': self.commentaires_revenus
-                },
-                'autres_revenus': [
-                    {
-                        'nature': self.nature_revenu1,
-                        'montant': float(self.montant_revenu1) if self.montant_revenu1 else None,
-                        'periode_versement': self.periode_versement_revenu1,
-                        'frequence_versement': self.frequence_versement_revenu1
-                    },
-                    {
-                        'nature': self.nature_revenu2,
-                        'montant': float(self.montant_revenu2) if self.montant_revenu2 else None,
-                        'periode_versement': self.periode_versement_revenu2,
-                        'frequence_versement': self.frequence_versement_revenu2
-                    },
-                    {
-                        'nature': self.nature_revenu3,
-                        'montant': float(self.montant_revenu3) if self.montant_revenu3 else None,
-                        'periode_versement': self.periode_versement_revenu3,
-                        'frequence_versement': self.frequence_versement_revenu3
-                    }
-                ]
-            },
-            'facturation': {
-                'numero': self.numero_facture,
-                'date': self.date_facture.strftime('%Y-%m-%d') if self.date_facture else None,
-                'montant': float(self.montant_facture) if self.montant_facture else None,
-                'tarif_applique': float(self.tarif_applique) if self.tarif_applique else None,
-                'cumul_precedents': float(self.cumul_montants_precedents) if self.cumul_montants_precedents else None,
-                'reprise': float(self.reprise_facturation) if self.reprise_facturation else None,
-                'remise': float(self.remise_eventuelle) if self.remise_eventuelle else None
-            },
-            'memos': {
-                'memo1': self.memo1,
-                'memo2': self.memo2,
-                'memo3': self.memo3,
-                'memo4': self.memo4,
-                'memo5': self.memo5
-            }
+            'flag_etat_civil_errone': self.flag_etat_civil_errone,
+            'date_retour': self.date_retour.strftime('%Y-%m-%d') if self.date_retour else None,
+            
+            # Adresse
+            'adresse1': self.adresse1,
+            'adresse2': self.adresse2,
+            'adresse3': self.adresse3,
+            'adresse4': self.adresse4,
+            'code_postal': self.code_postal,
+            'ville': self.ville,
+            'pays_residence': self.pays_residence,
+            'telephone_personnel': self.telephone_personnel,
+            'telephone_chez_employeur': self.telephone_chez_employeur,
+            
+            # Employeur
+            'nom_employeur': self.nom_employeur,
+            'telephone_employeur': self.telephone_employeur,
+            'telecopie_employeur': self.telecopie_employeur,
+            'adresse1_employeur': self.adresse1_employeur,
+            'adresse2_employeur': self.adresse2_employeur,
+            'adresse3_employeur': self.adresse3_employeur,
+            'adresse4_employeur': self.adresse4_employeur,
+            'code_postal_employeur': self.code_postal_employeur,
+            'ville_employeur': self.ville_employeur,
+            'pays_employeur': self.pays_employeur,
+            
+            # Informations bancaires
+            'banque_domiciliation': self.banque_domiciliation,
+            'libelle_guichet': self.libelle_guichet,
+            'titulaire_compte': self.titulaire_compte,
+            'code_banque': self.code_banque,
+            'code_guichet': self.code_guichet,
+            
+            # Décès
+            'date_deces': self.date_deces.strftime('%Y-%m-%d') if self.date_deces else None,
+            'numero_acte_deces': self.numero_acte_deces,
+            'code_insee_deces': self.code_insee_deces,
+            'code_postal_deces': self.code_postal_deces,
+            'localite_deces': self.localite_deces,
+            
+            # Revenus
+            'commentaires_revenus': self.commentaires_revenus,
+            'montant_salaire': float(self.montant_salaire) if self.montant_salaire else None,
+            'periode_versement_salaire': self.periode_versement_salaire,
+            'frequence_versement_salaire': self.frequence_versement_salaire,
+            
+            # Autres revenus
+            'nature_revenu1': self.nature_revenu1,
+            'montant_revenu1': float(self.montant_revenu1) if self.montant_revenu1 else None,
+            'periode_versement_revenu1': self.periode_versement_revenu1,
+            'frequence_versement_revenu1': self.frequence_versement_revenu1,
+            
+            'nature_revenu2': self.nature_revenu2,
+            'montant_revenu2': float(self.montant_revenu2) if self.montant_revenu2 else None,
+            'periode_versement_revenu2': self.periode_versement_revenu2,
+            'frequence_versement_revenu2': self.frequence_versement_revenu2,
+            
+            'nature_revenu3': self.nature_revenu3,
+            'montant_revenu3': float(self.montant_revenu3) if self.montant_revenu3 else None,
+            'periode_versement_revenu3': self.periode_versement_revenu3,
+            'frequence_versement_revenu3': self.frequence_versement_revenu3,
+            
+            # Facturation
+            'numero_facture': self.numero_facture,
+            'date_facture': self.date_facture.strftime('%Y-%m-%d') if self.date_facture else None,
+            'montant_facture': float(self.montant_facture) if self.montant_facture else None,
+            'tarif_applique': float(self.tarif_applique) if self.tarif_applique else None,
+            'cumul_montants_precedents': float(self.cumul_montants_precedents) if self.cumul_montants_precedents else None,
+            'reprise_facturation': float(self.reprise_facturation) if self.reprise_facturation else None,
+            'remise_eventuelle': float(self.remise_eventuelle) if self.remise_eventuelle else None,
+            
+            # Mémos
+            'memo1': self.memo1,
+            'memo2': self.memo2,
+            'memo3': self.memo3,
+            'memo4': self.memo4,
+            'memo5': self.memo5,
+            
+            # Notes personnelles
+            'notes_personnelles': self.notes_personnelles,
+            
+            # Timestamps
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }

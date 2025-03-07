@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   User, Phone, MapPin, Building2, Calendar, Info,
   CreditCard, MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X, Search, Building
+  Check, AlertCircle, X, Search, Building, StickyNote
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
@@ -59,7 +59,8 @@ const tabs = [
   { id: 'employeur', label: 'Employeur', icon: Briefcase },
   { id: 'banque', label: 'Banque', icon: Building },
   { id: 'revenus', label: 'Revenus', icon: CircleDollarSign },
-  { id: 'commentaires', label: 'Commentaires', icon: MessageSquare }
+  { id: 'commentaires', label: 'Commentaires', icon: MessageSquare },
+  { id: 'notes', label: 'Notes perso', icon: StickyNote } // Nouvel onglet pour les notes personnelles
 ];
 
 // Liste des champs possibles de la table donnees avec leurs libellés
@@ -182,7 +183,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     memo2: '',
     memo3: '',
     memo4: '',
-    memo5: ''
+    memo5: '',
+    
+    // Notes personnelles (nouveau champ)
+    notes_personnelles: ''
   });
 
   const [suggestions, setSuggestions] = useState({
@@ -211,109 +215,101 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           console.log("Récupération des données enquêteur pour ID:", data.id);
           const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${data.id}`);
           
-          // Ajouter des logs détaillés pour le débogage
+          // Vérifier que nous avons une réponse valide
           console.log("Réponse complète du serveur:", response);
           
           if (response.data.success && response.data.data) {
-            console.log("Données enquêteur récupérées:", response.data.data);
+            // Correction ici: accéder aux données via response.data.data
+            const enqueteurData = response.data.data;
+            console.log("Données enquêteur récupérées:", enqueteurData);
             
             // Stocker les données sauvegardées
-            setDonneesSauvegardees(response.data.data);
+            setDonneesSauvegardees(enqueteurData);
             
             // Mise à jour du formulaire avec les données
-            console.log("Mise à jour du formulaire avec les données enquêteur");
-            
-            // Conversion des valeurs possiblement nulles en chaînes vides pour le formulaire
-            const formattedData = {};
-            Object.keys(response.data.data).forEach(key => {
-              formattedData[key] = response.data.data[key] === null ? '' : response.data.data[key];
-            });
-            
-            console.log("Données formatées pour le formulaire:", formattedData);
-            
-            // Directement définir l'état du formulaire plutôt que d'appeler une fonction
             setFormData({
-              // Valeurs de base par défaut
-              code_resultat: formattedData.code_resultat || 'P',
-              elements_retrouves: formattedData.elements_retrouves || data.elementDemandes || 'A',
-              flag_etat_civil_errone: formattedData.flag_etat_civil_errone || '',
-              date_retour: formattedData.date_retour || new Date().toISOString().split('T')[0],
+              // Valeurs par défaut
+              code_resultat: enqueteurData.code_resultat || 'P',
+              elements_retrouves: enqueteurData.elements_retrouves || data.elementDemandes || 'A',
+              flag_etat_civil_errone: enqueteurData.flag_etat_civil_errone || '',
+              date_retour: enqueteurData.date_retour || new Date().toISOString().split('T')[0],
 
-              // Adresse - utiliser uniquement les données de formattedData
-              adresse1: formattedData.adresse1 || '',
-              adresse2: formattedData.adresse2 || '',
-              adresse3: formattedData.adresse3 || '',
-              adresse4: formattedData.adresse4 || '',
-              code_postal: formattedData.code_postal || '',
-              ville: formattedData.ville || '',
-              pays_residence: formattedData.pays_residence || 'FRANCE',
-              telephone_personnel: formattedData.telephone_personnel || '',
-              telephone_chez_employeur: formattedData.telephone_chez_employeur || '',
+              // Adresse
+              adresse1: enqueteurData.adresse1 || '',
+              adresse2: enqueteurData.adresse2 || '',
+              adresse3: enqueteurData.adresse3 || '',
+              adresse4: enqueteurData.adresse4 || '',
+              code_postal: enqueteurData.code_postal || '',
+              ville: enqueteurData.ville || '',
+              pays_residence: enqueteurData.pays_residence || 'FRANCE',
+              telephone_personnel: enqueteurData.telephone_personnel || '',
+              telephone_chez_employeur: enqueteurData.telephone_chez_employeur || '',
 
               // Décès
-              date_deces: formattedData.date_deces || '',
-              numero_acte_deces: formattedData.numero_acte_deces || '',
-              code_insee_deces: formattedData.code_insee_deces || '',
-              code_postal_deces: formattedData.code_postal_deces || '',
-              localite_deces: formattedData.localite_deces || '',
+              date_deces: enqueteurData.date_deces || '',
+              numero_acte_deces: enqueteurData.numero_acte_deces || '',
+              code_insee_deces: enqueteurData.code_insee_deces || '',
+              code_postal_deces: enqueteurData.code_postal_deces || '',
+              localite_deces: enqueteurData.localite_deces || '',
 
               // Employeur
-              nom_employeur: formattedData.nom_employeur || '',
-              telephone_employeur: formattedData.telephone_employeur || '',
-              telecopie_employeur: formattedData.telecopie_employeur || '',
-              adresse1_employeur: formattedData.adresse1_employeur || '',
-              adresse2_employeur: formattedData.adresse2_employeur || '',
-              adresse3_employeur: formattedData.adresse3_employeur || '',
-              adresse4_employeur: formattedData.adresse4_employeur || '',
-              code_postal_employeur: formattedData.code_postal_employeur || '',
-              ville_employeur: formattedData.ville_employeur || '',
-              pays_employeur: formattedData.pays_employeur || '',
+              nom_employeur: enqueteurData.nom_employeur || '',
+              telephone_employeur: enqueteurData.telephone_employeur || '',
+              telecopie_employeur: enqueteurData.telecopie_employeur || '',
+              adresse1_employeur: enqueteurData.adresse1_employeur || '',
+              adresse2_employeur: enqueteurData.adresse2_employeur || '',
+              adresse3_employeur: enqueteurData.adresse3_employeur || '',
+              adresse4_employeur: enqueteurData.adresse4_employeur || '',
+              code_postal_employeur: enqueteurData.code_postal_employeur || '',
+              ville_employeur: enqueteurData.ville_employeur || '',
+              pays_employeur: enqueteurData.pays_employeur || '',
 
               // Banque
-              banque_domiciliation: formattedData.banque_domiciliation || '',
-              libelle_guichet: formattedData.libelle_guichet || '',
-              titulaire_compte: formattedData.titulaire_compte || '',
-              code_banque: formattedData.code_banque || '',
-              code_guichet: formattedData.code_guichet || '',
+              banque_domiciliation: enqueteurData.banque_domiciliation || '',
+              libelle_guichet: enqueteurData.libelle_guichet || '',
+              titulaire_compte: enqueteurData.titulaire_compte || '',
+              code_banque: enqueteurData.code_banque || '',
+              code_guichet: enqueteurData.code_guichet || '',
 
               // Revenus
-              commentaires_revenus: formattedData.commentaires_revenus || '',
-              montant_salaire: formattedData.montant_salaire || '',
-              periode_versement_salaire: formattedData.periode_versement_salaire || '',
-              frequence_versement_salaire: formattedData.frequence_versement_salaire || '',
-              
+              commentaires_revenus: enqueteurData.commentaires_revenus || '',
+              montant_salaire: enqueteurData.montant_salaire || '',
+              periode_versement_salaire: enqueteurData.periode_versement_salaire || '',
+              frequence_versement_salaire: enqueteurData.frequence_versement_salaire || '',
+
               // Autres revenus
-              nature_revenu1: formattedData.nature_revenu1 || '',
-              montant_revenu1: formattedData.montant_revenu1 || '',
-              periode_versement_revenu1: formattedData.periode_versement_revenu1 || '',
-              frequence_versement_revenu1: formattedData.frequence_versement_revenu1 || '',
+              nature_revenu1: enqueteurData.nature_revenu1 || '',
+              montant_revenu1: enqueteurData.montant_revenu1 || '',
+              periode_versement_revenu1: enqueteurData.periode_versement_revenu1 || '',
+              frequence_versement_revenu1: enqueteurData.frequence_versement_revenu1 || '',
               
-              nature_revenu2: formattedData.nature_revenu2 || '',
-              montant_revenu2: formattedData.montant_revenu2 || '',
-              periode_versement_revenu2: formattedData.periode_versement_revenu2 || '',
-              frequence_versement_revenu2: formattedData.frequence_versement_revenu2 || '',
+              nature_revenu2: enqueteurData.nature_revenu2 || '',
+              montant_revenu2: enqueteurData.montant_revenu2 || '',
+              periode_versement_revenu2: enqueteurData.periode_versement_revenu2 || '',
+              frequence_versement_revenu2: enqueteurData.frequence_versement_revenu2 || '',
               
-              nature_revenu3: formattedData.nature_revenu3 || '',
-              montant_revenu3: formattedData.montant_revenu3 || '',
-              periode_versement_revenu3: formattedData.periode_versement_revenu3 || '',
-              frequence_versement_revenu3: formattedData.frequence_versement_revenu3 || '',
+              nature_revenu3: enqueteurData.nature_revenu3 || '',
+              montant_revenu3: enqueteurData.montant_revenu3 || '',
+              periode_versement_revenu3: enqueteurData.periode_versement_revenu3 || '',
+              frequence_versement_revenu3: enqueteurData.frequence_versement_revenu3 || '',
 
               // Mémos
-              memo1: formattedData.memo1 || '',
-              memo2: formattedData.memo2 || '',
-              memo3: formattedData.memo3 || '',
-              memo4: formattedData.memo4 || '',
-              memo5: formattedData.memo5 || ''
+              memo1: enqueteurData.memo1 || '',
+              memo2: enqueteurData.memo2 || '',
+              memo3: enqueteurData.memo3 || '',
+              memo4: enqueteurData.memo4 || '',
+              memo5: enqueteurData.memo5 || '',
+              
+              // Notes personnelles (nouveau champ)
+              notes_personnelles: enqueteurData.notes_personnelles || ''
             });
             
             // Mettre à jour l'onglet de décès si nécessaire
-            if (formattedData.date_deces || formattedData.elements_retrouves?.includes('D')) {
+            if (enqueteurData.date_deces || enqueteurData.elements_retrouves?.includes('D')) {
               setShowDeathInfo(true);
             }
-            
           } else {
             // Initialiser avec des valeurs par défaut
-            console.log("Pas de données enquêteur disponibles, initialisation avec valeurs par défaut");
             initializeWithDossierData();
           }
         } catch (error) {
@@ -399,93 +395,11 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       libelle_guichet: '',
       titulaire_compte: '',
       code_banque: '',
-      code_guichet: ''
+      code_guichet: '',
+      
+      // Notes personnelles (nouveau champ)
+      notes_personnelles: ''
     }));
-  };
-
-  // Mettre à jour le formulaire avec les données de l'enquêteur
-  const updateFormWithData = (enqueteurData) => {
-    console.log("Mise à jour du formulaire avec les données de l'enquêteur:", enqueteurData);
-
-    setFormData(prev => ({
-      ...prev,
-      // Valeurs de base
-      code_resultat: enqueteurData.code_resultat || 'P',
-      elements_retrouves: enqueteurData.elements_retrouves || data.elementDemandes || 'A',
-      flag_etat_civil_errone: enqueteurData.flag_etat_civil_errone || '',
-      date_retour: enqueteurData.date_retour || new Date().toISOString().split('T')[0],
-
-      // Adresse - utiliser uniquement les données de enqueteurData
-      adresse1: enqueteurData.adresse1 || '',
-      adresse2: enqueteurData.adresse2 || '',
-      adresse3: enqueteurData.adresse3 || '',
-      adresse4: enqueteurData.adresse4 || '',
-      code_postal: enqueteurData.code_postal || '',
-      ville: enqueteurData.ville || '',
-      pays_residence: enqueteurData.pays_residence || 'FRANCE',
-      telephone_personnel: enqueteurData.telephone_personnel || '',
-      telephone_chez_employeur: enqueteurData.telephone_chez_employeur || '',
-
-      // Décès
-      date_deces: enqueteurData.date_deces || '',
-      numero_acte_deces: enqueteurData.numero_acte_deces || '',
-      code_insee_deces: enqueteurData.code_insee_deces || '',
-      code_postal_deces: enqueteurData.code_postal_deces || '',
-      localite_deces: enqueteurData.localite_deces || '',
-
-      // Employeur - utiliser uniquement les données de enqueteurData
-      nom_employeur: enqueteurData.nom_employeur || '',
-      telephone_employeur: enqueteurData.telephone_employeur || '',
-      telecopie_employeur: enqueteurData.telecopie_employeur || '',
-      adresse1_employeur: enqueteurData.adresse1_employeur || '',
-      adresse2_employeur: enqueteurData.adresse2_employeur || '',
-      adresse3_employeur: enqueteurData.adresse3_employeur || '',
-      adresse4_employeur: enqueteurData.adresse4_employeur || '',
-      code_postal_employeur: enqueteurData.code_postal_employeur || '',
-      ville_employeur: enqueteurData.ville_employeur || '',
-      pays_employeur: enqueteurData.pays_employeur || '',
-
-      // Banque - utiliser uniquement les données de enqueteurData
-      banque_domiciliation: enqueteurData.banque_domiciliation || '',
-      libelle_guichet: enqueteurData.libelle_guichet || '',
-      titulaire_compte: enqueteurData.titulaire_compte || '',
-      code_banque: enqueteurData.code_banque || '',
-      code_guichet: enqueteurData.code_guichet || '',
-
-      // Revenus
-      commentaires_revenus: enqueteurData.commentaires_revenus || '',
-      montant_salaire: enqueteurData.montant_salaire || '',
-      periode_versement_salaire: enqueteurData.periode_versement_salaire || '',
-      frequence_versement_salaire: enqueteurData.frequence_versement_salaire || '',
-      
-      // Autres revenus
-      nature_revenu1: enqueteurData.nature_revenu1 || '',
-      montant_revenu1: enqueteurData.montant_revenu1 || '',
-      periode_versement_revenu1: enqueteurData.periode_versement_revenu1 || '',
-      frequence_versement_revenu1: enqueteurData.frequence_versement_revenu1 || '',
-      
-      nature_revenu2: enqueteurData.nature_revenu2 || '',
-      montant_revenu2: enqueteurData.montant_revenu2 || '',
-      periode_versement_revenu2: enqueteurData.periode_versement_revenu2 || '',
-      frequence_versement_revenu2: enqueteurData.frequence_versement_revenu2 || '',
-      
-      nature_revenu3: enqueteurData.nature_revenu3 || '',
-      montant_revenu3: enqueteurData.montant_revenu3 || '',
-      periode_versement_revenu3: enqueteurData.periode_versement_revenu3 || '',
-      frequence_versement_revenu3: enqueteurData.frequence_versement_revenu3 || '',
-
-      // Mémos
-      memo1: enqueteurData.memo1 || '',
-      memo2: enqueteurData.memo2 || '',
-      memo3: enqueteurData.memo3 || '',
-      memo4: enqueteurData.memo4 || '',
-      memo5: enqueteurData.memo5 || ''
-    }));
-
-    // Mettre à jour l'affichage des informations de décès si nécessaires
-    if (enqueteurData.date_deces || enqueteurData.elements_retrouves?.includes('D')) {
-      setShowDeathInfo(true);
-    }
   };
 
   // Recherche d'adresse via API adresse.data.gouv.fr
@@ -683,7 +597,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         memo2: formData.memo2,
         memo3: formData.memo3,
         memo4: formData.memo4,
-        memo5: formData.memo5
+        memo5: formData.memo5,
+        
+        // Notes personnelles (nouveau champ)
+        notes_personnelles: formData.notes_personnelles
       };
 
       console.log("Données à envoyer:", dataToSend);
@@ -1736,6 +1653,30 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       maxLength={1000}
                     ></textarea>
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Onglet Notes personnelles */}
+            {activeTab === 'notes' && (
+              <div className="bg-white border rounded-lg p-4">
+                <h3 className="font-medium mb-4 flex items-center gap-2">
+                  <StickyNote className="w-5 h-5 text-yellow-500" />
+                  Notes personnelles
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Ces notes sont personnelles et vous aideront à vous rappeler des détails importants pour cette enquête.
+                  Elles ne sont visibles que par vous et ne seront pas exportées dans les fichiers EOS.
+                </p>
+                <div>
+                  <textarea
+                    name="notes_personnelles"
+                    value={formData.notes_personnelles}
+                    onChange={handleInputChange}
+                    className="w-full p-4 border rounded bg-yellow-50 min-h-[200px]"
+                    placeholder="Ajoutez ici vos notes personnelles, rappels, ou informations confidentielles concernant cette enquête..."
+                    rows="8"
+                  ></textarea>
                 </div>
               </div>
             )}

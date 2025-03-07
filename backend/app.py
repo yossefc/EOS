@@ -153,6 +153,8 @@ def init_app():
                 'error': str(e)
             }), 500
 
+# Voici la mise à jour de la route dans app.py pour gérer le nouveau champ notes_personnelles
+
     @app.route('/api/donnees-enqueteur/<int:donnee_id>', methods=['POST'])
     def update_donnee_enqueteur(donnee_id):
         try:
@@ -190,6 +192,8 @@ def init_app():
                 donnee_enqueteur.pays_residence = data.get('pays_residence')
             if 'telephone_personnel' in data:
                 donnee_enqueteur.telephone_personnel = data.get('telephone_personnel')
+            if 'telephone_chez_employeur' in data:
+                donnee_enqueteur.telephone_chez_employeur = data.get('telephone_chez_employeur')
             
             # Employeur
             if 'nom_employeur' in data:
@@ -246,6 +250,43 @@ def init_app():
                 montant = data.get('montant_salaire')
                 donnee_enqueteur.montant_salaire = float(montant) if montant else None
             
+            # Périodes et fréquences
+            if 'periode_versement_salaire' in data:
+                donnee_enqueteur.periode_versement_salaire = data.get('periode_versement_salaire')
+            if 'frequence_versement_salaire' in data:
+                donnee_enqueteur.frequence_versement_salaire = data.get('frequence_versement_salaire')
+
+            # Autres revenus
+            if 'nature_revenu1' in data:
+                donnee_enqueteur.nature_revenu1 = data.get('nature_revenu1')
+            if 'montant_revenu1' in data:
+                montant = data.get('montant_revenu1')
+                donnee_enqueteur.montant_revenu1 = float(montant) if montant else None
+            if 'periode_versement_revenu1' in data:
+                donnee_enqueteur.periode_versement_revenu1 = data.get('periode_versement_revenu1')
+            if 'frequence_versement_revenu1' in data:
+                donnee_enqueteur.frequence_versement_revenu1 = data.get('frequence_versement_revenu1')
+                
+            if 'nature_revenu2' in data:
+                donnee_enqueteur.nature_revenu2 = data.get('nature_revenu2')
+            if 'montant_revenu2' in data:
+                montant = data.get('montant_revenu2')
+                donnee_enqueteur.montant_revenu2 = float(montant) if montant else None
+            if 'periode_versement_revenu2' in data:
+                donnee_enqueteur.periode_versement_revenu2 = data.get('periode_versement_revenu2')
+            if 'frequence_versement_revenu2' in data:
+                donnee_enqueteur.frequence_versement_revenu2 = data.get('frequence_versement_revenu2')
+                
+            if 'nature_revenu3' in data:
+                donnee_enqueteur.nature_revenu3 = data.get('nature_revenu3')
+            if 'montant_revenu3' in data:
+                montant = data.get('montant_revenu3')
+                donnee_enqueteur.montant_revenu3 = float(montant) if montant else None
+            if 'periode_versement_revenu3' in data:
+                donnee_enqueteur.periode_versement_revenu3 = data.get('periode_versement_revenu3')
+            if 'frequence_versement_revenu3' in data:
+                donnee_enqueteur.frequence_versement_revenu3 = data.get('frequence_versement_revenu3')
+            
             # Mémos
             if 'memo1' in data:
                 donnee_enqueteur.memo1 = data.get('memo1')
@@ -257,6 +298,10 @@ def init_app():
                 donnee_enqueteur.memo4 = data.get('memo4')
             if 'memo5' in data:
                 donnee_enqueteur.memo5 = data.get('memo5')
+            
+            # Notes personnelles (nouveau champ)
+            if 'notes_personnelles' in data:
+                donnee_enqueteur.notes_personnelles = data.get('notes_personnelles')
             
             # Mise à jour de la date de modification
             donnee_enqueteur.updated_at = datetime.utcnow()
