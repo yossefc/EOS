@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-  User, Phone, MapPin, Building2, Calendar, Info, Save,
+  User, Phone, MapPin, Building2, Calendar, Info,
   CreditCard, MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X, Search, Building, FileText, 
-  CheckCircle
+  Check, AlertCircle, X, Search, Building
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
@@ -31,6 +30,17 @@ const CODES_RESULTAT = [
   { code: 'Y', libelle: 'Annulation EOS' }
 ];
 
+// Status labels pour l'affichage
+const STATUS_LABELS = {
+  'P': 'Positif',
+  'N': 'Négatif / NPA',
+  'H': 'Confirmé',
+  'Z': 'Annulé (agence)',
+  'I': 'Intraitable',
+  'Y': 'Annulé (EOS)',
+  '': 'En attente'
+};
+
 const FREQUENCES_VERSEMENT = [
   { code: 'Q', libelle: 'Quotidienne' },
   { code: 'H', libelle: 'Hebdomadaire' },
@@ -50,6 +60,52 @@ const tabs = [
   { id: 'banque', label: 'Banque', icon: Building },
   { id: 'revenus', label: 'Revenus', icon: CircleDollarSign },
   { id: 'commentaires', label: 'Commentaires', icon: MessageSquare }
+];
+
+// Liste des champs possibles de la table donnees avec leurs libellés
+const DONNEES_FIELDS = [
+  { key: 'numeroDossier', label: 'Numéro de dossier' },
+  { key: 'referenceDossier', label: 'Référence dossier' },
+  { key: 'numeroInterlocuteur', label: 'Numéro interlocuteur' },
+  { key: 'guidInterlocuteur', label: 'GUID interlocuteur' },
+  { key: 'typeDemande', label: 'Type de demande' },
+  { key: 'numeroDemande', label: 'Numéro demande' },
+  { key: 'numeroDemandeContestee', label: 'Numéro demande contestée' },
+  { key: 'numeroDemandeInitiale', label: 'Numéro demande initiale' },
+  { key: 'forfaitDemande', label: 'Forfait demande' },
+  { key: 'dateRetourEspere', label: 'Date retour espéré' },
+  { key: 'qualite', label: 'Civilité' },
+  { key: 'nom', label: 'Nom' },
+  { key: 'prenom', label: 'Prénom' },
+  { key: 'dateNaissance', label: 'Date de naissance' },
+  { key: 'lieuNaissance', label: 'Lieu de naissance' },
+  { key: 'codePostalNaissance', label: 'Code postal naissance' },
+  { key: 'paysNaissance', label: 'Pays de naissance' },
+  { key: 'nomPatronymique', label: 'Nom patronymique' },
+  { key: 'adresse1', label: 'Adresse 1' },
+  { key: 'adresse2', label: 'Adresse 2' },
+  { key: 'adresse3', label: 'Adresse 3' },
+  { key: 'adresse4', label: 'Adresse 4' },
+  { key: 'codePostal', label: 'Code postal' },
+  { key: 'ville', label: 'Ville' },
+  { key: 'paysResidence', label: 'Pays de résidence' },
+  { key: 'telephonePersonnel', label: 'Téléphone personnel' },
+  { key: 'telephoneEmployeur', label: 'Téléphone employeur' },
+  { key: 'telecopieEmployeur', label: 'Télécopie employeur' },
+  { key: 'nomEmployeur', label: 'Nom employeur' },
+  { key: 'banqueDomiciliation', label: 'Banque domiciliation' },
+  { key: 'libelleGuichet', label: 'Libellé guichet' },
+  { key: 'titulaireCompte', label: 'Titulaire compte' },
+  { key: 'codeBanque', label: 'Code banque' },
+  { key: 'codeGuichet', label: 'Code guichet' },
+  { key: 'elementDemandes', label: 'Éléments demandés' },
+  { key: 'elementObligatoires', label: 'Éléments obligatoires' },
+  { key: 'elementContestes', label: 'Éléments contestés' },
+  { key: 'codeMotif', label: 'Code motif' },
+  { key: 'motifDeContestation', label: 'Motif de contestation' },
+  { key: 'commentaire', label: 'Commentaire' },
+  { key: 'codesociete', label: 'Code société' },
+  { key: 'urgence', label: 'Urgence' }
 ];
 
 const UpdateModal = ({ isOpen, onClose, data }) => {
@@ -144,6 +200,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [showDeathInfo, setShowDeathInfo] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
 
   // Charger les données de l'enquêteur si disponibles
   useEffect(() => {
@@ -151,15 +208,117 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       // Récupérer les données enquêteur si elles existent
       const fetchEnqueteurData = async () => {
         try {
+          console.log("Récupération des données enquêteur pour ID:", data.id);
           const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${data.id}`);
+          
+          // Ajouter des logs détaillés pour le débogage
+          console.log("Réponse complète du serveur:", response);
+          
           if (response.data.success && response.data.data) {
-            updateFormWithData(response.data.data);
+            console.log("Données enquêteur récupérées:", response.data.data);
+            
+            // Stocker les données sauvegardées
+            setDonneesSauvegardees(response.data.data);
+            
+            // Mise à jour du formulaire avec les données
+            console.log("Mise à jour du formulaire avec les données enquêteur");
+            
+            // Conversion des valeurs possiblement nulles en chaînes vides pour le formulaire
+            const formattedData = {};
+            Object.keys(response.data.data).forEach(key => {
+              formattedData[key] = response.data.data[key] === null ? '' : response.data.data[key];
+            });
+            
+            console.log("Données formatées pour le formulaire:", formattedData);
+            
+            // Directement définir l'état du formulaire plutôt que d'appeler une fonction
+            setFormData({
+              // Valeurs de base par défaut
+              code_resultat: formattedData.code_resultat || 'P',
+              elements_retrouves: formattedData.elements_retrouves || data.elementDemandes || 'A',
+              flag_etat_civil_errone: formattedData.flag_etat_civil_errone || '',
+              date_retour: formattedData.date_retour || new Date().toISOString().split('T')[0],
+
+              // Adresse - utiliser uniquement les données de formattedData
+              adresse1: formattedData.adresse1 || '',
+              adresse2: formattedData.adresse2 || '',
+              adresse3: formattedData.adresse3 || '',
+              adresse4: formattedData.adresse4 || '',
+              code_postal: formattedData.code_postal || '',
+              ville: formattedData.ville || '',
+              pays_residence: formattedData.pays_residence || 'FRANCE',
+              telephone_personnel: formattedData.telephone_personnel || '',
+              telephone_chez_employeur: formattedData.telephone_chez_employeur || '',
+
+              // Décès
+              date_deces: formattedData.date_deces || '',
+              numero_acte_deces: formattedData.numero_acte_deces || '',
+              code_insee_deces: formattedData.code_insee_deces || '',
+              code_postal_deces: formattedData.code_postal_deces || '',
+              localite_deces: formattedData.localite_deces || '',
+
+              // Employeur
+              nom_employeur: formattedData.nom_employeur || '',
+              telephone_employeur: formattedData.telephone_employeur || '',
+              telecopie_employeur: formattedData.telecopie_employeur || '',
+              adresse1_employeur: formattedData.adresse1_employeur || '',
+              adresse2_employeur: formattedData.adresse2_employeur || '',
+              adresse3_employeur: formattedData.adresse3_employeur || '',
+              adresse4_employeur: formattedData.adresse4_employeur || '',
+              code_postal_employeur: formattedData.code_postal_employeur || '',
+              ville_employeur: formattedData.ville_employeur || '',
+              pays_employeur: formattedData.pays_employeur || '',
+
+              // Banque
+              banque_domiciliation: formattedData.banque_domiciliation || '',
+              libelle_guichet: formattedData.libelle_guichet || '',
+              titulaire_compte: formattedData.titulaire_compte || '',
+              code_banque: formattedData.code_banque || '',
+              code_guichet: formattedData.code_guichet || '',
+
+              // Revenus
+              commentaires_revenus: formattedData.commentaires_revenus || '',
+              montant_salaire: formattedData.montant_salaire || '',
+              periode_versement_salaire: formattedData.periode_versement_salaire || '',
+              frequence_versement_salaire: formattedData.frequence_versement_salaire || '',
+              
+              // Autres revenus
+              nature_revenu1: formattedData.nature_revenu1 || '',
+              montant_revenu1: formattedData.montant_revenu1 || '',
+              periode_versement_revenu1: formattedData.periode_versement_revenu1 || '',
+              frequence_versement_revenu1: formattedData.frequence_versement_revenu1 || '',
+              
+              nature_revenu2: formattedData.nature_revenu2 || '',
+              montant_revenu2: formattedData.montant_revenu2 || '',
+              periode_versement_revenu2: formattedData.periode_versement_revenu2 || '',
+              frequence_versement_revenu2: formattedData.frequence_versement_revenu2 || '',
+              
+              nature_revenu3: formattedData.nature_revenu3 || '',
+              montant_revenu3: formattedData.montant_revenu3 || '',
+              periode_versement_revenu3: formattedData.periode_versement_revenu3 || '',
+              frequence_versement_revenu3: formattedData.frequence_versement_revenu3 || '',
+
+              // Mémos
+              memo1: formattedData.memo1 || '',
+              memo2: formattedData.memo2 || '',
+              memo3: formattedData.memo3 || '',
+              memo4: formattedData.memo4 || '',
+              memo5: formattedData.memo5 || ''
+            });
+            
+            // Mettre à jour l'onglet de décès si nécessaire
+            if (formattedData.date_deces || formattedData.elements_retrouves?.includes('D')) {
+              setShowDeathInfo(true);
+            }
+            
           } else {
-            // Initialiser avec les données du dossier
+            // Initialiser avec des valeurs par défaut
+            console.log("Pas de données enquêteur disponibles, initialisation avec valeurs par défaut");
             initializeWithDossierData();
           }
         } catch (error) {
           console.error("Erreur lors de la récupération des données enquêteur:", error);
+          console.error("Détails de l'erreur:", error.response?.data || error.message);
           initializeWithDossierData();
         }
       };
@@ -168,57 +327,103 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     }
   }, [data]);
 
+  // Fonction pour rendre tous les champs non nuls
+  const renderNonNullFields = () => {
+    // Filtrer les champs non nuls
+    const nonNullFields = DONNEES_FIELDS.filter(field => 
+      data[field.key] !== null && data[field.key] !== undefined && data[field.key] !== '');
+
+    // Déterminer quels champs afficher sur une ligne entière
+    const isFullWidthField = (key) => 
+      ['commentaire', 'motifDeContestation'].includes(key) || 
+      key.startsWith('adresse');
+
+    // Afficher les champs non nuls
+    return nonNullFields.map((field, index) => (
+      <div key={index} className={isFullWidthField(field.key) ? 'col-span-1 sm:col-span-2 lg:col-span-3' : ''}>
+        <p className="text-sm text-gray-500">{field.label}</p>
+        <p className="font-medium">
+          {formatValue(data[field.key])}
+        </p>
+      </div>
+    ));
+  };
+
   // Initialiser le formulaire avec les données du dossier
   const initializeWithDossierData = () => {
     if (!data) return;
 
+    console.log("Initialisation du formulaire avec des champs vides (aucune donnée enquêteur existante)");
+
+    // Initialisation avec des valeurs vides pour tous les champs sauf code_resultat et elements_retrouves
     setFormData(prev => ({
       ...prev,
-      // Adresse
-      adresse1: data.adresse1 || '',
-      adresse2: data.adresse2 || '',
-      adresse3: data.adresse3 || '',
-      adresse4: data.adresse4 || '',
-      code_postal: data.codePostal || '',
-      ville: data.ville || '',
-      pays_residence: data.paysResidence || 'FRANCE',
-      telephone_personnel: data.telephonePersonnel || '',
+      // Les seules valeurs initialisées depuis donnees sont les éléments retrouvés par défaut
+      code_resultat: 'P',
+      elements_retrouves: data.elementDemandes || 'A',
+      flag_etat_civil_errone: '',
+      date_retour: new Date().toISOString().split('T')[0],
+
+      // Tous les autres champs sont vides pour s'assurer qu'on n'utilise pas de données de la table donnees
+      adresse1: '',
+      adresse2: '',
+      adresse3: '',
+      adresse4: '',
+      code_postal: '',
+      ville: '',
+      pays_residence: 'FRANCE',
+      telephone_personnel: '',
+      telephone_chez_employeur: '',
+
+      // Décès
+      date_deces: '',
+      numero_acte_deces: '',
+      code_insee_deces: '',
+      code_postal_deces: '',
+      localite_deces: '',
 
       // Employeur
-      nom_employeur: data.nomEmployeur || '',
-      telephone_employeur: data.telephoneEmployeur || '',
-      telecopie_employeur: data.telecopieEmployeur || '',
+      nom_employeur: '',
+      telephone_employeur: '',
+      telecopie_employeur: '',
+      adresse1_employeur: '',
+      adresse2_employeur: '',
+      adresse3_employeur: '',
+      adresse4_employeur: '',
+      code_postal_employeur: '',
+      ville_employeur: '',
+      pays_employeur: '',
 
       // Banque
-      banque_domiciliation: data.banqueDomiciliation || '',
-      libelle_guichet: data.libelleGuichet || '',
-      titulaire_compte: data.titulaireCompte || '',
-      code_banque: data.codeBanque || '',
-      code_guichet: data.codeGuichet || '',
-
-      // Éléments retrouvés par défaut basés sur les éléments demandés
-      elements_retrouves: data.elementDemandes || 'A'
+      banque_domiciliation: '',
+      libelle_guichet: '',
+      titulaire_compte: '',
+      code_banque: '',
+      code_guichet: ''
     }));
   };
 
   // Mettre à jour le formulaire avec les données de l'enquêteur
   const updateFormWithData = (enqueteurData) => {
+    console.log("Mise à jour du formulaire avec les données de l'enquêteur:", enqueteurData);
+
     setFormData(prev => ({
       ...prev,
+      // Valeurs de base
       code_resultat: enqueteurData.code_resultat || 'P',
       elements_retrouves: enqueteurData.elements_retrouves || data.elementDemandes || 'A',
       flag_etat_civil_errone: enqueteurData.flag_etat_civil_errone || '',
       date_retour: enqueteurData.date_retour || new Date().toISOString().split('T')[0],
 
-      // Adresse
-      adresse1: enqueteurData.adresse1 || data.adresse1 || '',
-      adresse2: enqueteurData.adresse2 || data.adresse2 || '',
-      adresse3: enqueteurData.adresse3 || data.adresse3 || '',
-      adresse4: enqueteurData.adresse4 || data.adresse4 || '',
-      code_postal: enqueteurData.code_postal || data.codePostal || '',
-      ville: enqueteurData.ville || data.ville || '',
-      pays_residence: enqueteurData.pays_residence || data.paysResidence || 'FRANCE',
-      telephone_personnel: enqueteurData.telephone_personnel || data.telephonePersonnel || '',
+      // Adresse - utiliser uniquement les données de enqueteurData
+      adresse1: enqueteurData.adresse1 || '',
+      adresse2: enqueteurData.adresse2 || '',
+      adresse3: enqueteurData.adresse3 || '',
+      adresse4: enqueteurData.adresse4 || '',
+      code_postal: enqueteurData.code_postal || '',
+      ville: enqueteurData.ville || '',
+      pays_residence: enqueteurData.pays_residence || 'FRANCE',
+      telephone_personnel: enqueteurData.telephone_personnel || '',
       telephone_chez_employeur: enqueteurData.telephone_chez_employeur || '',
 
       // Décès
@@ -228,10 +433,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       code_postal_deces: enqueteurData.code_postal_deces || '',
       localite_deces: enqueteurData.localite_deces || '',
 
-      // Employeur
-      nom_employeur: enqueteurData.nom_employeur || data.nomEmployeur || '',
-      telephone_employeur: enqueteurData.telephone_employeur || data.telephoneEmployeur || '',
-      telecopie_employeur: enqueteurData.telecopie_employeur || data.telecopieEmployeur || '',
+      // Employeur - utiliser uniquement les données de enqueteurData
+      nom_employeur: enqueteurData.nom_employeur || '',
+      telephone_employeur: enqueteurData.telephone_employeur || '',
+      telecopie_employeur: enqueteurData.telecopie_employeur || '',
       adresse1_employeur: enqueteurData.adresse1_employeur || '',
       adresse2_employeur: enqueteurData.adresse2_employeur || '',
       adresse3_employeur: enqueteurData.adresse3_employeur || '',
@@ -240,12 +445,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       ville_employeur: enqueteurData.ville_employeur || '',
       pays_employeur: enqueteurData.pays_employeur || '',
 
-      // Banque
-      banque_domiciliation: enqueteurData.banque_domiciliation || data.banqueDomiciliation || '',
-      libelle_guichet: enqueteurData.libelle_guichet || data.libelleGuichet || '',
-      titulaire_compte: enqueteurData.titulaire_compte || data.titulaireCompte || '',
-      code_banque: enqueteurData.code_banque || data.codeBanque || '',
-      code_guichet: enqueteurData.code_guichet || data.codeGuichet || '',
+      // Banque - utiliser uniquement les données de enqueteurData
+      banque_domiciliation: enqueteurData.banque_domiciliation || '',
+      libelle_guichet: enqueteurData.libelle_guichet || '',
+      titulaire_compte: enqueteurData.titulaire_compte || '',
+      code_banque: enqueteurData.code_banque || '',
+      code_guichet: enqueteurData.code_guichet || '',
 
       // Revenus
       commentaires_revenus: enqueteurData.commentaires_revenus || '',
@@ -278,7 +483,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     }));
 
     // Mettre à jour l'affichage des informations de décès si nécessaires
-    if (enqueteurData.date_deces) {
+    if (enqueteurData.date_deces || enqueteurData.elements_retrouves?.includes('D')) {
       setShowDeathInfo(true);
     }
   };
@@ -481,6 +686,8 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         memo5: formData.memo5
       };
 
+      console.log("Données à envoyer:", dataToSend);
+
       // Envoyer les données
       const response = await axios.post(
         `${API_URL}/api/donnees-enqueteur/${data.id}`,
@@ -494,6 +701,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
       if (response.data.success) {
         setSuccess("Données enregistrées avec succès");
+        setDonneesSauvegardees(response.data.data);
         // Attendre un peu avant de fermer pour montrer le message de succès
         setTimeout(() => {
           onClose(true); // Fermer le modal avec refresh = true
@@ -577,81 +785,64 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto">
       <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         {/* En-tête */}
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 rounded-t-xl sticky top-0 z-10 shadow-md">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 sm:p-6 rounded-t-xl sticky top-0 z-10">
           <div className="flex justify-between items-start">
-            <div className="text-white">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <FileText className="w-6 h-6" />
-                Dossier n° {data?.numeroDossier}
-              </h2>
-              <p className="mt-1 opacity-90">
-                {data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'} - {data?.nom} {data?.prenom}
-              </p>
+            <div className="text-white space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold">Dossier n° {data?.numeroDossier}</h2>
+              <p className="text-sm sm:text-base">{data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'}</p>
 
-              <div className="mt-3 space-y-2">
+              {/* Éléments demandés */}
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Éléments demandés :</p>
                 <div className="flex flex-wrap gap-2">
                   {elementsDemandes.map(code => (
-                    <span key={code} className="px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-sm font-medium flex items-center">
-                      {code === 'A' && <MapPin className="w-3.5 h-3.5 mr-1" />}
-                      {code === 'T' && <Phone className="w-3.5 h-3.5 mr-1" />}
-                      {code === 'D' && <Calendar className="w-3.5 h-3.5 mr-1" />}
-                      {code === 'B' && <Building className="w-3.5 h-3.5 mr-1" />}
-                      {code === 'E' && <Briefcase className="w-3.5 h-3.5 mr-1" />}
-                      {code === 'R' && <CircleDollarSign className="w-3.5 h-3.5 mr-1" />}
+                    <span key={code} className="bg-blue-500/20 px-2 py-1 rounded text-xs sm:text-sm">
                       {TYPE_RECHERCHE[code] || code}
                     </span>
                   ))}
                 </div>
+              </div>
 
-                {/* Éléments obligatoires avec style amélioré */}
-                {elementsObligatoires.length > 0 && (
+              {/* Éléments obligatoires */}
+              {elementsObligatoires.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Éléments obligatoires :</p>
                   <div className="flex flex-wrap gap-2">
                     {elementsObligatoires.map(code => (
-                      <span key={code} className="px-3 py-1 bg-red-500/30 backdrop-blur-sm rounded-full text-sm font-medium flex items-center">
-                        <AlertCircle className="w-3.5 h-3.5 mr-1" />
+                      <span key={code} className="bg-red-500/20 px-2 py-1 rounded text-xs sm:text-sm flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                         {TYPE_RECHERCHE[code] || code}
                       </span>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-            
-            <button 
-              onClick={() => onClose(false)} 
-              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full p-2 transition-colors"
-            >
+            <button onClick={() => onClose(false)} className="text-white/70 hover:text-white">
               <X className="w-6 h-6" />
             </button>
           </div>
         </div>
 
-        {(error || success) && (
-            <div className="m-4">
-              {error && (
-                <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3 shadow-sm">
-                  <div className="bg-red-100 p-2 rounded-full">
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                  </div>
-                  <div className="flex-1">{error}</div>
-                </div>
-              )}
-              
-              {success && (
-                <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-3 shadow-sm">
-                  <div className="bg-green-100 p-2 rounded-full">
-                    <Check className="w-5 h-5 text-green-500" />
-                  </div>
-                  <div className="flex-1">{success}</div>
-                </div>
-              )}
-            </div>
-          )}
+        {/* Messages d'erreur ou de succès */}
+        {error && (
+          <div className="m-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="m-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2">
+            <Check className="w-5 h-5 flex-shrink-0" />
+            <span>{success}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* Navigation par onglets */}
-          <div className="px-4 border-b overflow-x-auto bg-white sticky top-[96px] z-5 shadow-sm">
-            <div className="flex space-x-3">
+          <div className="px-4 border-b overflow-x-auto">
+            <div className="flex space-x-2">
               {tabs.map(tab => {
                 // Cacher l'onglet décès si pas nécessaire
                 if (tab.id === 'deces' && !showDeathInfo && !formData.elements_retrouves.includes('D')) {
@@ -683,10 +874,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-3 text-sm font-medium whitespace-nowrap inline-flex items-center gap-2 border-b-2 transition-colors
+                    className={`px-4 py-3 text-sm font-medium whitespace-nowrap inline-flex items-center gap-1
                       ${activeTab === tab.id
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
+                        ? 'border-b-2 border-blue-500 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
                     {tab.icon && <tab.icon className="w-4 h-4" />}
@@ -700,89 +891,20 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           <div className="p-4">
             {/* Contenu des onglets */}
             {activeTab === 'infos' && (
-              <div className="p-6 space-y-6">
-                <div className="bg-gray-50 rounded-xl p-6 border shadow-sm">
-                  <h3 className="text-lg font-medium mb-5 text-gray-800 flex items-center gap-2">
-                    <Info className="w-5 h-5 text-blue-500" />
-                    Informations générales du dossier
-                  </h3>
+              <div className="space-y-4">
+                {/* Informations générales en lecture seule */}
+                <div className="bg-gray-50 rounded-lg p-4 border">
+                  <h3 className="text-lg font-medium mb-4">Informations générales du dossier</h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {/* Informations de base */}
-                    <div>
-                      <p className="text-sm text-gray-500">Numéro de dossier</p>
-                      <p className="font-medium">{formatValue(data.numeroDossier)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Référence dossier</p>
-                      <p className="font-medium">{formatValue(data.referenceDossier)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Type de demande</p>
-                      <p className="font-medium">{formatValue(data.typeDemande)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Numéro demande</p>
-                      <p className="font-medium">{formatValue(data.numeroDemande)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Date retour espéré</p>
-                      <p className="font-medium">{formatValue(data.dateRetourEspere)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Forfait demande</p>
-                      <p className="font-medium">{formatValue(data.forfaitDemande)}</p>
-                    </div>
-
-                    {/* Informations personnelles */}
-                    <div>
-                      <p className="text-sm text-gray-500">Civilité</p>
-                      <p className="font-medium">{formatValue(data.qualite)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Nom</p>
-                      <p className="font-medium">{formatValue(data.nom)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Prénom</p>
-                      <p className="font-medium">{formatValue(data.prenom)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Date de naissance</p>
-                      <p className="font-medium">{formatValue(data.dateNaissance)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Lieu de naissance</p>
-                      <p className="font-medium">{formatValue(data.lieuNaissance)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Pays de naissance</p>
-                      <p className="font-medium">{formatValue(data.paysNaissance)}</p>
-                    </div>
-                    
-                    {/* Adresse connue */}
-                    <div className="col-span-1 sm:col-span-2 lg:col-span-3">
-                      <p className="text-sm text-gray-500">Adresse connue</p>
-                      <p className="font-medium">
-                        {[data.adresse1, data.adresse2, data.adresse3, data.adresse4]
-                          .filter(Boolean)
-                          .join(', ')}
-                        {data.codePostal || data.ville ?
-                          ` - ${data.codePostal || ''} ${data.ville || ''}` : ''}
-                        {data.paysResidence && data.paysResidence !== 'FRANCE' ?
-                          ` - ${data.paysResidence}` : ''}
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Afficher dynamiquement tous les champs non nuls */}
+                    {renderNonNullFields()}
                   </div>
 
-                  {/* Section résultat améliorée */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 shadow-sm mt-6">
-                    <h3 className="text-lg font-medium mb-5 text-gray-800 flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-blue-500" />
-                      Résultat de l'enquête
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                  {/* Résultat de l'enquête */}
+                  <div className="mt-6 border-t pt-4">
+                    <h4 className="font-medium mb-3">Résultat de l'enquête</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm text-gray-600 mb-1">Code résultat</label>
                         <select
@@ -832,6 +954,18 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Afficher les données sauvegardées précédemment */}
+                  {donneesSauvegardees && (
+                    <div className="mt-4 border-t pt-4">
+                      <h4 className="font-medium mb-3">Dernières modifications enregistrées</h4>
+                      <div className="text-sm text-gray-700">
+                        <p><span className="font-medium">Statut:</span> {STATUS_LABELS[donneesSauvegardees.code_resultat] || '-'}</p>
+                        <p><span className="font-medium">Éléments retrouvés:</span> {donneesSauvegardees.elements_retrouves || '-'}</p>
+                        <p><span className="font-medium">Date de modification:</span> {new Date(donneesSauvegardees.updated_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1607,34 +1741,30 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             )}
           </div>
 
-          <div className="p-4 flex justify-end gap-4 border-t sticky bottom-0 bg-white z-10 shadow-md">
+          {/* Boutons d'action */}
+          <div className="p-4 flex justify-end gap-3 border-t sticky bottom-0 bg-white z-10">
             <button
               type="button"
               onClick={() => onClose(false)}
-              className="px-5 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50 focus:outline-none"
               disabled={isLoading.submit}
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none flex items-center"
               disabled={isLoading.submit}
             >
               {isLoading.submit ? (
                 <>
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   Enregistrement...
                 </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Enregistrer
-                </>
-              )}
+              ) : 'Enregistrer'}
             </button>
           </div>
         </form>
