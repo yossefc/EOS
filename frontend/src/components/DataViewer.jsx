@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Table, RefreshCw, Search, Filter, Calendar, AlertCircle } from 'lucide-react';
 import UpdateModal from './UpdateModal';
@@ -28,9 +28,9 @@ const STATUS_LABELS = {
 };
 
 const DataViewer = () => {
+    // Définition des états
     const [donnees, setDonnees] = useState([]);
     const [enqueteurs, setEnqueteurs] = useState([]);
-    const [filteredDonnees, setFilteredDonnees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -39,95 +39,50 @@ const DataViewer = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Charger les données
-            const dataResponse = await axios.get(`${API_URL}/api/donnees`);
-
-            if (dataResponse.data.success && Array.isArray(dataResponse.data.data)) {
-                // Pour chaque donnée, récupérer les infos enquêteur (résultat, etc.)
-                const data = dataResponse.data.data;
-                const dataWithDetails = await Promise.all(
-                    data.map(async (donnee) => {
-                        try {
-                            const detailsResponse = await axios.get(`${API_URL}/api/donnees-enqueteur/${donnee.id}`);
-                            if (detailsResponse.data.success && detailsResponse.data.data) {
-                                return { ...donnee, ...detailsResponse.data.data };
-                            }
-                            return donnee;
-                        } catch (error) {
-                            return donnee;
-                        }
-                    })
-                );
-
-                setDonnees(dataWithDetails);
-                applyFilters(dataWithDetails, searchTerm, statusFilter, dateFilter);
-            } else {
-                throw new Error('Format de données invalide');
-            }
-
-            // Charger les enquêteurs
-            const enqueteursResponse = await axios.get(`${API_URL}/api/enqueteurs`);
-            if (enqueteursResponse.data.success && Array.isArray(enqueteursResponse.data.data)) {
-                setEnqueteurs(enqueteursResponse.data.data);
-            }
-
-            setLoading(false);
-        } catch (error) {
-            console.error('Erreur lors du chargement des données:', error);
-            setError('Erreur lors du chargement des données: ' + (error.response?.data?.error || error.message));
-            setLoading(false);
-        }
-    };
-
-    // Appliquer les filtres
-    const applyFilters = (data, search, status, date) => {
-        let filtered = [...data];
-
-        // Filtre de recherche
-        if (search) {
-            const searchLower = search.toLowerCase();
-            filtered = filtered.filter(donnee =>
+    // Utiliser useMemo pour filtrer les données
+    const filteredDonnees = useMemo(() => {
+        let filtered = [...donnees];
+        
+        // Appliquer les filtres
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            filtered = filtered.filter(donnee => 
                 (donnee.numeroDossier && donnee.numeroDossier.toLowerCase().includes(searchLower)) ||
                 (donnee.nom && donnee.nom.toLowerCase().includes(searchLower)) ||
                 (donnee.prenom && donnee.prenom.toLowerCase().includes(searchLower)) ||
                 (donnee.ville && donnee.ville.toLowerCase().includes(searchLower))
             );
         }
-
+        
         // Filtre par statut
-        if (status !== 'all') {
-            if (status === 'pending') {
+        if (statusFilter !== 'all') {
+            if (statusFilter === 'pending') {
                 filtered = filtered.filter(donnee => !donnee.code_resultat);
             } else {
-                filtered = filtered.filter(donnee => donnee.code_resultat === status);
+                filtered = filtered.filter(donnee => donnee.code_resultat === statusFilter);
             }
         }
-
+        
         // Filtre par date
-        if (date !== 'all') {
+        if (dateFilter !== 'all') {
             const now = new Date();
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
+            
             filtered = filtered.filter(donnee => {
                 if (!donnee.dateRetourEspere) return false;
-
+                
                 // Convertir la date au format français (DD/MM/YYYY) en objet Date
                 const parts = donnee.dateRetourEspere.split('/');
                 if (parts.length !== 3) return false;
-
+                
                 // En France, le format est JJ/MM/AAAA
                 const day = parseInt(parts[0], 10);
                 const month = parseInt(parts[1], 10) - 1; // Les mois commencent à 0
                 const year = parseInt(parts[2], 10);
-
+                
                 const enqueteDate = new Date(year, month, day);
-
-                switch (date) {
+                
+                switch (dateFilter) {
                     case 'today':
                         return enqueteDate.getTime() === today.getTime();
                     case 'overdue':
@@ -141,48 +96,94 @@ const DataViewer = () => {
                 }
             });
         }
+        
+        return filtered;
+    }, [donnees, searchTerm, statusFilter, dateFilter]);
 
-        setFilteredDonnees(filtered);
-    };
+    // Définir fetchData avec useCallback pour éviter des re-rendus inutiles
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
 
-    useEffect(() => {
-        fetchData();
+            // Faire une seule requête optimisée pour récupérer toutes les données avec leurs détails
+            const response = await axios.get(`${API_URL}/api/donnees`);
+
+            if (response.data.success && Array.isArray(response.data.data)) {
+                // Récupérer les données de l'enquêteur en utilisant Promise.all pour paralléliser les requêtes
+                const donneesWithDetails = await Promise.all(
+                    response.data.data.map(async (donnee) => {
+                        try {
+                            const detailsResponse = await axios.get(`${API_URL}/api/donnees-enqueteur/${donnee.id}`);
+                            if (detailsResponse.data.success && detailsResponse.data.data) {
+                                // Fusionner les informations
+                                return {
+                                    ...donnee,
+                                    ...detailsResponse.data.data
+                                };
+                            }
+                            return donnee;
+                        } catch (err) {
+                            // Ignorer l'erreur et retourner l'objet donnee sans modifications
+                            console.warn(`Impossible de récupérer les détails pour l'ID ${donnee.id}:`, err);
+                            return donnee;
+                        }
+                    })
+                );
+
+                setDonnees(donneesWithDetails);
+            } else {
+                throw new Error("Format de données invalide");
+            }
+
+            // Charger les enquêteurs dans une requête séparée
+            const enqueteursResponse = await axios.get(`${API_URL}/api/enqueteurs`);
+            if (enqueteursResponse.data.success && Array.isArray(enqueteursResponse.data.data)) {
+                setEnqueteurs(enqueteursResponse.data.data);
+            }
+
+        } catch (err) {
+            console.error("Erreur lors du chargement des données:", err);
+            setError(`Erreur: ${err.response?.data?.error || err.message}`);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    // Effet pour appliquer les filtres lorsqu'ils changent
+    // Charger les données au montage du composant
     useEffect(() => {
-        applyFilters(donnees, searchTerm, statusFilter, dateFilter);
-    }, [searchTerm, statusFilter, dateFilter]);
+        fetchData();
+    }, [fetchData]);
 
-    const getEnqueteurName = (enqueteurId) => {
+    // Fonctions utilitaires
+    const getEnqueteurName = useCallback((enqueteurId) => {
         if (!enqueteurId) return 'Non assigné';
         const enqueteur = enqueteurs.find(e => e.id === enqueteurId);
         return enqueteur ? `${enqueteur.nom} ${enqueteur.prenom}` : 'Non trouvé';
-    };
+    }, [enqueteurs]);
 
-    const handleSearch = (e) => {
+    const handleSearch = useCallback((e) => {
         setSearchTerm(e.target.value);
-    };
+    }, []);
 
-    const handleDelete = async (id) => {
+    const handleDelete = useCallback(async (id) => {
         if (window.confirm('Voulez-vous vraiment supprimer cet enregistrement ?')) {
             try {
                 const response = await axios.delete(`${API_URL}/api/donnees/${id}`);
                 if (response.status === 200) {
-                    const updatedDonnees = donnees.filter((donnee) => donnee.id !== id);
-                    setDonnees(updatedDonnees);
-                    setFilteredDonnees(updatedDonnees);
+                    setDonnees(prevDonnees => prevDonnees.filter(donnee => donnee.id !== id));
                     alert('Enregistrement supprimé avec succès.');
                 } else {
                     alert('Erreur lors de la suppression de l\'enregistrement.');
                 }
-            } catch (error) {
-                console.error('Erreur lors de la suppression :', error);
+            } catch (err) {
+                console.error('Erreur lors de la suppression :', err);
                 alert('Une erreur est survenue.');
             }
         }
-    };
-    const handleUpdate = async (donnee) => {
+    }, []);
+
+    const handleUpdate = useCallback(async (donnee) => {
         try {
             setLoading(true);
             // Récupérer les données enquêteur en même temps
@@ -197,26 +198,27 @@ const DataViewer = () => {
                 setSelectedData(donnee);
             }
             setIsUpdateModalOpen(true);
-        } catch (error) {
-            console.error("Erreur lors de la récupération des données:", error);
+        } catch (err) {
+            console.error("Erreur lors de la récupération des données:", err);
             setSelectedData(donnee);
             setIsUpdateModalOpen(true);
         } finally {
             setLoading(false);
         }
-    };
-    const handleModalClose = (shouldRefresh) => {
+    }, []);
+
+    const handleModalClose = useCallback((shouldRefresh) => {
         setIsUpdateModalOpen(false);
         setSelectedData(null);
         if (shouldRefresh) {
             fetchData();
         }
-    };
+    }, [fetchData]);
 
     // Fonction pour l'historique (à implémenter plus tard)
-    const handleHistory = (id) => {
+    const handleHistory = useCallback((id) => {
         console.log('Historique pour ID:', id);
-    };
+    }, []);
 
     if (loading) {
         return (
