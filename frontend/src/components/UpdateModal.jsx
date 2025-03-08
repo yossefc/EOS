@@ -159,7 +159,6 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
   const [activeTab, setActiveTab] = useState('infos');
   const [showDeathInfo, setShowDeathInfo] = useState(false);
-  const [showEtatCivilHelp, setShowEtatCivilHelp] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
@@ -492,13 +491,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     setSuggestions(prev => ({ ...prev, codesPostaux: [] }));
   };
 
-  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(prev => ({ ...prev, submit: true }));
     setError(null);
     setSuccess(null);
-
+  
     try {
       // Validation des données selon le code résultat
       let errorMsg = validateFormData();
@@ -507,7 +505,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         setIsLoading(prev => ({ ...prev, submit: false }));
         return;
       }
-
+  
       // Préparer les données à envoyer
       let dataToSend = {
         donnee_id: data.id,
@@ -516,16 +514,35 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         flag_etat_civil_errone: formData.flag_etat_civil_errone,
         date_retour: formData.date_retour,
       };
+  
+      // Gérer les données d'état civil corrigées
       if (formData.flag_etat_civil_errone === 'E') {
-        dataToSend.qualite_corrigee = formData.qualite_corrigee || null;
-        dataToSend.nom_corrige = formData.nom_corrige || null;
-        dataToSend.prenom_corrige = formData.prenom_corrige || null;
-        dataToSend.nom_patronymique_corrige = formData.nom_patronymique_corrige || null;
-        dataToSend.date_naissance_corrigee = formData.date_naissance_corrigee || null;
-        dataToSend.lieu_naissance_corrige = formData.lieu_naissance_corrige || null;
-        dataToSend.code_postal_naissance_corrige = formData.code_postal_naissance_corrige || null;
-        dataToSend.pays_naissance_corrige = formData.pays_naissance_corrige || null;
-        dataToSend.type_divergence = formData.type_divergence || null;
+        dataToSend = {
+          ...dataToSend,
+          qualite_corrigee: formData.qualite_corrigee || null,
+          nom_corrige: formData.nom_corrige || null,
+          prenom_corrige: formData.prenom_corrige || null,
+          nom_patronymique_corrige: formData.nom_patronymique_corrige || null,
+          date_naissance_corrigee: formData.date_naissance_corrigee || null,
+          lieu_naissance_corrige: formData.lieu_naissance_corrige || null,
+          code_postal_naissance_corrige: formData.code_postal_naissance_corrige || null,
+          pays_naissance_corrige: formData.pays_naissance_corrige || null,
+          type_divergence: formData.type_divergence || null,
+        };
+        
+        // Log des données d'état civil pour débogage
+        console.log("Données d'état civil envoyées au backend:", {
+          flag_etat_civil_errone: formData.flag_etat_civil_errone,
+          qualite_corrigee: formData.qualite_corrigee,
+          nom_corrige: formData.nom_corrige,
+          prenom_corrige: formData.prenom_corrige,
+          nom_patronymique_corrige: formData.nom_patronymique_corrige,
+          date_naissance_corrigee: formData.date_naissance_corrigee,
+          lieu_naissance_corrige: formData.lieu_naissance_corrige,
+          code_postal_naissance_corrige: formData.code_postal_naissance_corrige,
+          pays_naissance_corrige: formData.pays_naissance_corrige,
+          type_divergence: formData.type_divergence
+        });
       }
       // Si le code résultat est 'I' (intraitable), on ne transmet pas les modifications
       // des données d'état civil selon le cahier des charges
@@ -691,7 +708,6 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         };
       }
 
-      // Envoyer les données
       const response = await axios.post(
         `${API_URL}/api/donnees-enqueteur/${data.id}`,
         dataToSend,
@@ -701,7 +717,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           }
         }
       );
-
+  
       if (response.data.success) {
         setSuccess("Données enregistrées avec succès");
         setDonneesSauvegardees(response.data.data);
@@ -851,27 +867,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           </div>
         )}
 
-        {/* Aide sur état civil erroné */}
-        {showEtatCivilHelp && (
-          <div className="m-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg">
-            <div className="flex items-center gap-2 font-medium mb-2">
-              <HelpCircle className="w-5 h-5 flex-shrink-0" />
-              <span>Cas d'état civil erroné acceptables (flag E)</span>
-            </div>
-            <div className="text-sm space-y-1 pl-7">
-              <p>Selon le cahier des charges, ces cas peuvent être traités avec un résultat positif (P) et le flag état civil erroné (E) :</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Un chiffre d'écart dans la date de naissance (ex: 12/06/1966 au lieu de 12/05/1966)</li>
-                <li>Deux chiffres d'écart dans la date de naissance avec confirmation par source non administrative</li>
-                <li>Prénom différent mais correspondant au 2ème ou 3ème prénom d'état civil</li>
-                <li>Lieu de naissance différent avec confirmation par source non administrative</li>
-                <li>Date de naissance correspondant à celle du conjoint</li>
-              </ul>
-              <p className="font-medium mt-1">Vous devez documenter précisément les différences dans les mémos.</p>
-            </div>
-          </div>
-        )}
-
+    
         <form onSubmit={handleSubmit}>
           {/* Navigation par onglets */}
           <div className="px-4 border-b overflow-x-auto">

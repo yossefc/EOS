@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
 from extensions import init_extensions, db
-from routes.enqueteur import register_enqueteur_routes
+from routes.enqueteur_auth import register_enqueteur_auth_routes
 from routes.vpn_template import register_vpn_template_routes
-from routes.export import register_export_routes  # Nouvelle route d'export
+from routes.export import register_export_routes
+from routes.enqueteur_auth import register_enqueteur_auth_routes
+from routes.vpn_download import register_vpn_download_routes
 from models.models import Donnee, Fichier
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
@@ -41,7 +43,7 @@ def init_app():
     
     @app.after_request
     def after_request(response):
-        response.headers.set('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.set('Access-Control-Allow-Origin', '*')
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         response.headers.set('Access-Control-Allow-Credentials', 'true')
@@ -49,9 +51,10 @@ def init_app():
     
     register_etat_civil_routes(app)
     init_extensions(app)
-    register_enqueteur_routes(app)
     register_vpn_template_routes(app)
-    register_export_routes(app)  # Enregistrement des routes d'export
+    register_export_routes(app)
+    register_enqueteur_auth_routes(app)  # Nouvelles routes d'authentification
+    register_vpn_download_routes(app)    # Nouvelles routes de téléchargement VPN
 
     with app.app_context():
         db.create_all()
@@ -401,6 +404,68 @@ def init_app():
         except Exception as e:
             logger.error(f"Erreur lors de l'assignation: {str(e)}")
             db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/enqueteurs-stats', methods=['GET'])
+    def get_enqueteurs_stats():
+        """Obtenir des statistiques sur les enquêteurs et leurs enquêtes assignées"""
+        try:
+            # Récupérer tous les enquêteurs
+            enqueteurs = Enqueteur.query.all()
+            
+            stats = []
+            for enqueteur in enqueteurs:
+                # Compter les enquêtes assignées à cet enquêteur
+                total_enquetes = Donnee.query.filter_by(enqueteurId=enqueteur.id).count()
+                
+                # Compter les enquêtes par statut
+                from sqlalchemy import func
+                status_counts = (db.session.query(
+                    DonneeEnqueteur.code_resultat, 
+                    func.count(DonneeEnqueteur.id)
+                )
+                .join(Donnee, Donnee.id == DonneeEnqueteur.donnee_id)
+                .filter(Donnee.enqueteurId == enqueteur.id)
+                .group_by(DonneeEnqueteur.code_resultat)
+                .all())
+                
+                # Convertir les résultats en dictionnaire
+                status_dict = {
+                    'P': 0,  # Positif
+                    'N': 0,  # Négatif
+                    'H': 0,  # Confirmé
+                    'Z': 0,  # Annulé agence
+                    'I': 0,  # Intraitable
+                    'Y': 0,  # Annulé EOS
+                    'pending': 0  # En attente de traitement
+                }
+                
+                for status, count in status_counts:
+                    if status:
+                        status_dict[status] = count
+                
+                # Calculer les enquêtes en attente
+                status_dict['pending'] = total_enquetes - sum(status_dict.values())
+                
+                stats.append({
+                    'id': enqueteur.id,
+                    'nom': enqueteur.nom,
+                    'prenom': enqueteur.prenom,
+                    'email': enqueteur.email,
+                    'total_enquetes': total_enquetes,
+                    'statuts': status_dict
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': stats
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des statistiques: {str(e)}")
             return jsonify({
                 'success': False,
                 'error': str(e)

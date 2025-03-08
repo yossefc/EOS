@@ -1,6 +1,5 @@
-// frontend/src/components/EtatCivilPanel.jsx
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, InfoIcon, Check } from 'lucide-react';
+import { AlertCircle, InfoIcon, Check, HelpCircle } from 'lucide-react';
 
 const EtatCivilPanel = ({ 
   originalData, 
@@ -203,12 +202,16 @@ const EtatCivilPanel = ({
     
     // Si pas d'erreurs, on peut appliquer les changements
     if (Object.keys(newErrors).length === 0) {
-      // Mettre à jour le formulaire avec le flag d'état civil erroné
-      setFormData({
-        ...formData,
+      console.log('Validation réussie - données corrigées:', correctedData);
+      console.log('Type de divergence:', selectedDivergence);
+      
+      // Mettre à jour directement le formData dans le composant parent
+      // avec toutes les données nécessaires pour l'enregistrement en base
+      setFormData(prev => ({
+        ...prev,
         flag_etat_civil_errone: 'E',
         type_divergence: selectedDivergence,
-        // Ajouter les informations corrigées selon le type de divergence
+        // Stocker les informations corrigées qui seront envoyées au backend
         qualite_corrigee: correctedData.qualite,
         nom_corrige: correctedData.nom,
         prenom_corrige: correctedData.prenom,
@@ -218,14 +221,14 @@ const EtatCivilPanel = ({
         code_postal_naissance_corrige: correctedData.codePostalNaissance,
         pays_naissance_corrige: correctedData.paysNaissance,
         // Ajouter une explication dans le mémo
-        memo5: `${formData.memo5 ? formData.memo5 + '\n\n' : ''}État civil corrigé (${selectedDivergence}):\n` +
-               `Type de divergence: ${divergenceTypes.find(d => d.id === selectedDivergence)?.label || selectedDivergence}\n` +
-               `Date de naissance: ${correctedData.dateNaissance || 'Non modifiée'}\n` +
-               `Prénom: ${correctedData.prenom || 'Non modifié'}\n` +
-               `Lieu de naissance: ${correctedData.lieuNaissance || 'Non modifié'}\n`
-      });
+        memo5: `${prev.memo5 ? prev.memo5 + '\n\n' : ''}État civil corrigé (${selectedDivergence}):\n` +
+               `Nom: ${correctedData.nom || '-'}\n` +
+               `Prénom: ${correctedData.prenom || '-'}\n` +
+               `Date de naissance: ${correctedData.dateNaissance || '-'}\n` +
+               `Lieu de naissance: ${correctedData.lieuNaissance || '-'}`
+      }));
       
-      // Notifier le composant parent
+      // Notifier le composant parent pour qu'il puisse aussi traiter les données si nécessaire
       onValidate(correctedData, selectedDivergence);
       
       // Fermer le panel
