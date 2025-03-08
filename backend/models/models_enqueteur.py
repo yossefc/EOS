@@ -14,6 +14,17 @@ class DonneeEnqueteur(db.Model):
     flag_etat_civil_errone = db.Column(db.String(1))  # E ou vide
     date_retour = db.Column(db.Date)
     
+    # État civil corrigé (nouveaux champs)
+    qualite_corrigee = db.Column(db.String(10))
+    nom_corrige = db.Column(db.String(30))
+    prenom_corrige = db.Column(db.String(20))
+    nom_patronymique_corrige = db.Column(db.String(30))
+    date_naissance_corrigee = db.Column(db.Date)
+    lieu_naissance_corrige = db.Column(db.String(50))
+    code_postal_naissance_corrige = db.Column(db.String(10))
+    pays_naissance_corrige = db.Column(db.String(32))
+    type_divergence = db.Column(db.String(20))  # Type de divergence d'état civil
+    
     # Informations d'adresse
     adresse1 = db.Column(db.String(32))  # Étage, Appartement, Porte, Chez
     adresse2 = db.Column(db.String(32))  # Bâtiment, Escalier, Résidence
@@ -93,7 +104,7 @@ class DonneeEnqueteur(db.Model):
     memo4 = db.Column(db.String(64))
     memo5 = db.Column(db.String(1000))
     
-    # Notes personnelles (nouveau champ)
+    # Notes personnelles
     notes_personnelles = db.Column(db.Text)
 
     # Timestamps
@@ -109,6 +120,17 @@ class DonneeEnqueteur(db.Model):
             'elements_retrouves': self.elements_retrouves,
             'flag_etat_civil_errone': self.flag_etat_civil_errone,
             'date_retour': self.date_retour.strftime('%Y-%m-%d') if self.date_retour else None,
+            
+            # État civil corrigé
+            'qualite_corrigee': self.qualite_corrigee,
+            'nom_corrige': self.nom_corrige,
+            'prenom_corrige': self.prenom_corrige,
+            'nom_patronymique_corrige': self.nom_patronymique_corrige,
+            'date_naissance_corrigee': self.date_naissance_corrigee.strftime('%d/%m/%Y') if self.date_naissance_corrigee else None,
+            'lieu_naissance_corrige': self.lieu_naissance_corrige,
+            'code_postal_naissance_corrige': self.code_postal_naissance_corrige,
+            'pays_naissance_corrige': self.pays_naissance_corrige,
+            'type_divergence': self.type_divergence,
             
             # Adresse
             'adresse1': self.adresse1,

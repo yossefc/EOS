@@ -80,9 +80,10 @@ def generate_export_content(donnees):
     
     return output.getvalue()
 
-def format_export_line(donnee, donnee_enqueteur, enqueteur):
+def format_export_line(donnee, donnee_enqueteur, enqueteur=None):
     """
     Formatte une ligne de données selon le format spécifié dans le cahier des charges
+    Prend en compte les corrections d'état civil lorsque le flag est activé
     """
     # Initialisation de la ligne avec des espaces
     line = " " * 1854  # Longueur totale de la ligne selon le cahier des charges
@@ -152,6 +153,38 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur):
         ("ribCompte", 1086, 2),
     ]
     
+    # Déterminer si on doit utiliser les données d'état civil corrigées
+    use_corrected_data = donnee_enqueteur and hasattr(donnee_enqueteur, 'flag_etat_civil_errone') and donnee_enqueteur.flag_etat_civil_errone == 'E'
+    
+    # Déterminer les valeurs d'état civil à utiliser (originales ou corrigées)
+    qualite = donnee.qualite
+    nom = donnee.nom
+    prenom = donnee.prenom
+    nom_patronymique = donnee.nomPatronymique
+    date_naissance = donnee.dateNaissance.strftime('%d/%m/%Y') if donnee.dateNaissance else ""
+    lieu_naissance = donnee.lieuNaissance
+    code_postal_naissance = donnee.codePostalNaissance
+    pays_naissance = donnee.paysNaissance
+    
+    # Si on doit utiliser les données corrigées, on les récupère
+    if use_corrected_data:
+        if hasattr(donnee_enqueteur, 'qualite_corrigee') and donnee_enqueteur.qualite_corrigee:
+            qualite = donnee_enqueteur.qualite_corrigee
+        if hasattr(donnee_enqueteur, 'nom_corrige') and donnee_enqueteur.nom_corrige:
+            nom = donnee_enqueteur.nom_corrige
+        if hasattr(donnee_enqueteur, 'prenom_corrige') and donnee_enqueteur.prenom_corrige:
+            prenom = donnee_enqueteur.prenom_corrige
+        if hasattr(donnee_enqueteur, 'nom_patronymique_corrige') and donnee_enqueteur.nom_patronymique_corrige:
+            nom_patronymique = donnee_enqueteur.nom_patronymique_corrige
+        if hasattr(donnee_enqueteur, 'date_naissance_corrigee') and donnee_enqueteur.date_naissance_corrigee:
+            date_naissance = donnee_enqueteur.date_naissance_corrigee.strftime('%d/%m/%Y')
+        if hasattr(donnee_enqueteur, 'lieu_naissance_corrige') and donnee_enqueteur.lieu_naissance_corrige:
+            lieu_naissance = donnee_enqueteur.lieu_naissance_corrige
+        if hasattr(donnee_enqueteur, 'code_postal_naissance_corrige') and donnee_enqueteur.code_postal_naissance_corrige:
+            code_postal_naissance = donnee_enqueteur.code_postal_naissance_corrige
+        if hasattr(donnee_enqueteur, 'pays_naissance_corrige') and donnee_enqueteur.pays_naissance_corrige:
+            pays_naissance = donnee_enqueteur.pays_naissance_corrige
+    
     # Formater la date de retour avec la date actuelle
     date_retour = datetime.datetime.now().strftime('%d/%m/%Y')
     
@@ -167,18 +200,21 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur):
         "numeroDemandeInitiale": donnee.numeroDemandeInitiale or "",
         "forfaitDemande": donnee.forfaitDemande or "",
         "dateRetourEspere": donnee.dateRetourEspere.strftime('%d/%m/%Y') if donnee.dateRetourEspere else "",
-        "qualite": donnee.qualite or "",
-        "nom": donnee.nom or "",
-        "prenom": donnee.prenom or "",
-        "dateNaissance": donnee.dateNaissance.strftime('%d/%m/%Y') if donnee.dateNaissance else "",
-        "lieuNaissance": donnee.lieuNaissance or "",
-        "codePostalNaissance": donnee.codePostalNaissance or "",
-        "paysNaissance": donnee.paysNaissance or "",
-        "nomPatronymique": donnee.nomPatronymique or "",
+        
+        # État civil (original ou corrigé)
+        "qualite": qualite or "",
+        "nom": nom or "",
+        "prenom": prenom or "",
+        "dateNaissance": date_naissance or "",
+        "lieuNaissance": lieu_naissance or "",
+        "codePostalNaissance": code_postal_naissance or "",
+        "paysNaissance": pays_naissance or "",
+        "nomPatronymique": nom_patronymique or "",
+        
         "dateRetour": date_retour,
         "codeResultat": donnee_enqueteur.code_resultat or "",
         "elementsRetrouves": donnee_enqueteur.elements_retrouves or "",
-        "flagEtatCivilErrone": donnee_enqueteur.flag_etat_civil_errone or "",
+        "flagEtatCivilErrone": donnee_enqueteur.flag_etat_civil_errone if hasattr(donnee_enqueteur, 'flag_etat_civil_errone') else "",
         "numeroFacture": "",  # Laisser vide selon le cahier des charges
         "dateFacture": "",    # Laisser vide selon le cahier des charges
         "montantFacture": "0",
@@ -186,7 +222,7 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur):
         "cumulMontantsPrecedents": "0",
         "repriseFacturation": "0",
         "remiseEventuelle": "0",
-        "dateDeces": donnee_enqueteur.date_deces.strftime('%d/%m/%Y') if donnee_enqueteur.date_deces else "",
+        "dateDeces": donnee_enqueteur.date_deces.strftime('%d/%m/%Y') if hasattr(donnee_enqueteur, 'date_deces') and donnee_enqueteur.date_deces else "",
         "numeroActeDeces": donnee_enqueteur.numero_acte_deces or "",
         "codeInseeDeces": donnee_enqueteur.code_insee_deces or "",
         "codePostalDeces": donnee_enqueteur.code_postal_deces or "",

@@ -13,6 +13,8 @@ import sys
 import codecs
 from config import create_app
 from flask_cors import CORS
+from routes.etat_civil import register_etat_civil_routes
+
 
 # Configuration de l'encodage par défaut
 if sys.stdout.encoding != 'utf-8':
@@ -44,7 +46,8 @@ def init_app():
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         response.headers.set('Access-Control-Allow-Credentials', 'true')
         return response
-        
+    
+    register_etat_civil_routes(app)
     init_extensions(app)
     register_enqueteur_routes(app)
     register_vpn_template_routes(app)
