@@ -19,7 +19,12 @@ class Fichier(db.Model):
 class Donnee(db.Model):
     """Modèle pour les données"""
     __tablename__ = 'donnees'
-
+    __table_args__ = (
+    db.Index('idx_donnee_fichier_id', 'fichier_id'),
+    db.Index('idx_donnee_numeroDossier', 'numeroDossier'),
+    db.Index('idx_donnee_nom', 'nom'),
+    db.Index('idx_donnee_enqueteurId', 'enqueteurId'),
+)
     id = db.Column(db.Integer, primary_key=True)
     fichier_id = db.Column(db.Integer, db.ForeignKey('fichiers.id'), nullable=False)
     enqueteurId = db.Column(db.Integer, db.ForeignKey('enqueteurs.id'), nullable=True)

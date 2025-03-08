@@ -62,18 +62,25 @@ def init_app():
     @app.route('/api/donnees', methods=['GET'])
     def get_donnees():
         try:
-            donnees = Donnee.query.all()
+            page = request.args.get('page', 1, type=int)
+            per_page = request.args.get('per_page', 50, type=int)
+            
+            pagination = Donnee.query.paginate(page=page, per_page=per_page, error_out=False)
+            donnees = pagination.items
+            
             return jsonify({
                 "success": True,
-                "data": [donnee.to_dict() for donnee in donnees]
+                "data": [donnee.to_dict() for donnee in donnees],
+                "total": pagination.total,
+                "pages": pagination.pages,
+                "current_page": page
             })
         except Exception as e:
-            logger.error(f"Erreur lors de la récupération des données: {str(e)}")
             return jsonify({
                 "success": False,
                 "error": str(e)
             }), 500
-
+        
     @app.route('/api/donnees/<int:id>', methods=['DELETE'])
     def delete_donnee(id):
         try:
@@ -153,8 +160,37 @@ def init_app():
                 'error': str(e)
             }), 500
 
-# Voici la mise à jour de la route dans app.py pour gérer le nouveau champ notes_personnelles
 
+
+    @app.route('/api/donnees-complete', methods=['GET'])
+    def get_donnees_complete():
+        try:
+            # Requête avec jointure pour récupérer les données et les infos enquêteurs en une seule fois
+            donnees = db.session.query(Donnee).options(
+                db.joinedload(Donnee.donnee_enqueteur)
+            ).all()
+            
+            result = []
+            for donnee in donnees:
+                donnee_dict = donnee.to_dict()
+                if donnee.donnee_enqueteur:
+                    # Ajouter les données de l'enquêteur au dictionnaire
+                    # en excluant les clés qui existent déjà
+                    for k, v in donnee.donnee_enqueteur.to_dict().items():
+                        if k not in ['id', 'donnee_id']:
+                            donnee_dict[k] = v
+                result.append(donnee_dict)
+                
+            return jsonify({
+                "success": True,
+                "data": result
+            })
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+        
     @app.route('/api/donnees-enqueteur/<int:donnee_id>', methods=['POST'])
     def update_donnee_enqueteur(donnee_id):
         try:
