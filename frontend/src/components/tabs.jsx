@@ -4,7 +4,7 @@ import { BarChart2, FileText, Database, Users, ClipboardList, FileUp, FileDown, 
 // Lazy loading des composants
 const StatsViewer = lazy(() => import('./StatsViewer'));
 const DataViewer = lazy(() => import('./DataViewer'));
-const EnqueteurViewer = lazy(() => import('./EnqueteurViewer'));
+const ImprovedEnqueteurViewer = lazy(() => import('./ImprovedEnqueteurViewer'));
 const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
@@ -64,7 +64,7 @@ const Tabs = () => {
       id: 'enqueteurs',
       label: 'Enquêteurs',
       icon: <Users className="w-4 h-4" />,
-      component: <EnqueteurViewer />
+      component: <ImprovedEnqueteurViewer />
     },
     {
       id: 'assignments',

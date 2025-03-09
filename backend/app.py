@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
 from extensions import init_extensions, db
-from routes.enqueteur_auth import register_enqueteur_auth_routes
+from flask_cors import CORS
+# Importez toutes vos routes ici
+from routes.enqueteur import register_enqueteurs_routes
 from routes.vpn_template import register_vpn_template_routes
 from routes.export import register_export_routes
-from routes.enqueteur_auth import register_enqueteur_auth_routes
 from routes.vpn_download import register_vpn_download_routes
+from routes.etat_civil import register_etat_civil_routes
 from models.models import Donnee, Fichier
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
@@ -14,8 +16,6 @@ import os
 import sys
 import codecs
 from config import create_app
-from flask_cors import CORS
-from routes.etat_civil import register_etat_civil_routes
 
 
 # Configuration de l'encodage par défaut
@@ -38,22 +38,29 @@ logger = logging.getLogger(__name__)
 def init_app():
     app = create_app()
     
-    # Configuration CORS de base
-    CORS(app)
+    # UNE SEULE configuration CORS - n'utilisez pas plusieurs méthodes
+    # Supprimez toute autre configuration CORS que vous pourriez avoir
+    CORS(app, resources={
+        r"/*": {
+            "origins": "*",  # Vous pouvez aussi être plus restrictif, par exemple: origins="http://localhost:5173"
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
+        }
+    })
     
     @app.after_request
     def after_request(response):
-        response.headers.set('Access-Control-Allow-Origin', '*')
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        response.headers.set('Access-Control-Allow-Credentials', 'true')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
         return response
     
     register_etat_civil_routes(app)
     init_extensions(app)
     register_vpn_template_routes(app)
     register_export_routes(app)
-    register_enqueteur_auth_routes(app)  # Nouvelles routes d'authentification
+    register_enqueteurs_routes(app)  # Nouvelles routes d'authentification
     register_vpn_download_routes(app)    # Nouvelles routes de téléchargement VPN
 
     with app.app_context():
@@ -65,6 +72,10 @@ def init_app():
             return '', 200
         return jsonify({"status": "ok"})
 
+    @app.route('/api/stats', methods=['OPTIONS'])
+    def options_stats():
+        return '', 200 
+    
     @app.route('/api/donnees', methods=['GET'])
     def get_donnees():
         try:
