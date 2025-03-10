@@ -4,7 +4,7 @@ import { Loader2, AlertCircle, UserPlus, Check, Search, Users } from 'lucide-rea
 
 const api = axios.create({
     baseURL: 'http://localhost:5000',
-    withCredentials: true,
+    withCredentials: false,
     headers: {
         'Content-Type': 'application/json'
     }
