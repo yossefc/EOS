@@ -7,6 +7,7 @@ from routes.vpn_template import register_vpn_template_routes
 from routes.export import register_export_routes
 from routes.vpn_download import register_vpn_download_routes
 from routes.etat_civil import register_etat_civil_routes
+from routes.tarification import register_tarification_routes
 from models.models import Donnee, Fichier
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
@@ -48,6 +49,7 @@ def init_app():
     register_enqueteurs_routes(app)  # Assurez-vous que cette ligne est présente
     register_vpn_download_routes(app)
     register_etat_civil_routes(app)
+    register_tarification_routes(app)
     
     # Le reste du code...
     

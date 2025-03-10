@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { BarChart2, FileText, Database, Users, ClipboardList, FileUp, FileDown, User } from 'lucide-react';
+import { BarChart2, FileText, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign } from 'lucide-react';
 
 // Lazy loading des composants
 const StatsViewer = lazy(() => import('./StatsViewer'));
@@ -9,6 +9,7 @@ const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 const ExportHandler = lazy(() => import('./ExportHandler'));
+const TarificationViewer = lazy(() => import('./TarificationViewer')); // Nouveau composant pour la tarification
 
 // Composant de chargement
 const LoadingComponent = () => (
@@ -71,6 +72,12 @@ const Tabs = () => {
       label: 'Assignations',
       icon: <ClipboardList className="w-4 h-4" />,
       component: <AssignmentViewer />
+    },
+    {
+      id: 'tarification',
+      label: 'Tarification',
+      icon: <DollarSign className="w-4 h-4" />,
+      component: <TarificationViewer />
     }
   ];
 

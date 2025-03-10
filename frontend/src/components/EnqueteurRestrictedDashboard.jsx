@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     RefreshCw, Search, Filter, Calendar, AlertCircle, CheckCircle, LogOut,
-    User, Clock, Table, ArrowDownToLine
+    User, Clock, Table, ArrowDownToLine, DollarSign
 } from 'lucide-react';
 import UpdateModal from './UpdateModal';
 import config from '../config';
+import EarningsViewer from './EarningsViewer';
 
 const API_URL = config.API_URL;
 
@@ -46,6 +47,7 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
     const [dateFilter, setDateFilter] = useState('all');
     const [selectedEnquete, setSelectedEnquete] = useState(null);
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('enquetes'); // Ajouter l'état pour l'onglet actif
     
     // Stats
     const [stats, setStats] = useState({
@@ -273,201 +275,239 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
                     </div>
                 </div>
 
-                {/* Cartes de statistiques */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                        <div className="rounded-full p-3 bg-blue-100 mr-4">
-                            <Table className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Total enquêtes</p>
-                            <p className="text-2xl font-semibold">{stats.total}</p>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                        <div className="rounded-full p-3 bg-yellow-100 mr-4">
-                            <Clock className="w-6 h-6 text-yellow-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">En attente</p>
-                            <p className="text-2xl font-semibold">{stats.pending}</p>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                        <div className="rounded-full p-3 bg-green-100 mr-4">
-                            <CheckCircle className="w-6 h-6 text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Positifs</p>
-                            <p className="text-2xl font-semibold">{stats.positive}</p>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                        <div className="rounded-full p-3 bg-red-100 mr-4">
-                            <AlertCircle className="w-6 h-6 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Négatifs</p>
-                            <p className="text-2xl font-semibold">{stats.negative}</p>
-                        </div>
+                {/* Navigation par onglets */}
+                <div className="mb-6 border-b border-gray-200">
+                    <div className="flex -mb-px space-x-8">
+                        <button
+                            onClick={() => setActiveTab('enquetes')}
+                            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center space-x-2
+                                ${activeTab === 'enquetes'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                            `}
+                        >
+                            <Table className="w-5 h-5" />
+                            <span>Mes enquêtes</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('earnings')}
+                            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center space-x-2
+                                ${activeTab === 'earnings'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                            `}
+                        >
+                            <DollarSign className="w-5 h-5" />
+                            <span>Mes revenus</span>
+                        </button>
                     </div>
                 </div>
 
-                {/* Filtres de recherche */}
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="relative flex-grow max-w-md">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                <input
-                                    type="text"
-                                    placeholder="Rechercher par nom, dossier..."
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    value={searchTerm}
-                                    onChange={handleSearch}
-                                />
+                {/* Cartes de statistiques - affichées seulement sur l'onglet enquêtes */}
+                {activeTab === 'enquetes' && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                            <div className="rounded-full p-3 bg-blue-100 mr-4">
+                                <Table className="w-6 h-6 text-blue-600" />
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                <div className="relative">
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => {
-                                            setStatusFilter(e.target.value);
-                                            applyFilters(enquetes, searchTerm, e.target.value, dateFilter);
-                                        }}
-                                        className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="all">Tous les statuts</option>
-                                        <option value="pending">En attente</option>
-                                        <option value="P">Positif</option>
-                                        <option value="N">Négatif</option>
-                                        <option value="H">Confirmé</option>
-                                        <option value="Z">Annulé (agence)</option>
-                                        <option value="I">Intraitable</option>
-                                        <option value="Y">Annulé (EOS)</option>
-                                    </select>
-                                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                </div>
-                                <div className="relative">
-                                    <select
-                                        value={dateFilter}
-                                        onChange={(e) => {
-                                            setDateFilter(e.target.value);
-                                            applyFilters(enquetes, searchTerm, statusFilter, e.target.value);
-                                        }}
-                                        className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="all">Toutes les dates</option>
-                                        <option value="today">Aujourd'hui</option>
-                                        <option value="week">Cette semaine</option>
-                                        <option value="overdue">En retard</option>
-                                    </select>
-                                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                </div>
-                                <button
-                                    onClick={fetchEnquetes}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                                >
-                                    <RefreshCw className="w-4 h-4" />
-                                    Actualiser
-                                </button>
+                            <div>
+                                <p className="text-sm text-gray-500">Total enquêtes</p>
+                                <p className="text-2xl font-semibold">{stats.total}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                            <div className="rounded-full p-3 bg-yellow-100 mr-4">
+                                <Clock className="w-6 h-6 text-yellow-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">En attente</p>
+                                <p className="text-2xl font-semibold">{stats.pending}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                            <div className="rounded-full p-3 bg-green-100 mr-4">
+                                <CheckCircle className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Positifs</p>
+                                <p className="text-2xl font-semibold">{stats.positive}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+                            <div className="rounded-full p-3 bg-red-100 mr-4">
+                                <AlertCircle className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500">Négatifs</p>
+                                <p className="text-2xl font-semibold">{stats.negative}</p>
                             </div>
                         </div>
                     </div>
+                )}
 
-                    {/* Tableau des enquêtes */}
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        N° Dossier
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Date limite
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Nom & Prénom
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Type
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Éléments demandés
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Statut
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredEnquetes.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                                            Aucune enquête ne correspond aux critères de recherche
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredEnquetes.map((enquete) => (
-                                        <tr key={enquete.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {enquete.numeroDossier}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {enquete.dateRetourEspere}
-                                            </td>
-                                            <td className="px-4 py-4 text-sm text-gray-900">
-                                                <div className="font-medium">{enquete.nom}</div>
-                                                <div className="text-gray-500">{enquete.prenom}</div>
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {enquete.typeDemande === 'ENQ' ? 'Enquête' : 
-                                                 enquete.typeDemande === 'CON' ? 'Contestation' : 
-                                                 enquete.typeDemande}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {enquete.elementDemandes?.split('').map((element, idx) => (
-                                                        <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs"
-                                                            title={
-                                                                element === 'A' ? 'Adresse' :
-                                                                    element === 'T' ? 'Téléphone' :
-                                                                        element === 'D' ? 'Décès' :
-                                                                            element === 'B' ? 'Banque' :
-                                                                                element === 'E' ? 'Employeur' :
-                                                                                    element === 'R' ? 'Revenus' : element
-                                                            }
-                                                        >
-                                                            {element}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                    ${STATUS_COLORS[enquete.code_resultat] || 'bg-yellow-100 text-yellow-800'}`}
-                                                >
-                                                    {STATUS_LABELS[enquete.code_resultat] || 'En attente'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                                <button
-                                                    onClick={() => handleUpdate(enquete)}
-                                                    className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
-                                                >
-                                                    Traiter
-                                                </button>
-                                            </td>
+                {/* Contenu des onglets */}
+                {activeTab === 'enquetes' ? (
+                    <>
+                        {/* Filtres de recherche */}
+                        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                            <div className="p-4 bg-gray-50 border-b">
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                    <div className="relative flex-grow max-w-md">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                        <input
+                                            type="text"
+                                            placeholder="Rechercher par nom, dossier..."
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            value={searchTerm}
+                                            onChange={handleSearch}
+                                        />
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <div className="relative">
+                                            <select
+                                                value={statusFilter}
+                                                onChange={(e) => {
+                                                    setStatusFilter(e.target.value);
+                                                    applyFilters(enquetes, searchTerm, e.target.value, dateFilter);
+                                                }}
+                                                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            >
+                                                <option value="all">Tous les statuts</option>
+                                                <option value="pending">En attente</option>
+                                                <option value="P">Positif</option>
+                                                <option value="N">Négatif</option>
+                                                <option value="H">Confirmé</option>
+                                                <option value="Z">Annulé (agence)</option>
+                                                <option value="I">Intraitable</option>
+                                                <option value="Y">Annulé (EOS)</option>
+                                            </select>
+                                            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                        </div>
+                                        <div className="relative">
+                                            <select
+                                                value={dateFilter}
+                                                onChange={(e) => {
+                                                    setDateFilter(e.target.value);
+                                                    applyFilters(enquetes, searchTerm, statusFilter, e.target.value);
+                                                }}
+                                                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            >
+                                                <option value="all">Toutes les dates</option>
+                                                <option value="today">Aujourd'hui</option>
+                                                <option value="week">Cette semaine</option>
+                                                <option value="overdue">En retard</option>
+                                            </select>
+                                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                        </div>
+                                        <button
+                                            onClick={fetchEnquetes}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                        >
+                                            <RefreshCw className="w-4 h-4" />
+                                            Actualiser
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Tableau des enquêtes */}
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                N° Dossier
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Date limite
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Nom & Prénom
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Type
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Éléments demandés
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Statut
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Actions
+                                            </th>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {filteredEnquetes.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                                                    Aucune enquête ne correspond aux critères de recherche
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredEnquetes.map((enquete) => (
+                                                <tr key={enquete.id} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {enquete.numeroDossier}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {enquete.dateRetourEspere}
+                                                    </td>
+                                                    <td className="px-4 py-4 text-sm text-gray-900">
+                                                        <div className="font-medium">{enquete.nom}</div>
+                                                        <div className="text-gray-500">{enquete.prenom}</div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {enquete.typeDemande === 'ENQ' ? 'Enquête' : 
+                                                        enquete.typeDemande === 'CON' ? 'Contestation' : 
+                                                        enquete.typeDemande}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {enquete.elementDemandes?.split('').map((element, idx) => (
+                                                                <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs"
+                                                                    title={
+                                                                        element === 'A' ? 'Adresse' :
+                                                                            element === 'T' ? 'Téléphone' :
+                                                                                element === 'D' ? 'Décès' :
+                                                                                    element === 'B' ? 'Banque' :
+                                                                                        element === 'E' ? 'Employeur' :
+                                                                                            element === 'R' ? 'Revenus' : element
+                                                                    }
+                                                                >
+                                                                    {element}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                            ${STATUS_COLORS[enquete.code_resultat] || 'bg-yellow-100 text-yellow-800'}`}
+                                                        >
+                                                            {STATUS_LABELS[enquete.code_resultat] || 'En attente'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                                        <button
+                                                            onClick={() => handleUpdate(enquete)}
+                                                            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                                                        >
+                                                            Traiter
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    /* Affichage du composant EarningsViewer si l'onglet actif est 'earnings' */
+                    <EarningsViewer enqueteurId={enqueteurId} />
+                )}
             </div>
 
             {/* Modal pour traiter une enquête */}
