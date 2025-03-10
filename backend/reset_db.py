@@ -1,24 +1,29 @@
 import os
 from flask import Flask
-from models import db
+from extensions import db
+# Importer explicitement tous les modèles
+import models.models
+import models.models_enqueteur
+import models.enqueteur
+import models.tarifs
 
 def reset_db():
-    # Create the Flask application
+    # Créer l'application Flask
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///eos.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Initialize the database
+    # Initialiser la base de données
     db.init_app(app)
     
     with app.app_context():
-        # Drop all tables if they exist
+        # Supprimer toutes les tables si elles existent
         db.drop_all()
         
-        # Create new tables
+        # Créer de nouvelles tables
         db.create_all()
         
-        print("Database reset successfully!")
+        print("Base de données réinitialisée avec succès!")
 
 if __name__ == "__main__":
     reset_db()

@@ -9,7 +9,9 @@ const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 const ExportHandler = lazy(() => import('./ExportHandler'));
-const TarificationViewer = lazy(() => import('./TarificationViewer')); // Nouveau composant pour la tarification
+const TarificationViewer = lazy(() => import('./TarificationViewer'));
+import PaiementManager from './PaiementManager';
+import FinancialReports from './FinancialReports'; // Nouveau composant pour la tarification
 
 // Composant de chargement
 const LoadingComponent = () => (
@@ -78,6 +80,18 @@ const Tabs = () => {
       label: 'Tarification',
       icon: <DollarSign className="w-4 h-4" />,
       component: <TarificationViewer />
+    },
+    {
+      id: 'paiements',
+      label: 'Paiements Enquêteurs',
+      icon: <DollarSign className="w-4 h-4" />,
+      component: <PaiementManager />
+    },
+    {
+      id: 'finance',
+      label: 'Rapports Financiers',
+      icon: <BarChart2 className="w-4 h-4" />,
+      component: <FinancialReports />
     }
   ];
 

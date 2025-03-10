@@ -17,6 +17,10 @@ import os
 import sys
 import codecs
 from config import create_app
+from routes.paiement import register_paiement_routes
+from services.tarification_service import EnqueteFacturation
+
+
 
 
 # Configuration de l'encodage par défaut
@@ -50,6 +54,9 @@ def init_app():
     register_vpn_download_routes(app)
     register_etat_civil_routes(app)
     register_tarification_routes(app)
+    register_paiement_routes(app)
+
+
     
     # Le reste du code...
     
@@ -374,11 +381,39 @@ def init_app():
             
             db.session.commit()
             
+            # Si le code résultat est positif ou confirmé, calculer la facturation
             if donnee_enqueteur.code_resultat in ['P', 'H']:
-                from services.tarification_service import TarificationService
-                facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
-                logger.info(f"Facturation calculée automatiquement pour l'enquête {donnee_id}")
-            
+                try:
+                    # Importer ici pour éviter des problèmes d'import circulaire
+                    from services.tarification_service import TarificationService
+                    
+                    # Forcer les valeurs pour déboguer
+                    from models.tarifs import EnqueteFacturation
+                    
+                    # Vérifier si une facturation existe déjà
+                    existing = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+                    if existing:
+                        # Mettre à jour les valeurs clés
+                        existing.paye = False  # S'assurer que c'est bien non payé
+                        if not existing.resultat_enqueteur_montant or existing.resultat_enqueteur_montant <= 0:
+                            existing.resultat_enqueteur_montant = 10.0  # Valeur par défaut en cas de problème
+                            logger.info(f"Montant forcé à 10€ pour facturation {existing.id}")
+                        db.session.commit()
+                        logger.info(f"Facturation existante mise à jour: {existing.id}")
+                    else:
+                        # Calculer normalement
+                        facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+                        if facturation:
+                            # Double vérification
+                            if not facturation.resultat_enqueteur_montant or facturation.resultat_enqueteur_montant <= 0:
+                                facturation.resultat_enqueteur_montant = 10.0
+                                db.session.commit()
+                            logger.info(f"Facturation créée avec succès: {facturation.id}, montant: {facturation.resultat_enqueteur_montant}€")
+                        else:
+                            logger.error(f"Échec de création de facturation pour l'enquête {donnee_id}")
+                except Exception as e:
+                    logger.error(f"Erreur lors du calcul de la facturation: {str(e)}")
+                                    
             return jsonify({
                 'success': True, 
                 'message': 'Données mises à jour avec succès',
@@ -392,7 +427,42 @@ def init_app():
                 'success': False, 
                 'error': str(e)
             }), 400
-
+    @app.route('/api/fix-facturations', methods=['POST'])
+    def fix_facturations():
+        """API pour corriger les associations enquêteur-facturation existantes"""
+        try:
+            # Récupérer toutes les facturations sans enquêteur
+            facturations = db.session.query(
+                EnqueteFacturation, Donnee
+            ).join(
+                Donnee, EnqueteFacturation.donnee_id == Donnee.id
+            ).filter(
+                Donnee.enqueteurId.is_(None),
+                EnqueteFacturation.resultat_enqueteur_montant > 0
+            ).all()
+            
+            fixed_count = 0
+            
+            # Pour chaque facturation, assigner un enquêteur
+            for facturation, donnee in facturations:
+                # Pour ce test, assignons l'enquêteur ID 1 à toutes les enquêtes
+                # Dans un cas réel, vous devriez avoir une logique plus complexe
+                donnee.enqueteurId = 1
+                fixed_count += 1
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Corrections effectuées: {fixed_count} facturations',
+                'count': fixed_count
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
     @app.route('/api/assign-enquete', methods=['POST'])
     def assign_enquete():
         try:
@@ -408,7 +478,19 @@ def init_app():
                 logger.error("Erreur: enqueteId manquant")
                 return jsonify({'success': False, 'error': 'Missing enqueteId'}), 400
                 
-            enquete = Donnee.query.filter_by(numeroDossier=enquete_id).first()
+            # MODIFICATION ICI: Chercher par ID ou numeroDossier
+            enquete = None
+            try:
+                # Essayer d'abord par ID
+                enquete_id_int = int(enquete_id)
+                enquete = Donnee.query.filter_by(id=enquete_id_int).first()
+            except ValueError:
+                # Si ce n'est pas un entier, chercher par numeroDossier
+                pass
+                
+            if not enquete:
+                enquete = Donnee.query.filter_by(numeroDossier=enquete_id).first()
+                
             if not enquete:
                 logger.error(f"Erreur: enquête {enquete_id} non trouvée")
                 return jsonify({'success': False, 'error': 'Enquête not found'}), 404
@@ -424,6 +506,16 @@ def init_app():
             enquete.enqueteurId = enqueteur_id if enqueteur_id != '' else None
             db.session.commit()
             logger.info("Assignation réussie")
+            
+            # AJOUT ICI: Recalculer la facturation si l'enquête est déjà traitée
+            donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=enquete.id).first()
+            if donnee_enqueteur and donnee_enqueteur.code_resultat in ['P', 'H']:
+                try:
+                    from services.tarification_service import TarificationService
+                    TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+                    logger.info(f"Facturation recalculée après assignation pour l'enquête {enquete.id}")
+                except Exception as e:
+                    logger.error(f"Erreur lors du recalcul de la facturation: {str(e)}")
             
             return jsonify({
                 'success': True,

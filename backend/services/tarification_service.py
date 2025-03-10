@@ -18,6 +18,14 @@ class TarificationService:
         if not date:
             date = datetime.utcnow().date()
             
+        # Imprimer les informations de recherche de tarif
+        logger.info(f"Recherche de tarif EOS pour code: {code_elements}, date: {date}")
+        
+        # Afficher tous les tarifs disponibles en DEBUG
+        all_tarifs = TarifEOS.query.filter(TarifEOS.actif == True).all()
+        logger.info(f"Tarifs EOS disponibles: {[(t.code, t.montant) for t in all_tarifs]}")
+        
+        # Recherche du tarif spécifique
         tarif = TarifEOS.query.filter(
             TarifEOS.code == code_elements,
             TarifEOS.date_debut <= date,
@@ -25,8 +33,12 @@ class TarificationService:
             TarifEOS.actif == True
         ).order_by(TarifEOS.date_debut.desc()).first()
         
+        if not tarif:
+            logger.warning(f"Aucun tarif EOS trouvé pour le code {code_elements}")
+        else:
+            logger.info(f"Tarif EOS trouvé: {tarif.code} - {tarif.montant}€")
+        
         return tarif
-    
     @staticmethod
     def get_tarif_enqueteur(code_elements, enqueteur_id=None, date=None):
         """
@@ -92,6 +104,9 @@ class TarificationService:
             if donnee_enqueteur.code_resultat in ['P', 'H'] and donnee_enqueteur.elements_retrouves:
                 elements_code = donnee_enqueteur.elements_retrouves
                 
+                # DEBUG - Afficher des informations
+                logger.info(f"Calcul des tarifs pour le code: {elements_code}")
+                
                 # Récupérer les tarifs
                 tarif_eos = TarificationService.get_tarif_eos(elements_code)
                 tarif_enqueteur = TarificationService.get_tarif_enqueteur(
@@ -99,33 +114,41 @@ class TarificationService:
                     donnee.enqueteurId
                 )
                 
-                # Mettre à jour la facturation
+                # DEBUG - Vérifier si les tarifs ont été trouvés
+                logger.info(f"Tarif EOS trouvé: {tarif_eos}")
+                logger.info(f"Tarif Enquêteur trouvé: {tarif_enqueteur}")
+                
+                # Mettre à jour la facturation si les tarifs existent
                 if tarif_eos:
                     facturation.tarif_eos_code = elements_code
                     facturation.tarif_eos_montant = tarif_eos.montant
-                    facturation.resultat_eos_montant = tarif_eos.montant  # Simplifié, dans un cas réel il faudrait prendre en compte les ajustements
+                    facturation.resultat_eos_montant = tarif_eos.montant
+                else:
+                    # Valeur par défaut si aucun tarif trouvé
+                    logger.warning(f"Aucun tarif EOS trouvé pour {elements_code}, utilisation de valeur par défaut")
+                    facturation.tarif_eos_code = elements_code
+                    facturation.tarif_eos_montant = 10.0  # Valeur par défaut
+                    facturation.resultat_eos_montant = 10.0
                 
                 if tarif_enqueteur:
                     facturation.tarif_enqueteur_code = elements_code
                     facturation.tarif_enqueteur_montant = tarif_enqueteur.montant
-                    facturation.resultat_enqueteur_montant = tarif_enqueteur.montant  # Simplifié
-            else:
-                # Si le résultat est négatif, tout mettre à zéro
-                facturation.tarif_eos_code = None
-                facturation.tarif_eos_montant = 0
-                facturation.resultat_eos_montant = 0
-                facturation.tarif_enqueteur_code = None
-                facturation.tarif_enqueteur_montant = 0
-                facturation.resultat_enqueteur_montant = 0
+                    facturation.resultat_enqueteur_montant = tarif_enqueteur.montant
+                else:
+                    # Valeur par défaut si aucun tarif trouvé
+                    logger.warning(f"Aucun tarif Enquêteur trouvé pour {elements_code}, utilisation de valeur par défaut")
+                    facturation.tarif_enqueteur_code = elements_code
+                    facturation.tarif_enqueteur_montant = 7.0  # Valeur par défaut
+                    facturation.resultat_enqueteur_montant = 7.0
             
             db.session.commit()
+            logger.info(f"Facturation calculée et enregistrée avec succès: {facturation.id}")
             return facturation
         
         except Exception as e:
             logger.error(f"Erreur lors du calcul des tarifs: {str(e)}")
             db.session.rollback()
             return None
-    
     @staticmethod
     def get_enqueteur_earnings(enqueteur_id, month=None, year=None):
         """

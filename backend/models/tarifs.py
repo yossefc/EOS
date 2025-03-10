@@ -74,7 +74,8 @@ class EnqueteFacturation(db.Model):
     resultat_enqueteur_montant = db.Column(db.Numeric(8, 2))  # Montant final après ajustements
     
     # Statut de paiement enquêteur
-    paye = db.Column(db.Boolean, default=False)
+# Dans la classe EnqueteFacturation, assurez-vous que cette ligne définit explicitement False comme valeur par défaut
+    paye = db.Column(db.Boolean, default=False, nullable=False)    
     date_paiement = db.Column(db.Date)
     reference_paiement = db.Column(db.String(50))
     
