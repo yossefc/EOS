@@ -209,6 +209,8 @@ class DonneeEnqueteur(db.Model):
             
             # Notes personnelles
             'notes_personnelles': self.notes_personnelles,
+
+            
             
             # Timestamps
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,

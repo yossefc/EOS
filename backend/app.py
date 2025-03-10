@@ -35,36 +35,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def init_app():
     app = create_app()
     
-    # UNE SEULE configuration CORS - n'utilisez pas plusieurs méthodes
-    # Supprimez toute autre configuration CORS que vous pourriez avoir
+    # Initialisations
+    init_extensions(app)
+    
+    # Enregistrement des blueprints - vérifiez que tous sont présents et non commentés
+    register_vpn_template_routes(app)
+    register_export_routes(app)
+    register_enqueteurs_routes(app)  # Assurez-vous que cette ligne est présente
+    register_vpn_download_routes(app)
+    register_etat_civil_routes(app)
+    
+    # Le reste du code...
+    
+    # Une seule configuration CORS
     CORS(app, resources={
         r"/*": {
-            "origins": "*",  # Vous pouvez aussi être plus restrictif, par exemple: origins="http://localhost:5173"
+            "origins": ["http://localhost:5173", "http://192.168.175.1:5173"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
         }
     })
     
+    # Assurez-vous que le bloc "with app.app_context()" est présent
+    with app.app_context():
+        db.create_all()
+    
     @app.after_request
     def after_request(response):
-        response.headers.add('Access-Control-Allow-Origin', '*')
+        # Ne pas ajouter d'en-tête Origin s'il est déjà présent
+        if 'Access-Control-Allow-Origin' not in response.headers:
+            response.headers.add('Access-Control-Allow-Origin', '*')
+        
+        # Ajouter seulement les autres en-têtes
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         response.headers.add('Access-Control-Allow-Credentials', 'true')
+        
         return response
-    
-    register_etat_civil_routes(app)
-    init_extensions(app)
-    register_vpn_template_routes(app)
-    register_export_routes(app)
-    register_enqueteurs_routes(app)  # Nouvelles routes d'authentification
-    register_vpn_download_routes(app)    # Nouvelles routes de téléchargement VPN
-
-    with app.app_context():
-        db.create_all()
 
     @app.route('/api/test-cors', methods=['GET', 'OPTIONS'])
     def test_cors():
@@ -649,4 +660,4 @@ def init_app():
 
 if __name__ == '__main__':
     app = init_app()
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
