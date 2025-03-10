@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import config from '../config';
 
+
 const API_URL = config.API_URL;
 
 const TarificationViewer = () => {
@@ -14,6 +15,11 @@ const TarificationViewer = () => {
   const [tarifsEnqueteur, setTarifsEnqueteur] = useState([]);
   const [enqueteurs, setEnqueteurs] = useState([]);
   
+  // Nouveaux états pour les rapports financiers
+  const [globalStats, setGlobalStats] = useState(null);
+  const [enquetesAFacturer, setEnquetesAFacturer] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingEnquetes, setLoadingEnquetes] = useState(false);
   // États pour les formulaires
   const [showFormEOS, setShowFormEOS] = useState(false);
   const [showFormEnqueteur, setShowFormEnqueteur] = useState(false);
@@ -32,10 +38,16 @@ const TarificationViewer = () => {
   // États pour l'onglet actif
   const [activeTab, setActiveTab] = useState('tarifsEOS');
   
-  // Charger les données initiales
-  useEffect(() => {
-    fetchData();
-  }, []);
+// Charger les données initiales
+useEffect(() => {
+  fetchData();
+  
+  // Charger les statistiques et enquêtes si on est sur l'onglet rapports
+  if (activeTab === 'rapports') {
+    fetchGlobalStats();
+    fetchEnquetesAFacturer();
+  }
+}, [activeTab]);
   
   // Fonction pour récupérer toutes les données
   const fetchData = async () => {
@@ -247,7 +259,44 @@ const TarificationViewer = () => {
     setEditingEnqueteur(tarif);
     setShowFormEnqueteur(true);
   };
+  // Fonctions pour les rapports financiers
+  const fetchGlobalStats = async () => {
+    try {
+      setLoadingStats(true);
+      
+      const response = await axios.get(`${API_URL}/api/tarification/stats/global`);
+      
+      if (response.data.success) {
+        setGlobalStats(response.data.data);
+      } else {
+        setError(response.data.error || "Erreur lors du chargement des statistiques");
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des statistiques:", error);
+      setError(error.response?.data?.error || "Erreur lors du chargement des statistiques");
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
+  const fetchEnquetesAFacturer = async () => {
+    try {
+      setLoadingEnquetes(true);
+      
+      const response = await axios.get(`${API_URL}/api/tarification/enquetes-a-facturer`);
+      
+      if (response.data.success) {
+        setEnquetesAFacturer(response.data.data);
+      } else {
+        setError(response.data.error || "Erreur lors du chargement des enquêtes");
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des enquêtes:", error);
+      setError(error.response?.data?.error || "Erreur lors du chargement des enquêtes");
+    } finally {
+      setLoadingEnquetes(false);
+    }
+  };
   // Rendu de l'interface
   return (
     <div className="space-y-4">
@@ -694,97 +743,179 @@ const TarificationViewer = () => {
           </div>
         )}
 
-        {/* Rapports financiers */}
-        {activeTab === 'rapports' && (
-          <div>
-            <h2 className="text-lg font-medium mb-4">Rapports Financiers</h2>
-            
-            <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-yellow-800">Fonctionnalité en développement</h3>
-                <p className="text-yellow-700 text-sm mt-1">
-                  Cette section permettra de visualiser et d'exporter des rapports financiers détaillés sur les enquêtes, les facturations EOS et les paiements aux enquêteurs.
-                </p>
-                <p className="text-yellow-700 text-sm mt-2">
-                  En attendant, vous pouvez utiliser les fonctionnalités partielles ci-dessous.
-                </p>
-              </div>
+{/* Rapports financiers */}
+{activeTab === 'rapports' && (
+  <div>
+    <h2 className="text-lg font-medium mb-4">Rapports Financiers</h2>
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="bg-white rounded-lg border p-4">
+        <h3 className="font-medium mb-3 flex items-center gap-2">
+          <BarChart2 className="w-5 h-5 text-blue-500" />
+          Statistiques Globales
+        </h3>
+        <p className="text-gray-500 text-sm mb-4">
+          Récapitulatif des montants facturés et à payer
+        </p>
+        
+        {loadingStats ? (
+          <div className="flex justify-center p-4">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
+          </div>
+        ) : globalStats ? (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total facturé EOS:</span>
+              <span className="font-semibold">{globalStats.total_eos.toFixed(2)} €</span>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="bg-white rounded-lg border p-4">
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <BarChart2 className="w-5 h-5 text-blue-500" />
-                  Statistiques Globales
-                </h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Récapitulatif des montants facturés et à payer
-                </p>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Total facturé EOS:</span>
-                    <span className="font-semibold">Calcul en cours...</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Total à payer aux enquêteurs:</span>
-                    <span className="font-semibold">Calcul en cours...</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Marge totale:</span>
-                    <span className="font-semibold text-green-600">Calcul en cours...</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Pourcentage de marge:</span>
-                    <span className="font-semibold text-green-600">Calcul en cours...</span>
-                  </div>
-                </div>
-                
-                <button className="w-full mt-4 flex items-center justify-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-                  <Calculator className="w-4 h-4" />
-                  <span>Générer un rapport détaillé</span>
-                </button>
-              </div>
-              
-              <div className="bg-white rounded-lg border p-4">
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-500" />
-                  Paiements Enquêteurs
-                </h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Gestion des paiements aux enquêteurs
-                </p>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Montant total à payer:</span>
-                    <span className="font-semibold">Calcul en cours...</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Dernière date de paiement:</span>
-                    <span className="font-semibold">-</span>
-                  </div>
-                </div>
-                
-                <button className="w-full mt-4 flex items-center justify-center gap-1 px-3 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600">
-                  <DollarSign className="w-4 h-4" />
-                  <span>Voir le détail par enquêteur</span>
-                </button>
-              </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total à payer aux enquêteurs:</span>
+              <span className="font-semibold">{globalStats.total_enqueteurs.toFixed(2)} €</span>
             </div>
-            
-            <div className="bg-white rounded-lg border">
-              <div className="p-4 border-b">
-                <h3 className="font-medium">Liste des enquêtes à facturer</h3>
-              </div>
-              <div className="p-4 text-center text-gray-500">
-                <p>Cette section affichera la liste des enquêtes terminées avec leurs montants</p>
-                <p className="text-sm mt-2">Fonctionnalité en cours de développement</p>
-              </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Marge totale:</span>
+              <span className="font-semibold text-green-600">{globalStats.marge.toFixed(2)} €</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Pourcentage de marge:</span>
+              <span className="font-semibold text-green-600">{globalStats.pourcentage_marge.toFixed(2)}%</span>
             </div>
           </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500">
+            Aucune donnée disponible
+          </div>
         )}
+        
+        <button 
+          onClick={fetchGlobalStats}
+          className="w-full mt-4 flex items-center justify-center gap-1 px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          <Calculator className="w-4 h-4" />
+          <span>Actualiser les statistiques</span>
+        </button>
+      </div>
+      
+      <div className="bg-white rounded-lg border p-4">
+        <h3 className="font-medium mb-3 flex items-center gap-2">
+          <Users className="w-5 h-5 text-purple-500" />
+          Paiements Enquêteurs
+        </h3>
+        <p className="text-gray-500 text-sm mb-4">
+          Gestion des paiements aux enquêteurs
+        </p>
+        
+        {loadingStats ? (
+          <div className="flex justify-center p-4">
+            <RefreshCw className="w-6 h-6 animate-spin text-purple-500" />
+          </div>
+        ) : globalStats ? (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Montant total à payer:</span>
+              <span className="font-semibold">{globalStats.total_enqueteurs.toFixed(2)} €</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Dernière date de paiement:</span>
+              <span className="font-semibold">{globalStats.derniere_date_paiement || '-'}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500">
+            Aucune donnée disponible
+          </div>
+        )}
+        
+        <button 
+          className="w-full mt-4 flex items-center justify-center gap-1 px-3 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600"
+          onClick={() => window.location.href = '#/paiements'}
+        >
+          <DollarSign className="w-4 h-4" />
+          <span>Voir le détail par enquêteur</span>
+        </button>
+      </div>
+    </div>
+    
+    <div className="bg-white rounded-lg border">
+      <div className="p-4 border-b flex justify-between items-center">
+        <h3 className="font-medium">Liste des enquêtes à facturer</h3>
+        <button 
+          onClick={fetchEnquetesAFacturer}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>Actualiser</span>
+        </button>
+      </div>
+      {loadingEnquetes ? (
+        <div className="flex justify-center items-center p-8">
+          <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      ) : enquetesAFacturer.length === 0 ? (
+        <div className="p-8 text-center text-gray-500">
+          <p>Aucune enquête à facturer n'a été trouvée</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  N° Dossier
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Enquêteur
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Éléments
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Date
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Montant EOS
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Montant Enquêteur
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Marge
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {enquetesAFacturer.map((enquete) => (
+                <tr key={enquete.donnee_id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {enquete.numero_dossier}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {enquete.enqueteur}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {enquete.elements_retrouves}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    {enquete.date_resultat}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
+                    {enquete.montant_eos.toFixed(2)} €
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
+                    {enquete.montant_enqueteur.toFixed(2)} €
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-green-600">
+                    {enquete.marge.toFixed(2)} €
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

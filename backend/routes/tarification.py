@@ -6,6 +6,8 @@ from services.tarification_service import TarificationService
 from extensions import db
 import logging
 from datetime import datetime
+from models.models_enqueteur import DonneeEnqueteur
+
 
 logger = logging.getLogger(__name__)
 
@@ -438,6 +440,139 @@ def initialiser_tarifs():
             
     except Exception as e:
         logger.error(f"Erreur lors de l'initialisation des tarifs: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+@tarification_bp.route('/api/tarification/stats/global', methods=['GET'])
+def get_global_stats():
+    """Récupère les statistiques financières globales"""
+    try:
+        from sqlalchemy import func
+        
+        # Calcul du total facturé par EOS
+        total_eos = db.session.query(func.sum(EnqueteFacturation.resultat_eos_montant)).scalar() or 0
+        
+        # Calcul du total à payer aux enquêteurs
+        total_enqueteurs = db.session.query(func.sum(EnqueteFacturation.resultat_enqueteur_montant)).scalar() or 0
+        
+        # Nombre d'enquêtes traitées
+        enquetes_traitees = db.session.query(func.count(DonneeEnqueteur.id)).filter(
+            DonneeEnqueteur.code_resultat.isnot(None)
+        ).scalar() or 0
+        
+        # Nombre d'enquêtes positives
+        enquetes_positives = db.session.query(func.count(DonneeEnqueteur.id)).filter(
+            DonneeEnqueteur.code_resultat.in_(['P', 'H'])
+        ).scalar() or 0
+        
+        # Calcul de la marge
+        marge = float(total_eos) - float(total_enqueteurs)
+        pourcentage_marge = (marge / float(total_eos) * 100) if float(total_eos) > 0 else 0
+        
+        # Dernière date de paiement
+        derniere_date = db.session.query(
+            func.max(EnqueteFacturation.date_paiement)
+        ).filter(
+            EnqueteFacturation.paye == True
+        ).scalar()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_eos': float(total_eos),
+                'total_enqueteurs': float(total_enqueteurs),
+                'marge': marge,
+                'pourcentage_marge': pourcentage_marge,
+                'derniere_date_paiement': derniere_date.strftime('%Y-%m-%d') if derniere_date else None,
+                'enquetes_traitees': enquetes_traitees,
+                'enquetes_positives': enquetes_positives
+            }
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors du calcul des statistiques globales: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@tarification_bp.route('/api/tarification/enquetes-a-facturer', methods=['GET'])
+def get_enquetes_a_facturer():
+    """Récupère la liste des enquêtes terminées à facturer"""
+    try:
+        from models.models import Donnee
+        from models.models_enqueteur import DonneeEnqueteur
+        from models.enqueteur import Enqueteur
+        
+        # Requête pour obtenir les enquêtes positives avec leur facturation
+        results = db.session.query(
+            Donnee, DonneeEnqueteur
+        ).join(
+            DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
+        ).filter(
+            DonneeEnqueteur.code_resultat.in_(['P', 'H'])
+        ).all()
+        
+        enquetes = []
+        
+        for donnee, donnee_enqueteur in results:
+            # Récupérer la facturation
+            facturation = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+            
+            # Récupérer l'enquêteur
+            enqueteur = Enqueteur.query.filter_by(id=donnee.enqueteurId).first() if donnee.enqueteurId else None
+            
+            # Si la facturation n'existe pas, la calculer maintenant
+            if not facturation:
+                facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+            
+            # Ajouter à la liste
+            enquetes.append({
+                'donnee_id': donnee.id,
+                'numero_dossier': donnee.numeroDossier,
+                'enqueteur': f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné",
+                'elements_retrouves': donnee_enqueteur.elements_retrouves or '-',
+                'date_resultat': donnee_enqueteur.updated_at.strftime('%Y-%m-%d') if donnee_enqueteur.updated_at else None,
+                'code_resultat': donnee_enqueteur.code_resultat or '-',
+                'montant_eos': float(facturation.resultat_eos_montant) if facturation else 0,
+                'montant_enqueteur': float(facturation.resultat_enqueteur_montant) if facturation else 0,
+                'marge': float(facturation.resultat_eos_montant or 0) - float(facturation.resultat_enqueteur_montant or 0)
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': enquetes
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des enquêtes à facturer: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@tarification_bp.route('/api/tarification/calculer-toutes-facturations', methods=['POST'])
+def calculer_toutes_facturations():
+    """Force le recalcul de toutes les facturations"""
+    try:
+        # Récupérer toutes les données enquêteur avec résultat positif ou confirmé
+        donnees_enqueteur = DonneeEnqueteur.query.filter(
+            DonneeEnqueteur.code_resultat.in_(['P', 'H'])
+        ).all()
+        
+        count = 0
+        for donnee_enqueteur in donnees_enqueteur:
+            facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+            if facturation:
+                count += 1
+        
+        return jsonify({
+            'success': True,
+            'message': f'{count} facturations calculées avec succès'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erreur lors du calcul des facturations: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)

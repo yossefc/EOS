@@ -374,6 +374,11 @@ def init_app():
             
             db.session.commit()
             
+            if donnee_enqueteur.code_resultat in ['P', 'H']:
+                from services.tarification_service import TarificationService
+                facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+                logger.info(f"Facturation calculée automatiquement pour l'enquête {donnee_id}")
+            
             return jsonify({
                 'success': True, 
                 'message': 'Données mises à jour avec succès',

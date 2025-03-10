@@ -5,8 +5,8 @@ import {
     User, Clock, Table, ArrowDownToLine, DollarSign
 } from 'lucide-react';
 import UpdateModal from './UpdateModal';
+import EnhancedEarningsViewer from './EnhancedEarningsViewer'; // Utiliser le composant amélioré
 import config from '../config';
-import EarningsViewer from './EarningsViewer';
 
 const API_URL = config.API_URL;
 
@@ -47,7 +47,8 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
     const [dateFilter, setDateFilter] = useState('all');
     const [selectedEnquete, setSelectedEnquete] = useState(null);
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('enquetes'); // Ajouter l'état pour l'onglet actif
+    const [activeTab, setActiveTab] = useState('enquetes');
+    const [earningsSummary, setEarningsSummary] = useState(null);
     
     // Stats
     const [stats, setStats] = useState({
@@ -85,6 +86,24 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
             setLoading(false);
         }
     }, [enqueteurId, searchTerm, statusFilter, dateFilter]);
+
+    // Fonction pour récupérer un résumé des revenus
+    const fetchEarningsSummary = useCallback(async () => {
+        if (!enqueteurId) return;
+        
+        try {
+            const response = await axios.get(`${API_URL}/api/facturation/enqueteur/${enqueteurId}`);
+            if (response.data.success) {
+                setEarningsSummary({
+                    totalGagne: response.data.data.total_gagne || 0,
+                    totalAPayer: response.data.data.total_a_payer || 0,
+                    nombreEnquetes: response.data.data.nombre_enquetes || 0
+                });
+            }
+        } catch (error) {
+            console.error("Erreur lors du chargement du résumé des revenus:", error);
+        }
+    }, [enqueteurId]);
 
     // Appliquer les filtres
     const applyFilters = (data, search, status, date) => {
@@ -165,7 +184,8 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
     // Charger les enquêtes au montage du composant
     useEffect(() => {
         fetchEnquetes();
-    }, [fetchEnquetes]);
+        fetchEarningsSummary();
+    }, [fetchEnquetes, fetchEarningsSummary]);
 
     // Gérer la recherche
     const handleSearch = (e) => {
@@ -186,6 +206,7 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
 
         if (shouldRefresh) {
             fetchEnquetes();
+            fetchEarningsSummary();
         }
     };
 
@@ -217,7 +238,7 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
     };
 
     // Si chargement en cours
-    if (loading) {
+    if (loading && !enquetes.length) {
         return (
             <div className="flex justify-center items-center p-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -226,7 +247,7 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
     }
 
     // Si erreur
-    if (error) {
+    if (error && !enquetes.length) {
         return (
             <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -247,32 +268,57 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
         <div className="p-6 bg-gray-50 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 {/* Header avec infos de l'enquêteur */}
-                <div className="mb-6 flex justify-between items-start">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                            <User className="w-6 h-6 text-blue-500" />
-                            Bonjour, {enqueteurPrenom} {enqueteurNom}
-                        </h1>
-                        <p className="text-gray-600">
-                            Voici les enquêtes qui vous sont assignées
-                        </p>
+                <div className="mb-6">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                <User className="w-6 h-6 text-blue-500" />
+                                Bonjour, {enqueteurPrenom} {enqueteurNom}
+                            </h1>
+                            <p className="text-gray-600">
+                                Voici les enquêtes qui vous sont assignées
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleDownloadVpnConfig}
+                                className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"
+                            >
+                                <ArrowDownToLine className="w-4 h-4" />
+                                Config VPN
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                Déconnexion
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleDownloadVpnConfig}
-                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white rounded-lg hover:bg-gray-50"
-                        >
-                            <ArrowDownToLine className="w-4 h-4" />
-                            Config VPN
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                        >
-                            <LogOut className="w-4 h-4" />
-                            Déconnexion
-                        </button>
-                    </div>
+                    
+                    {/* Alerte de revenus en attente */}
+                    {earningsSummary && earningsSummary.totalAPayer > 0 && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <DollarSign className="w-5 h-5 text-blue-500" />
+                                <div>
+                                    <span className="font-medium text-blue-800">
+                                        Vous avez {earningsSummary.totalAPayer.toFixed(2)}€ de revenus en attente
+                                    </span>
+                                    <p className="text-sm text-blue-600">
+                                        Vos revenus correspondent à {earningsSummary.nombreEnquetes} enquêtes traitées
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setActiveTab('earnings')}
+                                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                            >
+                                Voir mes revenus
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Navigation par onglets */}
@@ -280,7 +326,7 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
                     <div className="flex -mb-px space-x-8">
                         <button
                             onClick={() => setActiveTab('enquetes')}
-                            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center space-x-2
+                            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center gap-2
                                 ${activeTab === 'enquetes'
                                     ? 'border-blue-500 text-blue-600'
                                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
@@ -291,7 +337,7 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
                         </button>
                         <button
                             onClick={() => setActiveTab('earnings')}
-                            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center space-x-2
+                            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center gap-2
                                 ${activeTab === 'earnings'
                                     ? 'border-blue-500 text-blue-600'
                                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
@@ -299,6 +345,11 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
                         >
                             <DollarSign className="w-5 h-5" />
                             <span>Mes revenus</span>
+                            {earningsSummary && earningsSummary.totalAPayer > 0 && (
+                                <span className="inline-flex items-center justify-center bg-blue-100 text-blue-800 text-xs font-medium rounded-full h-5 px-2 ml-1">
+                                    {earningsSummary.totalAPayer.toFixed(0)}€
+                                </span>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -505,8 +556,8 @@ const EnqueteurRestrictedDashboard = ({ onLogout }) => {
                         </div>
                     </>
                 ) : (
-                    /* Affichage du composant EarningsViewer si l'onglet actif est 'earnings' */
-                    <EarningsViewer enqueteurId={enqueteurId} />
+                    /* Affichage du composant EnhancedEarningsViewer */
+                    <EnhancedEarningsViewer enqueteurId={enqueteurId} />
                 )}
             </div>
 
