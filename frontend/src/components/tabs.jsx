@@ -31,7 +31,9 @@ const Tabs = () => {
     // Cette fonction sera passée aux composants qui en ont besoin
     console.log('Import terminé, rafraîchissement des données...');
   };
-
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+  };
   const tabs = [
     {
       id: 'stats',
@@ -79,7 +81,7 @@ const Tabs = () => {
       id: 'tarification',
       label: 'Tarification',
       icon: <DollarSign className="w-4 h-4" />,
-      component: <TarificationViewer />
+      component: <TarificationViewer onTabChange={handleTabChange} />
     },
     {
       id: 'paiements',

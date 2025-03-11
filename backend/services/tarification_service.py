@@ -75,28 +75,30 @@ class TarificationService:
     
     @staticmethod
     def calculate_tarif_for_enquete(donnee_enqueteur_id):
-        """
-        Calcule les tarifs (EOS et enquêteur) pour une enquête spécifique
-        et enregistre les résultats dans la table EnqueteFacturation
-        """
         try:
-            # Récupérer les données de l'enquête
+            # Get data
             donnee_enqueteur = DonneeEnqueteur.query.get(donnee_enqueteur_id)
             if not donnee_enqueteur:
-                logger.error(f"DonneeEnqueteur {donnee_enqueteur_id} non trouvée")
+                logger.error(f"DonneeEnqueteur {donnee_enqueteur_id} not found")
                 return None
                 
             donnee = Donnee.query.get(donnee_enqueteur.donnee_id)
             if not donnee:
-                logger.error(f"Donnee {donnee_enqueteur.donnee_id} non trouvée")
+                logger.error(f"Donnee {donnee_enqueteur.donnee_id} not found")
+                return None
+            
+            # Important: Check if an enqueteur is assigned
+            if not donnee.enqueteurId:
+                logger.warning(f"No enqueteur assigned to donnee {donnee.id}, cannot calculate payment")
                 return None
                 
-            # Vérifier si une facturation existe déjà
+            # Find or create facturation
             facturation = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur_id).first()
             if not facturation:
                 facturation = EnqueteFacturation(
                     donnee_id=donnee.id,
-                    donnee_enqueteur_id=donnee_enqueteur.id
+                    donnee_enqueteur_id=donnee_enqueteur.id,
+                    paye=False  # Explicitly set to False
                 )
                 db.session.add(facturation)
             
@@ -140,6 +142,11 @@ class TarificationService:
                     facturation.tarif_enqueteur_code = elements_code
                     facturation.tarif_enqueteur_montant = 7.0  # Valeur par défaut
                     facturation.resultat_enqueteur_montant = 7.0
+                
+                if not facturation.resultat_enqueteur_montant or facturation.resultat_enqueteur_montant <= 0:
+                    facturation.resultat_enqueteur_montant = 10.0  # Default value
+                    logger.info(f"Set default amount of 10€ for facturation {facturation.id}")
+            
             
             db.session.commit()
             logger.info(f"Facturation calculée et enregistrée avec succès: {facturation.id}")

@@ -19,7 +19,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 px-4">
+      <main >
         <Tabs />
       </main>
 

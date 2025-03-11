@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Table, RefreshCw, Search, Filter, Calendar, AlertCircle } from 'lucide-react';
+import { Table, RefreshCw, Search, Filter, Calendar, AlertCircle, FileText, FileUp } from 'lucide-react';
 import UpdateModal from './UpdateModal';
 import config from '../config';
+import EnqueteExporter from './EnqueteExporter';
+import EnqueteBatchExporter from './EnqueteBatchExporter';
 
 const API_URL = config.API_URL;
 
@@ -30,7 +32,11 @@ const STATUS_LABELS = {
 const DataViewer = () => {
     // Définition des états
     const [donnees, setDonnees] = useState([]);
+    const [enqueteToExport, setEnqueteToExport] = useState(null);
+    const [selectedDonnees, setSelectedDonnees] = useState([]);
+    const [showBatchExport, setShowBatchExport] = useState(false);
     const [enqueteurs, setEnqueteurs] = useState([]);
+    const [fichiers, setFichiers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +44,7 @@ const DataViewer = () => {
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
+    const [fichierFilter, setFichierFilter] = useState('all');
 
     // Utiliser useMemo pour filtrer les données
     const filteredDonnees = useMemo(() => {
@@ -97,8 +104,52 @@ const DataViewer = () => {
             });
         }
         
+        // Filtre par fichier d'importation
+        if (fichierFilter !== 'all') {
+            filtered = filtered.filter(donnee => donnee.fichier_id === parseInt(fichierFilter));
+        }
+        
         return filtered;
-    }, [donnees, searchTerm, statusFilter, dateFilter]);
+    }, [donnees, searchTerm, statusFilter, dateFilter, fichierFilter]);
+
+    // Fonction pour vérifier si la date est dépassée
+    const isDateOverdue = (dateString) => {
+        if (!dateString) return false;
+        
+        // Convertir la date au format français (DD/MM/YYYY) en objet Date
+        const parts = dateString.split('/');
+        if (parts.length !== 3) return false;
+        
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Les mois commencent à 0
+        const year = parseInt(parts[2], 10);
+        
+        const dateRetour = new Date(year, month, day);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Réinitialiser les heures pour comparer seulement les dates
+        
+        return dateRetour < today;
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedDonnees([...filteredDonnees]);
+        } else {
+            setSelectedDonnees([]);
+        }
+    };
+    
+    const handleSelectDonnee = (donnee, checked) => {
+        if (checked) {
+            setSelectedDonnees([...selectedDonnees, donnee]);
+        } else {
+            setSelectedDonnees(selectedDonnees.filter(d => d.id !== donnee.id));
+        }
+    };
+
+    const handleExport = (donnee) => {
+        setEnqueteToExport(donnee);
+    };
 
     // Définir fetchData avec useCallback pour éviter des re-rendus inutiles
     const fetchData = useCallback(async () => {
@@ -141,6 +192,12 @@ const DataViewer = () => {
             if (enqueteursResponse.data.success && Array.isArray(enqueteursResponse.data.data)) {
                 setEnqueteurs(enqueteursResponse.data.data);
             }
+            
+            // Charger la liste des fichiers importés
+            const statsResponse = await axios.get(`${API_URL}/api/stats`);
+            if (statsResponse.data && statsResponse.data.derniers_fichiers) {
+                setFichiers(statsResponse.data.derniers_fichiers);
+            }
 
         } catch (err) {
             console.error("Erreur lors du chargement des données:", err);
@@ -161,6 +218,13 @@ const DataViewer = () => {
         const enqueteur = enqueteurs.find(e => e.id === enqueteurId);
         return enqueteur ? `${enqueteur.nom} ${enqueteur.prenom}` : 'Non trouvé';
     }, [enqueteurs]);
+    
+    // Fonction pour obtenir le nom du fichier d'importation
+    const getFichierName = useCallback((fichierId) => {
+        if (!fichierId) return 'Inconnu';
+        const fichier = fichiers.find(f => f.id === fichierId);
+        return fichier ? fichier.nom : 'Inconnu';
+    }, [fichiers]);
 
     const handleSearch = useCallback((e) => {
         setSearchTerm(e.target.value);
@@ -244,7 +308,7 @@ const DataViewer = () => {
                     Données importées ({filteredDonnees.length})
                 </h2>
 
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2">
                     <div className="relative">
                         <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                         <input
@@ -286,6 +350,22 @@ const DataViewer = () => {
                             </select>
                             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                         </div>
+                        {/* Nouveau filtre par fichier */}
+                        <div className="relative">
+                            <select
+                                value={fichierFilter}
+                                onChange={(e) => setFichierFilter(e.target.value)}
+                                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="all">Tous les fichiers</option>
+                                {fichiers.map(fichier => (
+                                    <option key={fichier.id} value={fichier.id}>
+                                        {fichier.nom}
+                                    </option>
+                                ))}
+                            </select>
+                            <FileUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        </div>
                         <button
                             onClick={fetchData}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -294,6 +374,16 @@ const DataViewer = () => {
                             Actualiser
                         </button>
                     </div>
+                    {/* Bouton d'export par lot */}
+                    {selectedDonnees.length > 0 && (
+                        <button
+                            onClick={() => setShowBatchExport(true)}
+                            className="flex items-center gap-1 px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span>Exporter {selectedDonnees.length} enquête{selectedDonnees.length > 1 ? 's' : ''}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -301,6 +391,14 @@ const DataViewer = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-2 py-3 text-left">
+                                <input
+                                    type="checkbox"
+                                    onChange={handleSelectAll}
+                                    checked={selectedDonnees.length === filteredDonnees.length && filteredDonnees.length > 0}
+                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                />
+                            </th>
                             <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
                             </th>
@@ -309,6 +407,9 @@ const DataViewer = () => {
                             </th>
                             <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Enquêteur
+                            </th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Fichier source
                             </th>
                             <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Date limite
@@ -338,26 +439,45 @@ const DataViewer = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredDonnees.map((donnee, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                                <td className="px-2 py-2 text-xs flex space-x-1">
-                                    <button
-                                        onClick={() => handleDelete(donnee.id)}
-                                        className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
-                                    >
-                                        Supp
-                                    </button>
-                                    <button
-                                        onClick={() => handleUpdate(donnee)}
-                                        className="px-2 py-1 bg-green-500 text-white rounded hover:bg-blue-600 text-xs"
-                                    >
-                                        Traiter
-                                    </button>
-                                    <button
-                                        onClick={() => handleHistory(donnee.id)}
-                                        className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
-                                    >
-                                        Histo
-                                    </button>
+                            <tr 
+                                key={index} 
+                                className={`hover:bg-gray-50 ${isDateOverdue(donnee.dateRetourEspere) ? 'bg-red-50' : ''}`}
+                            >
+                                <td className="px-2 py-2 text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedDonnees.some(d => d.id === donnee.id)}
+                                        onChange={(e) => handleSelectDonnee(donnee, e.target.checked)}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                </td>
+                                <td className="px-2 py-2 text-xs">
+                                    <div className="flex space-x-1">
+                                        <button
+                                            onClick={() => handleDelete(donnee.id)}
+                                            className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
+                                        >
+                                            Supp
+                                        </button>
+                                        <button
+                                            onClick={() => handleUpdate(donnee)}
+                                            className="px-2 py-1 bg-green-500 text-white rounded hover:bg-blue-600 text-xs"
+                                        >
+                                            Traiter
+                                        </button>
+                                        <button
+                                            onClick={() => handleHistory(donnee.id)}
+                                            className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
+                                        >
+                                            Histo
+                                        </button>
+                                        <button
+                                            onClick={() => handleExport(donnee)}
+                                            className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                                        >
+                                            Export
+                                        </button>
+                                    </div>
                                 </td>
                                 <td className="px-2 py-2 text-xs">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -367,6 +487,7 @@ const DataViewer = () => {
                                     </span>
                                 </td>
                                 <td className="px-2 py-2 text-xs">{getEnqueteurName(donnee.enqueteurId)}</td>
+                                <td className="px-2 py-2 text-xs">{getFichierName(donnee.fichier_id)}</td>
                                 <td className="px-2 py-2 text-xs">{donnee.dateRetourEspere}</td>
                                 <td className="px-2 py-2 text-xs">{donnee.numeroDossier}</td>
                                 <td className="px-2 py-2 text-xs">{donnee.typeDemande}</td>
@@ -409,6 +530,22 @@ const DataViewer = () => {
                     isOpen={isUpdateModalOpen}
                     onClose={handleModalClose}
                     data={selectedData}
+                />
+            )}
+
+            {/* Composant d'export individuel */}
+            {enqueteToExport && (
+                <EnqueteExporter
+                    data={enqueteToExport}
+                    onClose={() => setEnqueteToExport(null)}
+                />
+            )}
+
+            {/* Composant d'export par lot */}
+            {showBatchExport && (
+                <EnqueteBatchExporter
+                    data={selectedDonnees}
+                    onClose={() => setShowBatchExport(false)}
                 />
             )}
         </div>

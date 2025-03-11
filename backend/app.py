@@ -100,7 +100,7 @@ def init_app():
     def get_donnees():
         try:
             page = request.args.get('page', 1, type=int)
-            per_page = request.args.get('per_page', 50, type=int)
+            per_page = request.args.get('per_page', 500, type=int)
             
             pagination = Donnee.query.paginate(page=page, per_page=per_page, error_out=False)
             donnees = pagination.items

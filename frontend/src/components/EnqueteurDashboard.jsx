@@ -91,7 +91,24 @@ const EnqueteurDashboard = () => {
             setLoading(false);
         }
     };
-
+    // Fonction pour vérifier si la date est dépassée
+    const isDateOverdue = (dateString) => {
+        if (!dateString) return false;
+        
+        // Convertir la date au format français (DD/MM/YYYY) en objet Date
+        const parts = dateString.split('/');
+        if (parts.length !== 3) return false;
+        
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Les mois commencent à 0
+        const year = parseInt(parts[2], 10);
+        
+        const dateRetour = new Date(year, month, day);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Réinitialiser les heures pour comparer seulement les dates
+        
+        return dateRetour < today;
+    };
     // Calculer les statistiques
     const calculateStats = (enquetesData) => {
         const total = enquetesData.length;
@@ -443,7 +460,10 @@ const EnqueteurDashboard = () => {
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {filteredEnquetes.map((enquete) => (
-                                                <tr key={enquete.id} className="hover:bg-gray-50">
+                                                <tr 
+  key={enquete.id} 
+  className={`hover:bg-gray-50 ${isDateOverdue(enquete.dateRetourEspere) ? 'bg-red-100 border-l-4 border-red-500' : ''}`}
+>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                         {enquete.numeroDossier}
                                                     </td>
