@@ -925,6 +925,22 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 <div className="bg-gray-50 rounded-lg p-4 border">
                   <h3 className="text-lg font-medium mb-4">Informations générales et résultat</h3>
                   
+
+
+{data.typeDemande === 'CON' && (
+  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+    <h3 className="font-medium mb-2">Informations sur la contestation</h3>
+    {data.enqueteOriginale ? (
+      <div>
+        <p><span className="font-medium">Dossier contesté :</span> {data.enqueteOriginale.numeroDossier}</p>
+        <p><span className="font-medium">Enquêteur initial :</span> {getEnqueteurName(data.enqueteOriginale.enqueteurId)}</p>
+        <p><span className="font-medium">Motif de contestation :</span> {data.motifDeContestation || 'Non précisé'}</p>
+      </div>
+    ) : (
+      <p className="text-yellow-600">Information sur l'enquête originale non disponible</p>
+    )}
+  </div>
+)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
                       <p className="text-sm text-gray-500">Numéro de dossier</p>

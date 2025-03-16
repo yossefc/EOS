@@ -33,7 +33,17 @@ class Donnee(db.Model):
     donnee_enqueteur = db.relationship('DonneeEnqueteur', backref='donnee', lazy=True, uselist=False, cascade='all, delete-orphan')
     # Relation avec Enqueteur
     enqueteur = db.relationship('Enqueteur', backref='enquetes', lazy=True)
+    enquete_originale_id = db.Column(db.Integer, db.ForeignKey('donnees.id'), nullable=True)
+    est_contestation = db.Column(db.Boolean, default=False, nullable=False)
+    date_contestation = db.Column(db.Date)
+    motif_contestation_code = db.Column(db.String(16))
+    motif_contestation_detail = db.Column(db.String(255))
+    historique = db.Column(db.Text)  # Stocké en JSON
     
+    # Relation avec l'enquête originale
+    enquete_originale = db.relationship('Donnee', remote_side=[id], 
+                                       backref='contestations', 
+                                       foreign_keys=[enquete_originale_id])
     # Données transmises par EOS FRANCE
     numeroDossier = db.Column(db.String(10))
     referenceDossier = db.Column(db.String(15))
@@ -141,3 +151,35 @@ class Donnee(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
+        # Méthode pour ajouter un événement à l'historique
+    def add_to_history(self, event_type, event_details, user=None):
+        import json
+        history_list = []
+        
+        # Charger l'historique existant s'il y en a un
+        if self.historique:
+            try:
+                history_list = json.loads(self.historique)
+            except:
+                history_list = []
+        
+        # Ajouter le nouvel événement
+        history_list.append({
+            'date': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            'type': event_type,  # Ex: 'creation', 'modification', 'contestation'
+            'details': event_details,
+            'user': user
+        })
+        
+        # Sauvegarder l'historique mis à jour
+        self.historique = json.dumps(history_list)
+        return history_list
+        
+    def get_history(self):
+        import json
+        if not self.historique:
+            return []
+        try:
+            return json.loads(self.historique)
+        except:
+            return []

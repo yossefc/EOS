@@ -5,6 +5,8 @@ import UpdateModal from './UpdateModal';
 import config from '../config';
 import EnqueteExporter from './EnqueteExporter';
 import EnqueteBatchExporter from './EnqueteBatchExporter';
+import HistoryModal from './HistoryModal';
+
 
 const API_URL = config.API_URL;
 
@@ -45,6 +47,8 @@ const DataViewer = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
     const [fichierFilter, setFichierFilter] = useState('all');
+    const [selectedHistoryData, setSelectedHistoryData] = useState(null);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
     // Utiliser useMemo pour filtrer les données
     const filteredDonnees = useMemo(() => {
@@ -279,9 +283,9 @@ const DataViewer = () => {
         }
     }, [fetchData]);
 
-    // Fonction pour l'historique (à implémenter plus tard)
     const handleHistory = useCallback((id) => {
-        console.log('Historique pour ID:', id);
+        setSelectedHistoryData(id);
+        setIsHistoryModalOpen(true);
     }, []);
 
     if (loading) {
@@ -546,6 +550,17 @@ const DataViewer = () => {
                 <EnqueteBatchExporter
                     data={selectedDonnees}
                     onClose={() => setShowBatchExport(false)}
+                />
+            )}
+
+            {isHistoryModalOpen && selectedHistoryData && (
+                <HistoryModal
+                    isOpen={isHistoryModalOpen}
+                    onClose={() => {
+                        setIsHistoryModalOpen(false);
+                        setSelectedHistoryData(null);
+                    }}
+                    donneeId={selectedHistoryData}
                 />
             )}
         </div>

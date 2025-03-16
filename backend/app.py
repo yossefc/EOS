@@ -117,7 +117,100 @@ def init_app():
                 "success": False,
                 "error": str(e)
             }), 500
-        
+    @app.route('/api/donnees/<int:donnee_id>/historique', methods=['GET'])
+    def get_donnee_historique(donnee_id):
+        try:
+            donnee = Donnee.query.get_or_404(donnee_id)
+            
+            # Récupérer l'historique de l'enquête
+            history = donnee.get_history()
+            
+            # Récupérer les informations sur les contestations liées
+            contestations = []
+            
+            # Si c'est une enquête originale, chercher ses contestations
+            if not donnee.est_contestation:
+                contestations_data = Donnee.query.filter_by(enquete_originale_id=donnee.id).all()
+                for cont in contestations_data:
+                    contestations.append({
+                        'id': cont.id,
+                        'numeroDossier': cont.numeroDossier,
+                        'date': cont.date_contestation.strftime('%Y-%m-%d') if cont.date_contestation else None,
+                        'motif_code': cont.motif_contestation_code,
+                        'motif_detail': cont.motif_contestation_detail,
+                        'enqueteur': cont.enqueteurId
+                    })
+            
+            # Si c'est une contestation, chercher l'enquête originale
+            enquete_originale = None
+            if donnee.est_contestation and donnee.enquete_originale_id:
+                original = Donnee.query.get(donnee.enquete_originale_id)
+                if original:
+                    enquete_originale = {
+                        'id': original.id,
+                        'numeroDossier': original.numeroDossier,
+                        'typeDemande': original.typeDemande,
+                        'nom': original.nom,
+                        'prenom': original.prenom,
+                        'enqueteurId': original.enqueteurId
+                    }
+            
+            # Récupérer l'historique des modifications (données enquêteur)
+            modifications = []
+            if donnee.donnee_enqueteur:
+                modifications = [{
+                    'date': donnee.donnee_enqueteur.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'code_resultat': donnee.donnee_enqueteur.code_resultat,
+                    'elements_retrouves': donnee.donnee_enqueteur.elements_retrouves
+                }]
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'historique': history,
+                    'contestations': contestations,
+                    'enquete_originale': enquete_originale,
+                    'modifications': modifications,
+                    'est_contestation': donnee.est_contestation
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération de l'historique: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500    
+    @app.route('/api/contestations/<int:enquete_id>', methods=['GET'])
+    def get_contestation_details(enquete_id):
+        try:
+            donnee = Donnee.query.get_or_404(enquete_id)
+            
+            if donnee.typeDemande != 'CON':
+                return jsonify({
+                    'success': False,
+                    'error': 'Cette enquête n\'est pas une contestation'
+                }), 400
+                
+            # Récupérer l'enquête originale si elle existe
+            enquete_originale = None
+            if donnee.enqueteOriginaleId:
+                enquete_originale = Donnee.query.get(donnee.enqueteOriginaleId)
+                
+            return jsonify({
+                'success': True,
+                'data': {
+                    'contestation': donnee.to_dict(),
+                    'enquete_originale': enquete_originale.to_dict() if enquete_originale else None,
+                    'enqueteur_id': enquete_originale.enqueteurId if enquete_originale else None,
+                    'motif_contestation': donnee.motifDeContestation
+                }
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500   
     @app.route('/api/donnees/<int:id>', methods=['DELETE'])
     def delete_donnee(id):
         try:

@@ -68,7 +68,51 @@ def parse_file():
                 typeDemande=row.get('typeDemande', ''),
                 fichier_id=new_file.id
             )
-            db.session.add(donnee)
+            # Si c'est une contestation (type = 'CON'), chercher l'enquête originale
+            # Dans la fonction parse_file
+
+            # Si c'est une contestation, rechercher l'enquête originale
+            if donnee.typeDemande == 'CON':
+                # Rechercher l'enquête originale par numéro de dossier contesté
+                enquete_originale = Donnee.query.filter_by(
+                    numeroDossier=row.get('numeroDemandeContestee', '')
+                ).first()
+                
+                if enquete_originale:
+                    # Marquer comme contestation
+                    donnee.est_contestation = True
+                    donnee.enquete_originale_id = enquete_originale.id
+                    donnee.date_contestation = datetime.now().date()
+                    donnee.motif_contestation_code = row.get('codeMotif', '')
+                    donnee.motif_contestation_detail = row.get('motifDeContestation', '')
+                    
+                    # Récupérer l'enquêteur de l'enquête originale
+                    donnee.enqueteurId = enquete_originale.enqueteurId
+                    
+                    # Ajouter l'événement à l'historique
+                    enquete_originale.add_to_history(
+                        'contestation', 
+                        f"Contestation reçue: {donnee.numeroDossier}. Motif: {donnee.motif_contestation_detail}",
+                        'Système d\'import'
+                    )
+                    
+                    # Mettre à jour l'enquête originale
+                    db.session.add(enquete_originale)
+                
+                # Ajouter à l'historique de la contestation
+                donnee.add_to_history(
+                    'creation', 
+                    f"Contestation de l'enquête {row.get('numeroDemandeContestee', '')}",
+                    'Système d\'import'
+                )
+            else:
+                # Pour les enquêtes normales
+                donnee.add_to_history(
+                    'creation',
+                    f"Création de l'enquête depuis le fichier {filename}",
+                    'Système d\'import'
+                )
+            
         
         db.session.commit()
         
