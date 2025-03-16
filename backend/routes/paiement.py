@@ -62,12 +62,14 @@ def get_enqueteurs_a_payer():
         }), 500
 @paiement_bp.route('/api/paiement/enqueteur/<int:enqueteur_id>/facturations', methods=['GET'])
 def get_facturations_enqueteur(enqueteur_id):
-    """Retourne les facturations non payées d'un enquêteur spécifique"""
+    """Retourne les facturations non payées d'un enquêteur spécifique, y compris les contestations en cours"""
     try:
-        # Récupérer les facturations non payées pour cet enquêteur
+        # Récupérer toutes les facturations non payées pour cet enquêteur
+        # Incluant EXPLICITEMENT celles qui n'ont pas de code_resultat (contestations en cours)
         facturations = db.session.query(
             EnqueteFacturation.id,
             Donnee.numeroDossier,
+            Donnee.typeDemande,  # Ajout du type de demande pour identifier les contestations
             DonneeEnqueteur.elements_retrouves,
             EnqueteFacturation.resultat_enqueteur_montant,
             EnqueteFacturation.created_at,
@@ -78,22 +80,35 @@ def get_facturations_enqueteur(enqueteur_id):
             DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
         ).filter(
             Donnee.enqueteurId == enqueteur_id,
-            EnqueteFacturation.paye == False,
-            EnqueteFacturation.resultat_enqueteur_montant > 0
+            EnqueteFacturation.paye == False
+            # On retire la condition sur le montant pour voir toutes les facturations
+            # EnqueteFacturation.resultat_enqueteur_montant > 0
         ).order_by(
             EnqueteFacturation.created_at.desc()
         ).all()
 
         # Convertir le résultat en liste de dictionnaires
         facturations_liste = []
-        for id, numeroDossier, elements_retrouves, montant, created_at, code_resultat in facturations:
+        for id, numeroDossier, typeDemande, elements_retrouves, montant, created_at, code_resultat in facturations:
+            # Pour les contestations en cours, ajouter un montant forfaitaire
+            if typeDemande == 'CON' and not code_resultat:
+                status = "Contestation en cours"
+                # On peut définir un montant forfaitaire pour les contestations en cours
+                # ou laisser à 0 et l'ajuster visuellement dans le frontend
+                montant_affiche = 0
+            else:
+                status = code_resultat or "En attente"
+                montant_affiche = float(montant) if montant else 0
+                
             facturations_liste.append({
                 'id': id,
                 'numeroDossier': numeroDossier,
+                'typeDemande': typeDemande,  # Pour identifier les contestations
                 'elements_retrouves': elements_retrouves,
-                'montant': float(montant),
+                'montant': montant_affiche,
                 'date': created_at.strftime('%Y-%m-%d'),
-                'code_resultat': code_resultat
+                'code_resultat': code_resultat,
+                'status': status
             })
 
         # Récupérer les informations de l'enquêteur

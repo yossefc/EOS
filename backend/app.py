@@ -475,7 +475,7 @@ def init_app():
             db.session.commit()
             
             # Si le code résultat est positif ou confirmé, calculer la facturation
-            if donnee_enqueteur.code_resultat in ['P', 'H']:
+            if donnee_enqueteur.code_resultat :
                 try:
                     # Importer ici pour éviter des problèmes d'import circulaire
                     from services.tarification_service import TarificationService

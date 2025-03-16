@@ -7,6 +7,8 @@ from extensions import db
 import logging
 from datetime import datetime
 from models.models_enqueteur import DonneeEnqueteur
+from models.models import Donnee
+
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +47,58 @@ def get_tarif_eos(id):
             'success': False,
             'error': str(e)
         }), 500
-
+    
+@tarification_bp.route('/api/tarification/creer-facturations-manquantes', methods=['POST'])
+def creer_facturations_manquantes():
+    """Crée des facturations pour toutes les contestations sans facturation"""
+    try:
+        # Récupérer toutes les contestations
+        contestations = db.session.query(
+            Donnee, DonneeEnqueteur
+        ).join(
+            DonneeEnqueteur, 
+            Donnee.id == DonneeEnqueteur.donnee_id
+        ).filter(
+            Donnee.est_contestation == True
+        ).all()
+        
+        created_count = 0
+        
+        for donnee, donnee_enqueteur in contestations:
+            # Vérifier si une facturation existe déjà
+            existing = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+            
+            if not existing:
+                # Créer une facturation
+                facturation = EnqueteFacturation(
+                    donnee_id=donnee.id,
+                    donnee_enqueteur_id=donnee_enqueteur.id,
+                    tarif_eos_code=donnee_enqueteur.code_resultat or "ENCOURS",
+                    tarif_eos_montant=0.0,
+                    resultat_eos_montant=0.0,
+                    tarif_enqueteur_code=donnee_enqueteur.code_resultat or "ENCOURS",
+                    tarif_enqueteur_montant=0.0,
+                    resultat_enqueteur_montant=0.0,
+                    paye=False
+                )
+                db.session.add(facturation)
+                created_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{created_count} facturations créées pour des contestations',
+            'count': created_count
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erreur lors de la création des facturations manquantes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 @tarification_bp.route('/api/tarifs/eos', methods=['POST'])
 def create_tarif_eos():
     """Crée un nouveau tarif EOS"""
