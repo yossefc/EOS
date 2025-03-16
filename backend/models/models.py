@@ -98,10 +98,16 @@ class Donnee(db.Model):
 
     def to_dict(self):
         """Convertit l'objet en dictionnaire"""
-        return {
+        result = {
             'id': self.id,
             'fichier_id': self.fichier_id,
             'enqueteurId': self.enqueteurId,
+            'est_contestation': self.est_contestation,
+            'enquete_originale_id': self.enquete_originale_id,
+            'date_contestation': self.date_contestation.strftime('%Y-%m-%d') if self.date_contestation else None,
+            'motif_contestation_code': self.motif_contestation_code,
+            'motif_contestation_detail': self.motif_contestation_detail,
+            'enqueteOriginale': None,  # Ce champ sera rempli ci-dessous si applicable
             'numeroDossier': self.numeroDossier,
             'referenceDossier': self.referenceDossier,
             'numeroInterlocuteur': self.numeroInterlocuteur,
@@ -151,6 +157,28 @@ class Donnee(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
+        if self.est_contestation and self.enquete_originale_id:
+            original = Donnee.query.get(self.enquete_originale_id)
+            if original:
+                # Trouver l'enquêteur si possible
+                enqueteur_nom = "Non assigné"
+                if original.enqueteurId:
+                    from models.enqueteur import Enqueteur
+                    enqueteur = Enqueteur.query.get(original.enqueteurId)
+                    if enqueteur:
+                        enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}"
+                
+                result['enqueteOriginale'] = {
+                    'id': original.id,
+                    'numeroDossier': original.numeroDossier,
+                    'typeDemande': original.typeDemande,
+                    'nom': original.nom,
+                    'prenom': original.prenom,
+                    'enqueteurId': original.enqueteurId,
+                    'enqueteurNom': enqueteur_nom  # Ajouter le nom directement
+                }
+
+        return result
         # Méthode pour ajouter un événement à l'historique
     def add_to_history(self, event_type, event_details, user=None):
         import json

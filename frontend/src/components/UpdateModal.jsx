@@ -162,6 +162,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
+  
 
   // Charger les données de l'enquêteur si disponibles
   useEffect(() => {
@@ -925,15 +926,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 <div className="bg-gray-50 rounded-lg p-4 border">
                   <h3 className="text-lg font-medium mb-4">Informations générales et résultat</h3>
                   
-
-
-{data.typeDemande === 'CON' && (
+                  {data.typeDemande === 'CON' && (
   <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
     <h3 className="font-medium mb-2">Informations sur la contestation</h3>
+    {console.log("Données contestation:", data)}
     {data.enqueteOriginale ? (
       <div>
         <p><span className="font-medium">Dossier contesté :</span> {data.enqueteOriginale.numeroDossier}</p>
-        <p><span className="font-medium">Enquêteur initial :</span> {getEnqueteurName(data.enqueteOriginale.enqueteurId)}</p>
+        <p><span className="font-medium">Enquêteur initial :</span> {data.enqueteOriginale.enqueteurNom}</p>
         <p><span className="font-medium">Motif de contestation :</span> {data.motifDeContestation || 'Non précisé'}</p>
       </div>
     ) : (

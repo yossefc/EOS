@@ -194,8 +194,8 @@ def init_app():
                 
             # Récupérer l'enquête originale si elle existe
             enquete_originale = None
-            if donnee.enqueteOriginaleId:
-                enquete_originale = Donnee.query.get(donnee.enqueteOriginaleId)
+            if donnee.enquete_originale_id:  # CORRECTION ICI: enqueteOriginaleId -> enquete_originale_id
+                enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
                 
             return jsonify({
                 'success': True,
@@ -210,7 +210,7 @@ def init_app():
             return jsonify({
                 'success': False,
                 'error': str(e)
-            }), 500   
+            }), 500
     @app.route('/api/donnees/<int:id>', methods=['DELETE'])
     def delete_donnee(id):
         try:

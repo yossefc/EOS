@@ -282,6 +282,54 @@ def process_file_content(content, fichier_id):
                     commentaire=record.get('commentaire', '')
                 )
                 
+                if record.get('typeDemande') == 'CON':
+                    contested_number = record.get('numeroDemandeContestee', '')
+                    logger.info(f"Traitement contestation: {record.get('numeroDossier')}, conteste: {contested_number}")
+                    
+                    # Essayer d'abord par numeroDossier
+                    enquete_originale = Donnee.query.filter_by(
+                        numeroDossier=contested_number
+                    ).first()
+
+                    # Si non trouvé, essayer par numeroDemande
+                    if not enquete_originale:
+                        enquete_originale = Donnee.query.filter_by(
+                            numeroDemande=contested_number
+                        ).first()
+                    
+                    if enquete_originale:
+                        logger.info(f"Enquête originale trouvée: {enquete_originale.numeroDossier} (ID: {enquete_originale.id})")
+                        # Établir la relation
+                        nouvelle_donnee.est_contestation = True
+                        nouvelle_donnee.enquete_originale_id = enquete_originale.id
+                        nouvelle_donnee.date_contestation = datetime.utcnow().date()
+                        nouvelle_donnee.motif_contestation_code = record.get('codeMotif', '')
+                        nouvelle_donnee.motif_contestation_detail = record.get('motifDeContestation', '')
+                        
+                        # Récupérer l'enquêteur de l'enquête originale
+                        nouvelle_donnee.enqueteurId = enquete_originale.enqueteurId
+                        
+                        # Ajouter à l'historique de l'enquête originale
+                        if hasattr(enquete_originale, 'add_to_history'):
+                            enquete_originale.add_to_history(
+                                'contestation', 
+                                f"Contestation reçue: {nouvelle_donnee.numeroDossier}. Motif: {nouvelle_donnee.motif_contestation_detail}",
+                                'Système d\'import'
+                            )
+                        
+                        # Commit l'enquête originale mise à jour
+                        db.session.add(enquete_originale)
+                    else:
+                        logger.warning(f"Enquête originale non trouvée pour contestation {record.get('numeroDossier')}, dossier contesté: {contested_number}")
+                    
+                    # Ajouter à l'historique de la contestation
+                    if hasattr(nouvelle_donnee, 'add_to_history'):
+                        nouvelle_donnee.add_to_history(
+                            'creation', 
+                            f"Contestation de l'enquête {contested_number}",
+                            'Système d\'import'
+                        )
+
                 # Ajouter l'instance à la session
                 db.session.add(nouvelle_donnee)
                 db.session.flush()  # Pour obtenir l'ID de l'instance
