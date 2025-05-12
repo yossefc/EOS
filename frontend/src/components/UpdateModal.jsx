@@ -1,16 +1,17 @@
 import  { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-  User, MapPin,  Calendar, Info,
-   MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X,  Building, StickyNote, HelpCircle
+  User, MapPin, Calendar, Info,
+  MessageSquare, Briefcase, CircleDollarSign,
+  Check, AlertCircle, X, Building, StickyNote, HelpCircle
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
 import EtatCivilPanel from './EtatCivilPanel';
 import PropTypes from 'prop-types';
 
-UpdateModal.propTypes = {
+// Définition des PropTypes en dehors du composant
+const UpdateModalPropTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   data: PropTypes.shape({
@@ -35,7 +36,6 @@ UpdateModal.propTypes = {
     }),
   }).isRequired
 };
-
 
 const API_URL = config.API_URL;
 
@@ -131,7 +131,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     ville_employeur: '',
     pays_employeur: '',
 
-    // Informations bancaires
+    // Banque
     banque_domiciliation: '',
     libelle_guichet: '',
     titulaire_compte: '',
@@ -191,6 +191,56 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
   const [showEtatCivilHelp, setShowEtatCivilHelp] = useState(false);
   
+
+  // Initialiser le formulaire avec les données du dossier
+  const initializeWithDossierData = useCallback(() => {
+    if (!data) return;
+  
+    setFormData(prev => ({
+      ...prev,
+      code_resultat: 'P',
+      elements_retrouves: data.elementDemandes || 'A',
+      flag_etat_civil_errone: '',
+      date_retour: new Date().toISOString().split('T')[0],
+
+      // Tous les autres champs sont vides pour s'assurer qu'on n'utilise pas de données de la table donnees
+      adresse1: '',
+      adresse2: '',
+      adresse3: '',
+      adresse4: '',
+      code_postal: '',
+      ville: '',
+      pays_residence: 'FRANCE',
+      telephone_personnel: '',
+      telephone_chez_employeur: '',
+
+      // Décès
+      date_deces: '',
+      numero_acte_deces: '',
+      code_insee_deces: '',
+      code_postal_deces: '',
+      localite_deces: '',
+
+      // Employeur
+      nom_employeur: '',
+      telephone_employeur: '',
+      telecopie_employeur: '',
+      adresse1_employeur: '',
+      adresse2_employeur: '',
+      adresse3_employeur: '',
+      adresse4_employeur: '',
+      code_postal_employeur: '',
+      ville_employeur: '',
+      pays_employeur: '',
+
+      // Banque
+      banque_domiciliation: '',
+      libelle_guichet: '',
+      titulaire_compte: '',
+      code_banque: '',
+      code_guichet: '',
+    }));
+  }, [data]);
 
   // Charger les données de l'enquêteur si disponibles
   useEffect(() => {
@@ -317,56 +367,6 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       fetchEnqueteurData();
     }
   }, [data, initializeWithDossierData]);
-
-  // Initialiser le formulaire avec les données du dossier
-  const initializeWithDossierData = useCallback(() => {
-    if (!data) return;
-  
-    setFormData(prev => ({
-      ...prev,
-      code_resultat: 'P',
-      elements_retrouves: data.elementDemandes || 'A',
-      flag_etat_civil_errone: '',
-      date_retour: new Date().toISOString().split('T')[0],
-
-      // Tous les autres champs sont vides pour s'assurer qu'on n'utilise pas de données de la table donnees
-      adresse1: '',
-      adresse2: '',
-      adresse3: '',
-      adresse4: '',
-      code_postal: '',
-      ville: '',
-      pays_residence: 'FRANCE',
-      telephone_personnel: '',
-      telephone_chez_employeur: '',
-
-      // Décès
-      date_deces: '',
-      numero_acte_deces: '',
-      code_insee_deces: '',
-      code_postal_deces: '',
-      localite_deces: '',
-
-      // Employeur
-      nom_employeur: '',
-      telephone_employeur: '',
-      telecopie_employeur: '',
-      adresse1_employeur: '',
-      adresse2_employeur: '',
-      adresse3_employeur: '',
-      adresse4_employeur: '',
-      code_postal_employeur: '',
-      ville_employeur: '',
-      pays_employeur: '',
-
-      // Banque
-      banque_domiciliation: '',
-      libelle_guichet: '',
-      titulaire_compte: '',
-      code_banque: '',
-      code_guichet: '',
-    }));
-  }, [data]);
 
   // Recherche d'adresse via API adresse.data.gouv.fr
   const searchAddress = useCallback(async (query) => {
@@ -821,8 +821,6 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
     return null; // Pas d'erreur
   };
-
-
 
   // Si le modal n'est pas ouvert, ne rien afficher
   if (!isOpen || !data) return null;
@@ -1986,5 +1984,8 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     </div>
   );
 };
+
+// Assigner les PropTypes après la définition du composant
+UpdateModal.propTypes = UpdateModalPropTypes;
 
 export default UpdateModal;

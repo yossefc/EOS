@@ -1,416 +1,343 @@
-import  { useRef, useState } from 'react';
-import { Printer, FileText, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import PropTypes from 'prop-types';
+import { 
+  FileDown, RefreshCw, AlertCircle, 
+  CheckCircle, Filter, Calendar, AlertTriangle
+} from 'lucide-react';
+import config from '../config';
 
-EnqueteExporter.propTypes = {
-  data: PropTypes.arrayOf(PropTypes.object).isRequired,
-  onClose: PropTypes.func.isRequired,
-};
+const API_URL = config.API_URL;
 
-/**
- * Composant pour exporter et imprimer les données complètes d'une enquête
- */
-const EnqueteExporter = ({ data, onClose }) => {
-  const printRef = useRef(null);
-  // Utiliser directement les données passées sans faire d'appel API
-  const [loading] = useState(false);
+const EnqueteExporter = ({ enquetes = [] }) => {
+  // State for managing export functionality
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [exportURL, setExportURL] = useState(null);
+  
+  // State for filtering
+  const [dateRange, setDateRange] = useState({
+    start: '',
+    end: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedTypes, setSelectedTypes] = useState({
+    ENQ: true,
+    CON: true
+  });
+  const [selectedResults, setSelectedResults] = useState({
+    P: true,  // Positive
+    N: true,  // Negative
+    H: true,  // Confirmed
+    Z: true,  // Canceled (agency)
+    I: true,  // Untreatable
+    Y: true   // Canceled (EOS)
+  });
 
-  // Fonction pour imprimer le document
-  const handlePrint = () => {
-    const printContent = printRef.current;
-    const originalContents = document.body.innerHTML;
-    
-    document.body.innerHTML = printContent.innerHTML;
-    window.print();
-    document.body.innerHTML = originalContents;
-    
-    // Recharger les scripts perdus lors du remplacement du contenu
-    const scripts = document.getElementsByTagName('script');
-    for (let i = 0; i < scripts.length; i++) {
-      const oldScript = scripts[i];
-      const newScript = document.createElement('script');
-      newScript.src = oldScript.src;
-      document.body.appendChild(newScript);
+  // Clear messages after a timeout
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError(null);
+        setSuccess(null);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
     }
-    
-    window.location.reload(); // Recharger la page pour restaurer entièrement l'application
-  };
+  }, [error, success]);
 
-  // Fonction pour exporter en Word
-  const handleExportWord = () => {
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
-      "xmlns:w='urn:schemas-microsoft-com:office:word' " +
-      "xmlns='http://www.w3.org/TR/REC-html40'>" +
-      "<head><meta charset='utf-8'><title>Enquête " + (data?.numeroDossier || '') + "</title>" +
-      "<!--[if gte mso 9]>" +
-      "<xml>" +
-      "<w:WordDocument>" +
-      "<w:View>Print</w:View>" +
-      "<w:Zoom>90</w:Zoom>" +
-      "<w:DoNotOptimizeForBrowser/>" +
-      "</w:WordDocument>" +
-      "</xml>" +
-      "<![endif]-->" +
-      "<style>" +
-      "/* Styles pour Word */" +
-      "@page { size: landscape; }" +
-      "body { font-family: 'Calibri', sans-serif; margin: 0; padding: 0; }" +
-      "table { border-collapse: collapse; width: 100%; margin-bottom: 10px; font-size: 9pt; }" +
-      "th, td { border: 1px solid #ccc; padding: 3px 5px; }" +
-      "th { background-color: #f0f0f0; text-align: left; font-weight: bold; }" +
-      ".header { text-align: center; margin-bottom: 10px; }" +
-      ".main-title { font-size: 16pt; color: #2563eb; margin: 0; }" +
-      ".section-title { font-size: 11pt; font-weight: bold; color: #2563eb; margin: 8px 0 5px 0; }" +
-      ".footer { font-size: 8pt; text-align: center; margin-top: 5px; color: #666; }" +
-      ".compact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }" +
-      ".grid-item { margin-bottom: 3px; }" +
-      ".container { padding: 10px; }" +
-      ".bold { font-weight: bold; }" +
-      ".note { font-size: 8pt; color: #666; }" +
-      ".data-label { font-weight: bold; width: 30%; }" +
-      ".data-value { width: 70%; }" +
-      "</style></head><body>";
-    
-    const footer = "</body></html>";
-    
-    // Récupérer le contenu formaté
-    const content = printRef.current.innerHTML;
-    
-    // Créer le document complet
-    const source = header + content + footer;
-    
-    // Créer un blob et un lien de téléchargement
-    const blob = new Blob([source], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    // Configurer le lien de téléchargement
-    link.href = url;
-    link.setAttribute('download', `Enquete_${data?.numeroDossier || 'export'}.doc`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Nettoyer
-    URL.revokeObjectURL(url);
-  };
-
-  // Formatage des dates pour l'affichage
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    
-    // Si la date est déjà au format français (DD/MM/YYYY)
-    if (dateString.includes('/')) return dateString;
-    
-    // Sinon, convertir depuis le format ISO
+  // Generate export file
+  const handleExport = async () => {
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (e) {
-      console.log(e)
-      return dateString;
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      
+      // Prepare filter parameters
+      const params = new URLSearchParams();
+      
+      // Add date filters if set
+      if (dateRange.start) params.append('start_date', dateRange.start);
+      if (dateRange.end) params.append('end_date', dateRange.end);
+      
+      // Add type filters
+      const selectedTypesList = Object.entries(selectedTypes)
+        .filter(([, selected]) => selected)
+        .map(([type]) => type);
+      
+      if (selectedTypesList.length > 0 && selectedTypesList.length < 2) {
+        params.append('types', selectedTypesList.join(','));
+      }
+      
+      // Add result filters
+      const selectedResultsList = Object.entries(selectedResults)
+        .filter(([, selected]) => selected)
+        .map(([result]) => result);
+      
+      if (selectedResultsList.length > 0 && selectedResultsList.length < 6) {
+        params.append('results', selectedResultsList.join(','));
+      }
+      
+      // Make export request
+      const response = await axios.get(`${API_URL}/api/export?${params.toString()}`);
+      
+      if (response.data.success) {
+        setSuccess("Fichier d'export généré avec succès");
+        setExportURL(`${API_URL}/api/export/download/${response.data.file_id}`);
+      } else {
+        throw new Error(response.data.error || "Erreur lors de la génération du fichier d'export");
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      setError(error.response?.data?.error || error.message || "Une erreur s'est produite");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-8 max-w-md">
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-          <p className="text-center mt-4">Chargement des données...</p>
-        </div>
-      </div>
-    );
-  }
+  // Download the generated file
+  const handleDownload = () => {
+    if (exportURL) {
+      window.open(exportURL, '_blank');
+    }
+  };
+
+  // Get filtered count based on current filters
+  const getFilteredCount = () => {
+    // In a real implementation, this would filter the enquetes array based on the selected filters
+    // For simplicity, we'll just return the total count of enquetes
+    return enquetes.length;
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6 overflow-auto">
-      <div className="bg-white rounded-xl w-full max-w-5xl h-[90vh] overflow-hidden flex flex-col">
-        {/* Barre d'outils */}
-        <div className="bg-blue-600 px-6 py-4 text-white flex justify-between items-center">
-          <h2 className="text-xl font-bold">
-            Enquête {data?.numeroDossier || ''}
-          </h2>
-          <div className="flex gap-3">
-            <button 
-              onClick={handlePrint}
-              className="flex items-center gap-1 px-3 py-1.5 bg-white text-blue-600 rounded-md hover:bg-blue-50"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Imprimer</span>
-            </button>
-            <button 
-              onClick={handleExportWord}
-              className="flex items-center gap-1 px-3 py-1.5 bg-white text-blue-600 rounded-md hover:bg-blue-50"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Export Word</span>
-            </button>
-            <button 
-              onClick={onClose}
-              className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600"
-            >
-              <X className="w-4 h-4" />
-              <span>Fermer</span>
-            </button>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <FileDown className="w-6 h-6 text-blue-500" />
+          Export des Résultats
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50"
+          >
+            <Filter className="w-4 h-4" />
+            <span>Filtres</span>
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={loading}
+            className="flex items-center gap-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            {loading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Génération...</span>
+              </>
+            ) : (
+              <>
+                <FileDown className="w-4 h-4" />
+                <span>Générer le fichier EOS</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Messages de succès et d'erreur */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          <p>{success}</p>
+        </div>
+      )}
+
+      {/* Filtres */}
+      {showFilters && (
+        <div className="bg-gray-50 border rounded-lg p-4 space-y-4">
+          <h3 className="font-medium">Filtres d&#39;export</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                Période
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Date de début</label>
+                  <input
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                    className="w-full border rounded p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Date de fin</label>
+                  <input
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                    className="w-full border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-medium mb-2">Type de demande</h4>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedTypes.ENQ}
+                    onChange={() => setSelectedTypes({ ...selectedTypes, ENQ: !selectedTypes.ENQ })}
+                    className="rounded text-blue-500"
+                  />
+                  <span className="text-sm">Enquêtes</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedTypes.CON}
+                    onChange={() => setSelectedTypes({ ...selectedTypes, CON: !selectedTypes.CON })}
+                    className="rounded text-blue-500"
+                  />
+                  <span className="text-sm">Contestations</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="text-sm font-medium mb-2">Codes résultat</h4>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={selectedResults.P}
+                  onChange={() => setSelectedResults({ ...selectedResults, P: !selectedResults.P })}
+                  className="rounded text-blue-500"
+                />
+                <span className="text-sm">Positif (P)</span>
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={selectedResults.N}
+                  onChange={() => setSelectedResults({ ...selectedResults, N: !selectedResults.N })}
+                  className="rounded text-blue-500"
+                />
+                <span className="text-sm">Négatif (N)</span>
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={selectedResults.H}
+                  onChange={() => setSelectedResults({ ...selectedResults, H: !selectedResults.H })}
+                  className="rounded text-blue-500"
+                />
+                <span className="text-sm">Confirmé (H)</span>
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={selectedResults.Z}
+                  onChange={() => setSelectedResults({ ...selectedResults, Z: !selectedResults.Z })}
+                  className="rounded text-blue-500"
+                />
+                <span className="text-sm">Annulé agence (Z)</span>
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={selectedResults.I}
+                  onChange={() => setSelectedResults({ ...selectedResults, I: !selectedResults.I })}
+                  className="rounded text-blue-500"
+                />
+                <span className="text-sm">Intraitable (I)</span>
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={selectedResults.Y}
+                  onChange={() => setSelectedResults({ ...selectedResults, Y: !selectedResults.Y })}
+                  className="rounded text-blue-500"
+                />
+                <span className="text-sm">Annulé EOS (Y)</span>
+              </label>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Contenu à imprimer (avec défilement) */}
-        <div className="overflow-y-auto flex-grow p-6">
-          <div ref={printRef} className="container">
-            {/* En-tête */}
-            <div className="header">
-              <h1 className="main-title">FICHE D&apos;ENQUÊTE EOS FRANCE</h1>
-              <p className="note">Document confidentiel - {new Date().toLocaleDateString('fr-FR')}</p>
+      {/* Zone d'informations sur l'export */}
+      <div className="bg-white border rounded-lg p-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-medium mb-2">Informations sur l&#39;export</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Le fichier généré sera au format spécifié dans le cahier des charges EOS France.
+            </p>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Total des enquêtes disponibles:</span>
+                <span className="text-sm">{enquetes.length}</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Enquêtes après filtrage:</span>
+                <span className="text-sm">{getFilteredCount()}</span>
+              </div>
             </div>
-
-            {/* Informations générales */}
-            <h2 className="section-title">INFORMATIONS GÉNÉRALES</h2>
-            <table>
-              <tbody>
-                <tr>
-                  <th width="15%">ID</th>
-                  <td width="18%">{data?.id || '-'}</td>
-                  <th width="15%">N° Dossier</th>
-                  <td width="18%">{data?.numeroDossier || '-'}</td>
-                  <th width="15%">Référence</th>
-                  <td width="19%">{data?.referenceDossier || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Type demande</th>
-                  <td>{data?.typeDemande === 'ENQ' ? 'Enquête' : 
-                    data?.typeDemande === 'CON' ? 'Contestation' : 
-                    data?.typeDemande || '-'}</td>
-                  <th>Éléments demandés</th>
-                  <td>{data?.elementDemandes || '-'}</td>
-                  <th>Éléments obligatoires</th>
-                  <td>{data?.elementObligatoires || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Date de retour</th>
-                  <td>{formatDate(data?.dateRetourEspere)}</td>
-                  <th>Date de création</th>
-                  <td>{formatDate(data?.created_at)}</td>
-                  <th>Date modification</th>
-                  <td>{formatDate(data?.updated_at)}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* État civil */}
-            <h2 className="section-title">ÉTAT CIVIL</h2>
-            <table>
-              <tbody>
-                <tr>
-                  <th width="15%">Qualité</th>
-                  <td width="18%">{data?.qualite || '-'}</td>
-                  <th width="15%">Nom</th>
-                  <td width="18%">{data?.nom || '-'}</td>
-                  <th width="15%">Prénom</th>
-                  <td width="19%">{data?.prenom || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Nom patronymique</th>
-                  <td>{data?.nomPatronymique || '-'}</td>
-                  <th>Date naissance</th>
-                  <td>{formatDate(data?.dateNaissance)}</td>
-                  <th>Lieu naissance</th>
-                  <td>{data?.lieuNaissance || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Code postal naiss.</th>
-                  <td>{data?.codePostalNaissance || '-'}</td>
-                  <th>Pays naissance</th>
-                  <td>{data?.paysNaissance || '-'}</td>
-                  <th>Fichier ID</th>
-                  <td>{data?.fichier_id || '-'}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Adresse actuelle */}
-            <h2 className="section-title">ADRESSE</h2>
-            <table>
-              <tbody>
-                <tr>
-                  <th width="15%">Adresse 1</th>
-                  <td width="35%">{data?.adresse1 || '-'}</td>
-                  <th width="15%">Adresse 2</th>
-                  <td width="35%">{data?.adresse2 || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Adresse 3</th>
-                  <td>{data?.adresse3 || '-'}</td>
-                  <th>Adresse 4</th>
-                  <td>{data?.adresse4 || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Code postal</th>
-                  <td>{data?.codePostal || '-'}</td>
-                  <th>Ville</th>
-                  <td>{data?.ville || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Pays</th>
-                  <td>{data?.paysResidence || '-'}</td>
-                  <th>Téléphone</th>
-                  <td>{data?.telephonePersonnel || '-'}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Informations bancaires */}
-            <h2 className="section-title">INFORMATIONS BANCAIRES</h2>
-            <table>
-              <tbody>
-                <tr>
-                  <th width="15%">Banque</th>
-                  <td width="35%">{data?.banqueDomiciliation || '-'}</td>
-                  <th width="15%">Guichet</th>
-                  <td width="35%">{data?.libelleGuichet || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Titulaire</th>
-                  <td>{data?.titulaireCompte || '-'}</td>
-                  <th>Code banque</th>
-                  <td>{data?.codeBanque || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Code guichet</th>
-                  <td>{data?.codeGuichet || '-'}</td>
-                  <th>Numéro compte</th>
-                  <td>{data?.numeroCompte || '-'}</td>
-                </tr>
-                <tr>
-                  <th>RIB</th>
-                  <td colSpan="3">{data?.ribCompte || '-'}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Employeur */}
-            <h2 className="section-title">INFORMATIONS EMPLOYEUR</h2>
-            <table>
-              <tbody>
-                <tr>
-                  <th width="15%">Nom employeur</th>
-                  <td width="35%">{data?.nomEmployeur || '-'}</td>
-                  <th width="15%">Téléphone</th>
-                  <td width="35%">{data?.telephoneEmployeur || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Télécopie</th>
-                  <td colSpan="3">{data?.telecopieEmployeur || '-'}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Autres informations */}
-            <h2 className="section-title">AUTRES INFORMATIONS</h2>
-            <table>
-              <tbody>
-                <tr>
-                  <th width="15%">Numéro demande</th>
-                  <td width="35%">{data?.numeroDemande || '-'}</td>
-                  <th width="15%">Numéro demande contestée</th>
-                  <td width="35%">{data?.numeroDemandeContestee || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Numéro interlocuteur</th>
-                  <td>{data?.numeroInterlocuteur || '-'}</td>
-                  <th>GUID interlocuteur</th>
-                  <td>{data?.guidInterlocuteur || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Numéro demande initiale</th>
-                  <td>{data?.numeroDemandeInitiale || '-'}</td>
-                  <th>Forfait demande</th>
-                  <td>{data?.forfaitDemande || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Code motif</th>
-                  <td>{data?.codeMotif || '-'}</td>
-                  <th>Motif contestation</th>
-                  <td>{data?.motifDeContestation || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Éléments contestés</th>
-                  <td>{data?.elementContestes || '-'}</td>
-                  <th>Code société</th>
-                  <td>{data?.codesociete || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Urgence</th>
-                  <td>{data?.urgence || '-'}</td>
-                  <th>Enquêteur ID</th>
-                  <td>{data?.enqueteurId || '-'}</td>
-                </tr>
-                <tr>
-                  <th>Commentaire</th>
-                  <td colSpan="3">{data?.commentaire || '-'}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* TOUS LES AUTRES CHAMPS qui n'ont pas été affichés explicitement */}
-            <h2 className="section-title">CHAMPS SUPPLÉMENTAIRES</h2>
-            <table>
-              <tbody>
-                {Object.entries(data || {}).map(([key, value]) => {
-                  // Liste des clés déjà affichées dans les sections précédentes
-                  const displayedKeys = [
-                    'id', 'numeroDossier', 'referenceDossier', 'typeDemande', 'elementDemandes', 
-                    'elementObligatoires', 'dateRetourEspere', 'created_at', 'updated_at',
-                    'qualite', 'nom', 'prenom', 'nomPatronymique', 'dateNaissance', 'lieuNaissance',
-                    'codePostalNaissance', 'paysNaissance', 'fichier_id', 'adresse1', 'adresse2',
-                    'adresse3', 'adresse4', 'codePostal', 'ville', 'paysResidence', 'telephonePersonnel',
-                    'banqueDomiciliation', 'libelleGuichet', 'titulaireCompte', 'codeBanque', 'codeGuichet',
-                    'numeroCompte', 'ribCompte', 'nomEmployeur', 'telephoneEmployeur', 'telecopieEmployeur',
-                    'numeroDemande', 'numeroDemandeContestee', 'numeroInterlocuteur', 'guidInterlocuteur',
-                    'numeroDemandeInitiale', 'forfaitDemande', 'codeMotif', 'motifDeContestation',
-                    'elementContestes', 'codesociete', 'urgence', 'enqueteurId', 'commentaire'
-                  ];
-                  
-                  // Ignorer les champs qui sont déjà affichés ou qui viennent de donnee_enqueteur
-                  // ou qui sont null/undefined
-                  if (displayedKeys.includes(key) || 
-                      ['donnee_enqueteur', 'code_resultat', 'elements_retrouves', 'flag_etat_civil_errone'].includes(key) ||
-                      value === null || value === undefined) {
-                    return null;
-                  }
-                  
-                  return (
-                    <tr key={key}>
-                      <th width="15%">{key}</th>
-                      <td colSpan="3">
-                        {typeof value === 'object' ? JSON.stringify(value) : 
-                         key.toLowerCase().includes('date') ? formatDate(value) : 
-                         String(value)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {/* Pied de page */}
-            <div className="footer">
-              <p>Document généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}</p>
-              <p>EOS FRANCE - Document confidentiel - Ne pas diffuser</p>
-              <p>Uniquement les données de la table  sont incluses dans ce document</p>
+          </div>
+          
+          {exportURL && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col items-center">
+              <CheckCircle className="w-8 h-8 text-green-500 mb-2" />
+              <p className="text-sm text-green-700 mb-2">Fichier prêt à télécharger</p>
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center gap-1 text-sm"
+              >
+                <FileDown className="w-4 h-4" />
+                <span>Télécharger</span>
+              </button>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Instructions d'export */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-blue-800 mb-1">Informations importantes</h3>
+            <p className="text-sm text-blue-700">
+              Seules les enquêtes avec un code résultat défini (P, N, H, Z, I, Y) seront exportées.
+              Les enquêtes sans résultat ou en cours de traitement ne seront pas incluses dans le fichier d&#39;export.
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
+};
+
+// Define prop types to fix the ESLint warning
+EnqueteExporter.propTypes = {
+  enquetes: PropTypes.array
 };
 
 export default EnqueteExporter;

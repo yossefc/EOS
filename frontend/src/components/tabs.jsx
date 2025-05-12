@@ -1,22 +1,23 @@
-import  { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BarChart2, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign, CheckSquare } from 'lucide-react';
 
-
-// Lazy loading des composants
+// Lazy loading of components
 const StatsViewer = lazy(() => import('./StatsViewer'));
 const DataViewer = lazy(() => import('./DataViewer'));
 const ImprovedEnqueteurViewer = lazy(() => import('./ImprovedEnqueteurViewer'));
 const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
-const ExportHandler = lazy(() => import('./ExportHandler'));
+//const ExportHandler = lazy(() => import('./ExportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
 const EnqueteValidationManager = lazy(() => import('./EnqueteValidationManager'));
+const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
 
+// Non-lazy loaded components
 import PaiementManager from './PaiementManager';
-import FinancialReports from './FinancialReports'; // Nouveau composant pour la tarification
+import FinancialReports from './FinancialReports';
 
-// Composant de chargement
+// Loading component
 const LoadingComponent = () => (
   <div className="flex justify-center items-center p-8">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -28,15 +29,16 @@ const Tabs = () => {
   const [activeTab, setActiveTab] = useState('stats');
   const [enquetes] = useState([]);
 
-  // Fonction pour rafraîchir les données après import
+  // Function to refresh data after import
   const handleImportComplete = async () => {
-    // Vous pouvez implémenter la logique pour rafraîchir les données après un import
-    // Cette fonction sera passée aux composants qui en ont besoin
-    console.log('Import terminé, rafraîchissement des données...');
+    // You can implement logic to refresh data after an import
+    console.log('Import complete, refreshing data...');
   };
+  
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
   };
+  
   const tabs = [
     {
       id: 'stats',
@@ -72,7 +74,7 @@ const Tabs = () => {
       id: 'export',
       label: 'Export des résultats',
       icon: <FileDown className="w-4 h-4" />,
-      component: <ExportHandler enquetes={enquetes} />
+      component: <EnqueteExporter enquetes={enquetes} />
     },
     {
       id: 'enqueteurs',
@@ -106,7 +108,7 @@ const Tabs = () => {
     }
   ];
 
-  // Fonction pour rendre le composant actif
+  // Function to render the active component
   const renderActiveComponent = () => {
     const activeTabObj = tabs.find(tab => tab.id === activeTab);
     if (!activeTabObj) return null;
@@ -148,8 +150,7 @@ const Tabs = () => {
   );
 };
 
-
-// Ajout d'un style pour masquer la barre de défilement horizontale tout en permettant le défilement
+// Add a style to hide the horizontal scrollbar while allowing scrolling
 const style = document.createElement('style');
 style.textContent = `
   .hide-scrollbar::-webkit-scrollbar {

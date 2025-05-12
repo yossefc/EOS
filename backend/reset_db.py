@@ -6,6 +6,7 @@ import models.models
 import models.models_enqueteur
 import models.enqueteur
 import models.tarifs
+import models.enquetes_terminees
 
 def reset_db():
     # Créer l'application Flask

@@ -1,355 +1,388 @@
-import  { useState } from 'react';
-import axios from 'axios';
-import { FileUp, AlertCircle, Check, Calendar } from 'lucide-react';
-import config from '../config';
+import  { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-
-ImportHandler.propTypes = {
-  onImportComplete: PropTypes.func.isRequired, // ou `.isOptional` si ce n’est pas obligatoire
-};
+import axios from 'axios';
+import { FileUp, RefreshCw, Check, AlertCircle, File, Trash2, ChevronRight, X } from 'lucide-react';
+import config from '../config';
 
 const API_URL = config.API_URL;
 
+// Définition des PropTypes séparément
+const ImportHandlerPropTypes = {
+  onImportComplete: PropTypes.func
+};
+
 const ImportHandler = ({ onImportComplete }) => {
-    const [file, setFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
-    const [stats, setStats] = useState(null);
-    const [confirmReplace, setConfirmReplace] = useState(false);
-    const [existingFileInfo, setExistingFileInfo] = useState(null);
-    const [deadlineDate, setDeadlineDate] = useState('');
-    const [showDatePicker, setShowDatePicker] = useState(false);
-
-    const resetStatus = () => {
-        setError(null);
-        setSuccess(null);
-        setConfirmReplace(false);
-        setExistingFileInfo(null);
-    };
-
-    const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
-        if (selectedFile) {
-            // Vérifier le type et l'extension du fichier
-            if (selectedFile.name.endsWith('.txt')) {
-                setFile(selectedFile);
-                resetStatus();
-            } else {
-                setError("Seuls les fichiers texte (.txt) sont acceptés selon le cahier des charges");
-                setFile(null);
-                e.target.value = '';
-            }
+  // États
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+  const [fileExists, setFileExists] = useState(false);
+  const [existingFileInfo, setExistingFileInfo] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Charger les statistiques au montage
+  useEffect(() => {
+    fetchStats();
+  }, []);
+  
+  // Récupérer les statistiques depuis le serveur
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/api/stats`);
+      setStats(response.data);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des statistiques:", error);
+      setError("Erreur lors de la récupération des statistiques");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Gestion de la sélection du fichier
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+      setFileExists(false); // Réinitialiser l'état fileExists
+      setExistingFileInfo(null);
+      setError(null);
+      setSuccess(null);
+    }
+  };
+  
+  // Envoi du fichier au serveur
+  const handleUpload = async (replace = false) => {
+    if (!selectedFile) {
+      setError("Veuillez sélectionner un fichier");
+      return;
+    }
+    
+    try {
+      setUploading(true);
+      
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      
+      // Utiliser l'URL appropriée selon que l'on remplace ou non un fichier existant
+      const url = replace ? `${API_URL}/replace-file` : `${API_URL}/parse`;
+      
+      const response = await axios.post(url, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
         }
-    };
-
-    const handleUpload = async () => {
-        if (!file) {
-            setError("Veuillez sélectionner un fichier");
-            return;
-        }
-
-        setUploading(true);
-        resetStatus();
-
-        const formData = new FormData();
-        formData.append("file", file);
+      });
+      
+      // Gestion des réponses
+      if (response.data.status === "file_exists") {
+        setFileExists(true);
+        setExistingFileInfo(response.data.existing_file_info);
+      } else {
+        setSuccess(`Fichier importé avec succès. ${response.data.records_processed} enregistrements traités.`);
+        setSelectedFile(null);
         
-        // Ajouter la date butoir si elle est définie
-        if (deadlineDate) {
-            formData.append("deadline_date", deadlineDate);
-        }
-
-        try {
-            const response = await axios.post(`${API_URL}/parse`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
-                // Ne pas lever d'exception pour l'erreur 409
-                validateStatus: function (status) {
-                    return status < 500; // Considère les statuts 2xx, 3xx et 4xx comme des succès
-                }
-            });
-
-            if (response.status === 409) {
-                // Fichier existe déjà
-                setExistingFileInfo(response.data.existing_file_info);
-                setConfirmReplace(true);
-            } else if (response.status === 200 || response.status === 201) {
-                // Import réussi
-                setSuccess(`Fichier ${file.name} importé avec succès! ${response.data.records_processed || 0} enregistrements traités.${deadlineDate ? ` Date butoir fixée au ${formatDate(deadlineDate)}.` : ''}`);
-                setStats({
-                    fileId: response.data.file_id,
-                    recordsProcessed: response.data.records_processed || 0,
-                    deadlineDate: deadlineDate || null
-                });
-
-                // Notifier le composant parent
-                if (onImportComplete) {
-                    onImportComplete();
-                }
-
-                // Réinitialiser le champ de fichier et la date
-                setFile(null);
-                setDeadlineDate('');
-                setShowDatePicker(false);
-                const fileInput = document.getElementById('file-import');
-                if (fileInput) fileInput.value = '';
-            } else {
-                // Autres erreurs (400, 401, 403, etc.)
-                throw new Error(response.data?.error || `Erreur ${response.status} lors de l'import`);
-            }
-        } catch (err) {
-            console.error('Erreur lors de l\'import:', err);
-            setError(err.response?.data?.error || err.message || 'Erreur lors de l\'import du fichier');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleReplaceFile = async () => {
-        if (!file) return;
-
-        setUploading(true);
-        resetStatus();
-
-        const formData = new FormData();
-        formData.append("file", file);
+        // Rafraîchir les statistiques
+        fetchStats();
         
-        // Ajouter la date butoir si elle est définie
-        if (deadlineDate) {
-            formData.append("deadline_date", deadlineDate);
+        // Notification au parent que l'import est terminé
+        if (onImportComplete) {
+          onImportComplete();
         }
-
-        try {
-            const response = await axios.post(`${API_URL}/replace-file`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
-                // Ne pas lever d'exception pour les codes de statut < 500
-                validateStatus: function (status) {
-                    return status < 500;
-                }
-            });
-
-            if (response.status === 200 || response.status === 201) {
-                setSuccess(`Fichier ${file.name} remplacé avec succès! ${response.data.records_processed || 0} enregistrements traités.${deadlineDate ? ` Date butoir fixée au ${formatDate(deadlineDate)}.` : ''}`);
-
-                // Notifier le composant parent
-                if (onImportComplete) {
-                    onImportComplete();
-                }
-
-                // Réinitialiser
-                setFile(null);
-                setDeadlineDate('');
-                setShowDatePicker(false);
-                const fileInput = document.getElementById('file-import');
-                if (fileInput) fileInput.value = '';
-            } else {
-                // Autres erreurs (400, 401, 403, etc.)
-                throw new Error(response.data?.error || `Erreur ${response.status} lors du remplacement`);
-            }
-        } catch (err) {
-            console.error('Erreur lors du remplacement:', err);
-            setError(err.response?.data?.error || err.message || 'Erreur lors du remplacement du fichier');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleCancelReplace = () => {
-        setConfirmReplace(false);
-        setExistingFileInfo(null);
-        setFile(null);
-        // Réinitialiser le champ de fichier
-        const fileInput = document.getElementById('file-import');
-        if (fileInput) fileInput.value = '';
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
-
-    const handleDateToggle = () => {
-        setShowDatePicker(!showDatePicker);
-        if (!showDatePicker && !deadlineDate) {
-            // Si on ouvre le picker et qu'aucune date n'est définie, proposer une date par défaut (J+30)
-            const defaultDate = new Date();
-            defaultDate.setDate(defaultDate.getDate() + 30);
-            setDeadlineDate(defaultDate.toISOString().split('T')[0]);
-        }
-    };
-
-    return (
-        <div className="bg-white shadow-md rounded-lg p-6">
-            <div className="flex items-center gap-2 mb-6">
-                <FileUp className="w-6 h-6 text-blue-500" />
-                <h2 className="text-xl font-bold">Import de fichiers EOS</h2>
-            </div>
-
-            {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                    <div>{error}</div>
-                </div>
-            )}
-
-            {success && (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-start gap-2">
-                    <Check className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                    <div>{success}</div>
-                </div>
-            )}
-            {stats && (
-        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
-          <h3 className="font-medium text-gray-900 mb-2">Résumé de l’import</h3>
-          <ul className="list-disc pl-5 space-y-1">
-            <li><strong>ID du fichier :</strong> {stats.fileId}</li>
-            <li><strong>Enregistrements traités :</strong> {stats.recordsProcessed}</li>
-            {stats.deadlineDate && (
-              <li><strong>Date butoir :</strong> {formatDate(stats.deadlineDate)}</li>
-            )}
-          </ul>
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'upload:", error);
+      setError(error.response?.data?.error || "Erreur lors de l'envoi du fichier");
+    } finally {
+      setUploading(false);
+    }
+  };
+  
+  // Supprimer un fichier
+  const handleDeleteFile = async (fileId) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce fichier et toutes ses données ?")) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      const response = await axios.delete(`${API_URL}/api/files/${fileId}`);
+      
+      if (response.data.message) {
+        setSuccess("Fichier supprimé avec succès");
+        // Rafraîchir les statistiques
+        fetchStats();
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      setError("Erreur lors de la suppression du fichier");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      {/* En-tête */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <FileUp className="w-6 h-6 text-blue-500" />
+          Import de fichiers
+        </h2>
+        
+        <button
+          onClick={fetchStats}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-50"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>Actualiser</span>
+        </button>
+      </div>
+      
+      {/* Messages */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p>{error}</p>
+          <button 
+            onClick={() => setError(null)}
+            className="ml-auto text-red-700 hover:text-red-900"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sélectionner un fichier au format texte
-                </label>
-                <p className="text-sm text-gray-500 mb-2">
-                    Format attendu: fichier texte (.txt) contenant des données à longueur fixe selon le cahier des charges EOS.
-                </p>
-                <input
-                    id="file-import"
-                    type="file"
-                    onChange={handleFileChange}
-                    accept=".txt"
-                    className="block w-full text-sm text-gray-500
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-md file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-blue-50 file:text-blue-700
-                        hover:file:bg-blue-100"
-                    disabled={uploading || confirmReplace}
-                />
+      
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
+          <Check className="w-5 h-5 flex-shrink-0" />
+          <p>{success}</p>
+          <button 
+            onClick={() => setSuccess(null)}
+            className="ml-auto text-green-700 hover:text-green-900"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      
+      {/* Formulaire d'upload */}
+      <div className="bg-white rounded-lg border p-6">
+        <h3 className="text-lg font-medium mb-4">Importer un nouveau fichier</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fichier à importer
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+              {selectedFile && (
+                <span className="text-sm text-gray-600">
+                  {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                </span>
+              )}
             </div>
-
-            {/* Bouton et champ pour la date butoir */}
-            <div className="mb-6">
+          </div>
+          
+          {!fileExists ? (
+            <button
+              onClick={() => handleUpload(false)}
+              disabled={!selectedFile || uploading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center gap-2"
+            >
+              {uploading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Importation en cours...</span>
+                </>
+              ) : (
+                <>
+                  <FileUp className="w-4 h-4" />
+                  <span>Importer le fichier</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+              <h4 className="font-medium text-yellow-800 mb-2">Ce fichier existe déjà</h4>
+              
+              {existingFileInfo && (
+                <div className="mb-3 text-sm">
+                  <p>Nom: <span className="font-medium">{existingFileInfo.nom}</span></p>
+                  <p>Date d&apos;upload: <span className="font-medium">{existingFileInfo.date_upload}</span></p>
+                  <p>Nombre d&apos;enregistrements: <span className="font-medium">{existingFileInfo.nombre_donnees}</span></p>
+                </div>
+              )}
+              
+              <p className="text-sm text-yellow-700 mb-3">
+                Que souhaitez-vous faire ?
+              </p>
+              
+              <div className="flex gap-2">
                 <button
-                    type="button"
-                    onClick={handleDateToggle}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => handleUpload(true)}
+                  className="px-3 py-1.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
                 >
-                    <Calendar className="w-5 h-5 mr-2 text-gray-500" />
-                    {showDatePicker 
-                        ? (deadlineDate ? `Date butoir: ${formatDate(deadlineDate)}` : "Définir une date butoir") 
-                        : (deadlineDate ? `Date butoir: ${formatDate(deadlineDate)}` : "Définir une date butoir")}
+                  Remplacer
                 </button>
                 
-                {showDatePicker && (
-                    <div className="mt-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Date butoir pour le traitement
-                        </label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="date"
-                                value={deadlineDate}
-                                onChange={(e) => setDeadlineDate(e.target.value)}
-                                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            />
-                            {deadlineDate && (
-                                <button
-                                    type="button"
-                                    onClick={() => setDeadlineDate('')}
-                                    className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-                                >
-                                    Effacer
-                                </button>
-                            )}
-                        </div>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Cette date sera appliquée comme date limite de retour pour toutes les enquêtes du fichier
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Message de confirmation pour remplacer un fichier existant */}
-            {confirmReplace && existingFileInfo && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg">
-                    <h3 className="font-medium mb-2">Le fichier existe déjà</h3>
-                    <ul className="mb-4 text-sm space-y-1">
-                        <li><span className="font-medium">Nom:</span> {existingFileInfo.nom}</li>
-                        <li><span className="font-medium">Importé le:</span> {existingFileInfo.date_upload}</li>
-                        <li><span className="font-medium">Nombre de données:</span> {existingFileInfo.nombre_donnees}</li>
-                    </ul>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={handleReplaceFile}
-                            className="px-3 py-1.5 bg-amber-500 text-white rounded hover:bg-amber-600 text-sm"
-                            disabled={uploading}
-                        >
-                            Remplacer
-                        </button>
-                        <button
-                            onClick={handleCancelReplace}
-                            className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
-                            disabled={uploading}
-                        >
-                            Annuler
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Bouton d'envoi */}
-            {!confirmReplace && (
                 <button
-                    onClick={handleUpload}
-                    disabled={!file || uploading}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 text-white rounded-md 
-                        ${!file || uploading
-                            ? 'bg-blue-300 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700'}`}
+                  onClick={() => {
+                    setFileExists(false);
+                    setSelectedFile(null);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                    {uploading ? (
-                        <>
-                            <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Importation en cours...
-                        </>
-                    ) : (
-                        <>
-                            <FileUp className="w-5 h-5" />
-                            Importer le fichier
-                        </>
-                    )}
+                  Annuler
                 </button>
-            )}
-
-            {/* Informations sur le format de fichier */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm text-blue-800">
-                <h3 className="font-medium mb-2">À propos du format de fichier</h3>
-                <p>
-                    Selon le cahier des charges EOS, les fichiers doivent être au format texte à longueur fixe.
-                    Assurez-vous que votre fichier respecte ce format avant de l&apos;importer.
-                </p>
-                <ul className="mt-2 list-disc pl-5 space-y-1">
-                    <li>Format Windows (pas Unix)</li>
-                    <li>Extension .txt</li>
-                    <li>Champs à longueur fixe selon la structure définie</li>
-                    <li>Encodage UTF-8</li>
-                </ul>
+              </div>
             </div>
+          )}
         </div>
-    );
+      </div>
+      
+      {/* Statistiques et liste des fichiers */}
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="p-4 bg-gray-50 border-b">
+          <h3 className="font-medium">Statistiques des fichiers importés</h3>
+        </div>
+        
+        {loading ? (
+          <div className="p-12 flex justify-center">
+            <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+          </div>
+        ) : stats ? (
+          <div>
+            {/* Statistiques */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-700">Nombre total de fichiers</p>
+                <p className="text-2xl font-bold text-blue-900">{stats.total_fichiers}</p>
+              </div>
+              
+              <div className="bg-green-50 p-4 rounded-lg">
+                <p className="text-sm text-green-700">Nombre total d&apos;enregistrements</p>
+                <p className="text-2xl font-bold text-green-900">{stats.total_donnees}</p>
+              </div>
+            </div>
+            
+            {/* Liste des fichiers */}
+            <div className="p-4 border-t">
+              <h4 className="font-medium mb-3">Derniers fichiers importés</h4>
+              
+              {stats.derniers_fichiers && stats.derniers_fichiers.length > 0 ? (
+                <div className="space-y-2">
+                  {stats.derniers_fichiers.map((fichier) => (
+                    <div 
+                      key={fichier.id}
+                      className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border hover:bg-gray-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <File className="w-5 h-5 text-blue-500" />
+                        <div>
+                          <p className="font-medium">{fichier.nom}</p>
+                          <p className="text-xs text-gray-500">{fichier.date_upload} • {fichier.nombre_donnees} enregistrements</p>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <button
+                          onClick={() => handleDeleteFile(fichier.id)}
+                          className="text-red-600 hover:text-red-800"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center p-4">
+                  Aucun fichier importé
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="p-6 text-center text-gray-500">
+            Aucune statistique disponible
+          </p>
+        )}
+      </div>
+      
+      {/* Aide et documentation */}
+      <div className="bg-gray-50 border rounded-lg p-4">
+        <h3 className="font-medium mb-2 flex items-center gap-2">
+          <ChevronRight className="w-5 h-5 text-blue-500" />
+          Format de fichier requis
+        </h3>
+        
+        <p className="text-sm text-gray-600 mb-3">
+          Le fichier importé doit respecter le format spécifié dans le cahier des charges EOS France.
+          Il s&apos;agit d&apos;un fichier texte avec des champs de longueur fixe selon la spécification suivante :
+        </p>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-xs sm:text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-2 py-1 text-left">Nom du champ</th>
+                <th className="px-2 py-1 text-center">Position</th>
+                <th className="px-2 py-1 text-center">Longueur</th>
+                <th className="px-2 py-1 text-left">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              <tr>
+                <td className="px-2 py-1 font-medium">numeroDossier</td>
+                <td className="px-2 py-1 text-center">1-10</td>
+                <td className="px-2 py-1 text-center">10</td>
+                <td className="px-2 py-1">Identifiant unique du dossier</td>
+              </tr>
+              <tr>
+                <td className="px-2 py-1 font-medium">referenceDossier</td>
+                <td className="px-2 py-1 text-center">11-25</td>
+                <td className="px-2 py-1 text-center">15</td>
+                <td className="px-2 py-1">Référence externe</td>
+              </tr>
+              <tr>
+                <td className="px-2 py-1 font-medium">typeDemande</td>
+                <td className="px-2 py-1 text-center">73-75</td>
+                <td className="px-2 py-1 text-center">3</td>
+                <td className="px-2 py-1">Type (ENQ ou CON)</td>
+              </tr>
+              <tr>
+                <td className="px-2 py-1 font-medium">nom</td>
+                <td className="px-2 py-1 text-center">145-174</td>
+                <td className="px-2 py-1 text-center">30</td>
+                <td className="px-2 py-1">Nom de la personne</td>
+              </tr>
+              <tr>
+                <td colSpan="4" className="px-2 py-1 text-center text-gray-500">
+                  ... autres champs selon le cahier des charges
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 };
+
+// Assigner les PropTypes après la définition du composant
+ImportHandler.propTypes = ImportHandlerPropTypes;
 
 export default ImportHandler;

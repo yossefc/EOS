@@ -1,571 +1,579 @@
-import  { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, lazy, Suspense,useCallback } from 'react';
 import axios from 'axios';
-import { Table, RefreshCw, Search, Filter, Calendar, FileText, FileUp } from 'lucide-react';
-import UpdateModal from './UpdateModal';
+import {
+  Database, Search, Filter, RefreshCw, 
+  AlertCircle, X,
+  History,  FileDown, Pencil
+} from 'lucide-react';
 import config from '../config';
-import EnqueteExporter from './EnqueteExporter';
-import EnqueteBatchExporter from './EnqueteBatchExporter';
-import HistoryModal from './HistoryModal';
 
+// Import other components but not EnqueteExporter directly
+// This prevents circular dependencies
+const UpdateModal = lazy(() => import('./UpdateModal'));
+const HistoryModal = lazy(() => import('./HistoryModal'));
 
 const API_URL = config.API_URL;
 
-// Status colors
-const STATUS_COLORS = {
-    'P': 'bg-green-100 text-green-800',
-    'N': 'bg-red-100 text-red-800',
-    'H': 'bg-blue-100 text-blue-800',
-    'Z': 'bg-yellow-100 text-yellow-800',
-    'I': 'bg-purple-100 text-purple-800',
-    'Y': 'bg-gray-100 text-gray-800'
-};
-
-// Status labels
-const STATUS_LABELS = {
-    'P': 'Positif',
-    'N': 'Négatif / NPA',
-    'H': 'Confirmé',
-    'Z': 'Annulé (agence)',
-    'I': 'Intraitable',
-    'Y': 'Annulé (EOS)',
-    '': 'En attente'
-};
-
 const DataViewer = () => {
-    // Définition des états
-    const [donnees, setDonnees] = useState([]);
-    const [enqueteToExport, setEnqueteToExport] = useState(null);
-    const [selectedDonnees, setSelectedDonnees] = useState([]);
-    const [showBatchExport, setShowBatchExport] = useState(false);
-    const [enqueteurs, setEnqueteurs] = useState([]);
-    const [fichiers, setFichiers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedData, setSelectedData] = useState(null);
-    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [dateFilter, setDateFilter] = useState('all');
-    const [fichierFilter, setFichierFilter] = useState('all');
-    const [selectedHistoryData, setSelectedHistoryData] = useState(null);
-    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-
-    // Utiliser useMemo pour filtrer les données
-    const filteredDonnees = useMemo(() => {
-        let filtered = [...donnees];
-        
-        // Appliquer les filtres
-        if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
-            filtered = filtered.filter(donnee => 
-                (donnee.numeroDossier && donnee.numeroDossier.toLowerCase().includes(searchLower)) ||
-                (donnee.nom && donnee.nom.toLowerCase().includes(searchLower)) ||
-                (donnee.prenom && donnee.prenom.toLowerCase().includes(searchLower)) ||
-                (donnee.ville && donnee.ville.toLowerCase().includes(searchLower))
-            );
-        }
-        
-        // Filtre par statut
-        if (statusFilter !== 'all') {
-            if (statusFilter === 'pending') {
-                filtered = filtered.filter(donnee => !donnee.code_resultat);
-            } else {
-                filtered = filtered.filter(donnee => donnee.code_resultat === statusFilter);
-            }
-        }
-        
-        // Filtre par date
-        if (dateFilter !== 'all') {
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            
-            filtered = filtered.filter(donnee => {
-                if (!donnee.dateRetourEspere) return false;
-                
-                // Convertir la date au format français (DD/MM/YYYY) en objet Date
-                const parts = donnee.dateRetourEspere.split('/');
-                if (parts.length !== 3) return false;
-                
-                // En France, le format est JJ/MM/AAAA
-                const day = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10) - 1; // Les mois commencent à 0
-                const year = parseInt(parts[2], 10);
-                
-                const enqueteDate = new Date(year, month, day);
-                
-                switch (dateFilter) {
-                    case 'today':
-                        return enqueteDate.getTime() === today.getTime();
-                    case 'overdue':
-                        return enqueteDate < today;
-                    case 'week':{
-                                                const oneWeek = new Date(today);
-                        oneWeek.setDate(today.getDate() + 7);
-                        return enqueteDate >= today && enqueteDate <= oneWeek;
-                    }
-                    default:
-                        return true;
-                }
-            });
-        }
-        
-        // Filtre par fichier d'importation
-        if (fichierFilter !== 'all') {
-            filtered = filtered.filter(donnee => donnee.fichier_id === parseInt(fichierFilter));
-        }
-        
-        return filtered;
-    }, [donnees, searchTerm, statusFilter, dateFilter, fichierFilter]);
-
-    // Fonction pour vérifier si la date est dépassée
-    const isDateOverdue = (dateString) => {
-        if (!dateString) return false;
-        
-        // Convertir la date au format français (DD/MM/YYYY) en objet Date
-        const parts = dateString.split('/');
-        if (parts.length !== 3) return false;
-        
-        const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1; // Les mois commencent à 0
-        const year = parseInt(parts[2], 10);
-        
-        const dateRetour = new Date(year, month, day);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Réinitialiser les heures pour comparer seulement les dates
-        
-        return dateRetour < today;
-    };
-
-    const handleSelectAll = (e) => {
-        if (e.target.checked) {
-            setSelectedDonnees([...filteredDonnees]);
-        } else {
-            setSelectedDonnees([]);
-        }
-    };
-    
-    const handleSelectDonnee = (donnee, checked) => {
-        if (checked) {
-            setSelectedDonnees([...selectedDonnees, donnee]);
-        } else {
-            setSelectedDonnees(selectedDonnees.filter(d => d.id !== donnee.id));
-        }
-    };
-
-    const handleExport = (donnee) => {
-        setEnqueteToExport(donnee);
-    };
-
-    // Définir fetchData avec useCallback pour éviter des re-rendus inutiles
-    const fetchData = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Faire une seule requête optimisée pour récupérer toutes les données avec leurs détails
-            const response = await axios.get(`${API_URL}/api/donnees`);
-
-            if (response.data.success && Array.isArray(response.data.data)) {
-                // Récupérer les données de l'enquêteur en utilisant Promise.all pour paralléliser les requêtes
-                const donneesWithDetails = await Promise.all(
-                    response.data.data.map(async (donnee) => {
-                        try {
-                            const detailsResponse = await axios.get(`${API_URL}/api/donnees-enqueteur/${donnee.id}`);
-                            if (detailsResponse.data.success && detailsResponse.data.data) {
-                                // Fusionner les informations
-                                return {
-                                    ...donnee,
-                                    ...detailsResponse.data.data
-                                };
-                            }
-                            return donnee;
-                        } catch (err) {
-                            // Ignorer l'erreur et retourner l'objet donnee sans modifications
-                            console.warn(`Impossible de récupérer les détails pour l'ID ${donnee.id}:`, err);
-                            return donnee;
-                        }
-                    })
-                );
-
-                setDonnees(donneesWithDetails);
-            } else {
-                throw new Error("Format de données invalide");
-            }
-
-            // Charger les enquêteurs dans une requête séparée
-            const enqueteursResponse = await axios.get(`${API_URL}/api/enqueteurs`);
-            if (enqueteursResponse.data.success && Array.isArray(enqueteursResponse.data.data)) {
-                setEnqueteurs(enqueteursResponse.data.data);
-            }
-            
-            // Charger la liste des fichiers importés
-            const statsResponse = await axios.get(`${API_URL}/api/stats`);
-            if (statsResponse.data && statsResponse.data.derniers_fichiers) {
-                setFichiers(statsResponse.data.derniers_fichiers);
-            }
-
-        } catch (err) {
-            console.error("Erreur lors du chargement des données:", err);
-            setError(`Erreur: ${err.response?.data?.error || err.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    // Charger les données au montage du composant
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    // Fonctions utilitaires
-    const getEnqueteurName = useCallback((enqueteurId) => {
-        if (!enqueteurId) return 'Non assigné';
-        const enqueteur = enqueteurs.find(e => e.id === enqueteurId);
-        return enqueteur ? `${enqueteur.nom} ${enqueteur.prenom}` : 'Non trouvé';
-    }, [enqueteurs]);
-    
-    // Fonction pour obtenir le nom du fichier d'importation
-    const getFichierName = useCallback((fichierId) => {
-        if (!fichierId) return 'Inconnu';
-        const fichier = fichiers.find(f => f.id === fichierId);
-        return fichier ? fichier.nom : 'Inconnu';
-    }, [fichiers]);
-
-    const handleSearch = useCallback((e) => {
-        setSearchTerm(e.target.value);
-    }, []);
-
-    const handleDelete = useCallback(async (id) => {
-        if (window.confirm('Voulez-vous vraiment supprimer cet enregistrement ?')) {
-            try {
-                const response = await axios.delete(`${API_URL}/api/donnees/${id}`);
-                if (response.status === 200) {
-                    setDonnees(prevDonnees => prevDonnees.filter(donnee => donnee.id !== id));
-                    alert('Enregistrement supprimé avec succès.');
-                } else {
-                    alert('Erreur lors de la suppression de l\'enregistrement.');
-                }
-            } catch (err) {
-                console.error('Erreur lors de la suppression :', err);
-                alert('Une erreur est survenue.');
-            }
-        }
-    }, []);
-
-    const handleUpdate = useCallback(async (donnee) => {
-        try {
-            setLoading(true);
-            // Récupérer les données enquêteur en même temps
-            const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${donnee.id}`);
-            if (response.data.success && response.data.data) {
-                // Fusionner les données
-                setSelectedData({
-                    ...donnee,
-                    enqueteur_data: response.data.data
-                });
-            } else {
-                setSelectedData(donnee);
-            }
-            setIsUpdateModalOpen(true);
-        } catch (err) {
-            console.error("Erreur lors de la récupération des données:", err);
-            setSelectedData(donnee);
-            setIsUpdateModalOpen(true);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    const handleModalClose = useCallback((shouldRefresh) => {
-        setIsUpdateModalOpen(false);
-        setSelectedData(null);
-        if (shouldRefresh) {
-            fetchData();
-        }
-    }, [fetchData]);
-
-    const handleHistory = useCallback((id) => {
-        setSelectedHistoryData(id);
-        setIsHistoryModalOpen(true);
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            </div>
-        );
+  // State for data
+  const [donnees, setDonnees] = useState([]);
+  const [filteredDonnees, setFilteredDonnees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // State for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(500);
+  
+  // State for filtering and sorting
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    typeDemande: '',
+    code_resultat: '',
+    elements_retrouves: '',
+    dateStart: '',
+    dateEnd: '',
+    showOnlyUnassigned: false
+  });
+  
+  // State for modals
+  const [selectedDonnee, setSelectedDonnee] = useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  
+  // Fetch data with pagination
+  const fetchData = useCallback(async (page = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.get(`${API_URL}/api/donnees-complete?page=${page}&per_page=${itemsPerPage}`);
+      
+      if (response.data.success) {
+        setDonnees(response.data.data);
+        setFilteredDonnees(response.data.data);
+        setTotalItems(response.data.total || response.data.data.length);
+        setTotalPages(response.data.pages || Math.ceil(response.data.data.length / itemsPerPage));
+      } else {
+        throw new Error(response.data.error || "Erreur lors du chargement des données");
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      setError(error.response?.data?.error || error.message || "Une erreur s'est produite");
+    } finally {
+      setLoading(false);
     }
-
-    if (error) {
-        return (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
-                Erreur: {error}
-            </div>
-        );
+  }, [itemsPerPage]);
+  
+  useEffect(() => {
+    fetchData(currentPage);
+  }, [currentPage, fetchData]);
+  // Apply filters and search
+  useEffect(() => {
+    if (!donnees.length) return;
+    
+    let results = [...donnees];
+    
+    // Apply search term
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      results = results.filter(
+        donnee => 
+          donnee.numeroDossier?.toLowerCase().includes(lowerSearch) ||
+          donnee.nom?.toLowerCase().includes(lowerSearch) ||
+          donnee.prenom?.toLowerCase().includes(lowerSearch) ||
+          donnee.referenceDossier?.toLowerCase().includes(lowerSearch)
+      );
     }
-
-    return (
-        <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Table className="w-6 h-6" />
-                    Données importées ({filteredDonnees.length})
-                </h2>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                        <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={handleSearch}
-                            placeholder="Rechercher..."
-                            className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <div className="relative">
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">Tous les statuts</option>
-                                <option value="pending">En attente</option>
-                                <option value="P">Positif</option>
-                                <option value="N">Négatif</option>
-                                <option value="H">Confirmé</option>
-                                <option value="Z">Annulé (agence)</option>
-                                <option value="I">Intraitable</option>
-                                <option value="Y">Annulé (EOS)</option>
-                            </select>
-                            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        </div>
-                        <div className="relative">
-                            <select
-                                value={dateFilter}
-                                onChange={(e) => setDateFilter(e.target.value)}
-                                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">Toutes les dates</option>
-                                <option value="today">Aujourd&apos;hui</option>
-                                <option value="week">Cette semaine</option>
-                                <option value="overdue">En retard</option>
-                            </select>
-                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        </div>
-                        {/* Nouveau filtre par fichier */}
-                        <div className="relative">
-                            <select
-                                value={fichierFilter}
-                                onChange={(e) => setFichierFilter(e.target.value)}
-                                className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">Tous les fichiers</option>
-                                {fichiers.map(fichier => (
-                                    <option key={fichier.id} value={fichier.id}>
-                                        {fichier.nom}
-                                    </option>
-                                ))}
-                            </select>
-                            <FileUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        </div>
-                        <button
-                            onClick={fetchData}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            Actualiser
-                        </button>
-                    </div>
-                    {/* Bouton d'export par lot */}
-                    {selectedDonnees.length > 0 && (
-                        <button
-                            onClick={() => setShowBatchExport(true)}
-                            className="flex items-center gap-1 px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                        >
-                            <FileText className="w-4 h-4" />
-                            <span>Exporter {selectedDonnees.length} enquête{selectedDonnees.length > 1 ? 's' : ''}</span>
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-2 py-3 text-left">
-                                <input
-                                    type="checkbox"
-                                    onChange={handleSelectAll}
-                                    checked={selectedDonnees.length === filteredDonnees.length && filteredDonnees.length > 0}
-                                    className="rounded text-blue-600 focus:ring-blue-500"
-                                />
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Statut
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Enquêteur
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Fichier source
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Date limite
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                N° Dossier
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Type
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Nom
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Prénom
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Date Naissance
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ville
-                            </th>
-                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Éléments demandés
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredDonnees.map((donnee, index) => (
-                            <tr 
-                                key={index} 
-                                className={`hover:bg-gray-50 ${isDateOverdue(donnee.dateRetourEspere) ? 'bg-red-50' : ''}`}
-                            >
-                                <td className="px-2 py-2 text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedDonnees.some(d => d.id === donnee.id)}
-                                        onChange={(e) => handleSelectDonnee(donnee, e.target.checked)}
-                                        className="rounded text-blue-600 focus:ring-blue-500"
-                                    />
-                                </td>
-                                <td className="px-2 py-2 text-xs">
-                                    <div className="flex space-x-1">
-                                        <button
-                                            onClick={() => handleDelete(donnee.id)}
-                                            className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
-                                        >
-                                            Supp
-                                        </button>
-                                        <button
-                                            onClick={() => handleUpdate(donnee)}
-                                            className="px-2 py-1 bg-green-500 text-white rounded hover:bg-blue-600 text-xs"
-                                        >
-                                            Traiter
-                                        </button>
-                                        <button
-                                            onClick={() => handleHistory(donnee.id)}
-                                            className="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
-                                        >
-                                            Histo
-                                        </button>
-                                        <button
-                                            onClick={() => handleExport(donnee)}
-                                            className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
-                                        >
-                                            Export
-                                        </button>
-                                    </div>
-                                </td>
-                                <td className="px-2 py-2 text-xs">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                        ${STATUS_COLORS[donnee.code_resultat] || 'bg-yellow-100 text-yellow-800'}`}
-                                    >
-                                        {STATUS_LABELS[donnee.code_resultat] || 'En attente'}
-                                    </span>
-                                </td>
-                                <td className="px-2 py-2 text-xs">{getEnqueteurName(donnee.enqueteurId)}</td>
-                                <td className="px-2 py-2 text-xs">{getFichierName(donnee.fichier_id)}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.dateRetourEspere}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.numeroDossier}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.typeDemande}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.nom}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.prenom}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.dateNaissance}</td>
-                                <td className="px-2 py-2 text-xs">{donnee.ville}</td>
-                                <td className="px-2 py-2 text-xs">
-                                    <div className="flex flex-wrap gap-1">
-                                        {donnee.elementDemandes?.split('').map((element, idx) => (
-                                            <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs"
-                                                title={
-                                                    element === 'A' ? 'Adresse' :
-                                                        element === 'T' ? 'Téléphone' :
-                                                            element === 'D' ? 'Décès' :
-                                                                element === 'B' ? 'Banque' :
-                                                                    element === 'E' ? 'Employeur' :
-                                                                        element === 'R' ? 'Revenus' : element
-                                                }
-                                            >
-                                                {element}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {filteredDonnees.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                    Aucune donnée disponible
-                </div>
-            )}
-
-            {isUpdateModalOpen && (
-                <UpdateModal
-                    isOpen={isUpdateModalOpen}
-                    onClose={handleModalClose}
-                    data={selectedData}
-                />
-            )}
-
-            {/* Composant d'export individuel */}
-            {enqueteToExport && (
-                <EnqueteExporter
-                    data={enqueteToExport}
-                    onClose={() => setEnqueteToExport(null)}
-                />
-            )}
-
-            {/* Composant d'export par lot */}
-            {showBatchExport && (
-                <EnqueteBatchExporter
-                    data={selectedDonnees}
-                    onClose={() => setShowBatchExport(false)}
-                />
-            )}
-
-            {isHistoryModalOpen && selectedHistoryData && (
-                <HistoryModal
-                    isOpen={isHistoryModalOpen}
-                    onClose={() => {
-                        setIsHistoryModalOpen(false);
-                        setSelectedHistoryData(null);
-                    }}
-                    donneeId={selectedHistoryData}
-                />
-            )}
+    
+    // Apply filters
+    if (filters.typeDemande) {
+      results = results.filter(donnee => donnee.typeDemande === filters.typeDemande);
+    }
+    
+    if (filters.code_resultat) {
+      results = results.filter(donnee => donnee.code_resultat === filters.code_resultat);
+    }
+    
+    if (filters.elements_retrouves) {
+      results = results.filter(donnee => 
+        donnee.elements_retrouves?.includes(filters.elements_retrouves)
+      );
+    }
+    
+    if (filters.dateStart) {
+      const startDate = new Date(filters.dateStart);
+      results = results.filter(donnee => {
+        if (!donnee.created_at) return false;
+        return new Date(donnee.created_at) >= startDate;
+      });
+    }
+    
+    if (filters.dateEnd) {
+      const endDate = new Date(filters.dateEnd);
+      endDate.setHours(23, 59, 59);
+      results = results.filter(donnee => {
+        if (!donnee.created_at) return false;
+        return new Date(donnee.created_at) <= endDate;
+      });
+    }
+    
+    if (filters.showOnlyUnassigned) {
+      results = results.filter(donnee => !donnee.enqueteurId);
+    }
+    
+    setFilteredDonnees(results);
+  }, [searchTerm, filters, donnees]);
+  
+  // Handle opening update modal
+  const handleOpenUpdateModal = (donnee) => {
+    setSelectedDonnee(donnee);
+    setShowUpdateModal(true);
+  };
+  
+  // Handle opening history modal
+  const handleOpenHistoryModal = (donnee) => {
+    setSelectedDonnee(donnee);
+    setShowHistoryModal(true);
+  };
+  
+  // Status display helper
+  const getStatusDisplay = (code) => {
+    switch (code) {
+      case 'P': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Positif</span>;
+      case 'N': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Négatif</span>;
+      case 'H': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Confirmé</span>;
+      case 'Z': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Annulé (agence)</span>;
+      case 'I': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Intraitable</span>;
+      case 'Y': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Annulé (EOS)</span>;
+      default: return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">En attente</span>;
+    }
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <Database className="w-6 h-6 text-blue-500" />
+          Exploration des Données
+        </h2>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50"
+          >
+            <Filter className="w-4 h-4" />
+            <span>Filtres</span>
+          </button>
+          <button
+            onClick={() => fetchData(currentPage)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Actualiser</span>
+          </button>
         </div>
-    );
+      </div>
+      
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+      
+      {/* Search bar */}
+      <div className="flex items-center p-2 bg-white border rounded">
+        <Search className="w-5 h-5 text-gray-400 mr-2" />
+        <input
+          type="text"
+          placeholder="Rechercher par numéro, nom, prénom..."
+          className="flex-1 outline-none"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      
+      {/* Filters */}
+      {showFilters && (
+        <div className="bg-gray-50 border rounded p-4 space-y-4">
+          <h3 className="font-medium">Filtres de recherche</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type de demande
+              </label>
+              <select
+                value={filters.typeDemande}
+                onChange={(e) => setFilters({...filters, typeDemande: e.target.value})}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Tous</option>
+                <option value="ENQ">Enquête</option>
+                <option value="CON">Contestation</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Code résultat
+              </label>
+              <select
+                value={filters.code_resultat}
+                onChange={(e) => setFilters({...filters, code_resultat: e.target.value})}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Tous</option>
+                <option value="P">Positif (P)</option>
+                <option value="N">Négatif (N)</option>
+                <option value="H">Confirmé (H)</option>
+                <option value="Z">Annulé agence (Z)</option>
+                <option value="I">Intraitable (I)</option>
+                <option value="Y">Annulé EOS (Y)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Éléments retrouvés
+              </label>
+              <select
+                value={filters.elements_retrouves}
+                onChange={(e) => setFilters({...filters, elements_retrouves: e.target.value})}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Tous</option>
+                <option value="A">Adresse (A)</option>
+                <option value="T">Téléphone (T)</option>
+                <option value="B">Banque (B)</option>
+                <option value="E">Employeur (E)</option>
+                <option value="R">Revenus (R)</option>
+                <option value="D">Décès (D)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date début
+              </label>
+              <input
+                type="date"
+                value={filters.dateStart}
+                onChange={(e) => setFilters({...filters, dateStart: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date fin
+              </label>
+              <input
+                type="date"
+                value={filters.dateEnd}
+                onChange={(e) => setFilters({...filters, dateEnd: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={filters.showOnlyUnassigned}
+                onChange={(e) => setFilters({...filters, showOnlyUnassigned: e.target.checked})}
+                className="rounded text-blue-600"
+              />
+              <span className="ml-2 text-sm text-gray-700">
+                Afficher uniquement les enquêtes non assignées
+              </span>
+            </label>
+          </div>
+          
+          <div className="flex justify-end">
+            <button
+              onClick={() => setFilters({
+                typeDemande: '',
+                code_resultat: '',
+                elements_retrouves: '',
+                dateStart: '',
+                dateEnd: '',
+                showOnlyUnassigned: false
+              })}
+              className="px-4 py-2 border text-gray-700 rounded-md hover:bg-gray-50"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Data table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+          <div>
+            <h3 className="font-medium">Liste des dossiers</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {filteredDonnees.length} dossiers affichés sur {totalItems} au total
+            </p>
+          </div>
+          <div>
+            {loading && <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />}
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  N° Dossier
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nom
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Prénom
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Statut
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Éléments
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading && filteredDonnees.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center">
+                    <div className="flex justify-center items-center">
+                      <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                      <span>Chargement...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredDonnees.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                    Aucun résultat trouvé
+                  </td>
+                </tr>
+              ) : (
+                filteredDonnees.map((donnee) => (
+                  <tr key={donnee.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {donnee.numeroDossier}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {donnee.nom}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {donnee.prenom}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {donnee.typeDemande === 'ENQ' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Enquête
+                        </span>
+                      ) : donnee.typeDemande === 'CON' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                          Contestation
+                        </span>
+                      ) : (
+                        donnee.typeDemande
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {getStatusDisplay(donnee.code_resultat)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {donnee.elements_retrouves || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => handleOpenUpdateModal(donnee)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Mettre à jour"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenHistoryModal(donnee)}
+                          className="text-amber-600 hover:text-amber-900"
+                          title="Historique"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => window.open(`${API_URL}/api/export/${donnee.id}`, '_blank')}
+                          className="text-green-600 hover:text-green-900"
+                          title="Exporter"
+                        >
+                          <FileDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center px-4 py-3 bg-white border rounded-lg">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Précédent
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Suivant
+            </button>
+          </div>
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Affichage de <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> à{' '}
+                <span className="font-medium">
+                  {Math.min(currentPage * itemsPerPage, totalItems)}
+                </span>{' '}
+                sur <span className="font-medium">{totalItems}</span> résultats
+              </p>
+            </div>
+            <div>
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <span className="sr-only">Première page</span>
+                  <span>«</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <span className="sr-only">Précédent</span>
+                  <span>‹</span>
+                </button>
+                
+                {[...Array(Math.min(5, totalPages)).keys()].map(i => {
+                  // Calculate the page number to display
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 border ${
+                        currentPage === pageNum
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      } text-sm font-medium`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <span className="sr-only">Suivant</span>
+                  <span>›</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                >
+                  <span className="sr-only">Dernière page</span>
+                  <span>»</span>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modals */}
+      {showUpdateModal && selectedDonnee && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
+        </div>}>
+          <UpdateModal 
+            isOpen={showUpdateModal}
+            onClose={(refresh) => {
+              setShowUpdateModal(false);
+              if (refresh) fetchData(currentPage);
+            }}
+            data={selectedDonnee}
+          />
+        </Suspense>
+      )}
+      
+      {showHistoryModal && selectedDonnee && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
+        </div>}>
+          <HistoryModal
+            isOpen={showHistoryModal}
+            onClose={() => setShowHistoryModal(false)}
+            donneeId={selectedDonnee.id}
+          />
+        </Suspense>
+      )}
+    </div>
+  );
 };
 
 export default DataViewer;
