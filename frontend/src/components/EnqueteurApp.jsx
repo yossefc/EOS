@@ -1,6 +1,6 @@
-import  { useState, useEffect } from 'react';
-import EnqueteurLogin from './components/EnqueteurLogin';
-import EnqueteurRestrictedDashboard from './components/EnqueteurRestrictedDashboard';
+import { useState, useEffect } from 'react';
+import EnqueteurLogin from './EnqueteurLogin';
+import EnqueteurDashboard from './EnqueteurDashboard';
 
 function EnqueteurApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,6 +30,10 @@ function EnqueteurApp() {
 
   // Gérer la déconnexion
   const handleLogout = () => {
+    localStorage.removeItem('enqueteurId');
+    localStorage.removeItem('enqueteurNom');
+    localStorage.removeItem('enqueteurPrenom');
+    localStorage.removeItem('enqueteurEmail');
     setEnqueteur(null);
     setIsAuthenticated(false);
   };
@@ -68,7 +72,7 @@ function EnqueteurApp() {
       {/* Main Content - Affiche la page de login ou le dashboard en fonction de l'authentification */}
       <main>
         {isAuthenticated ? (
-          <EnqueteurRestrictedDashboard 
+          <EnqueteurDashboard 
             enqueteur={enqueteur} 
             onLogout={handleLogout} 
           />

@@ -14,14 +14,15 @@ enquetes_bp = Blueprint('enquetes', __name__)
 def get_pending_enquetes():
     """Récupère les enquêtes en attente de validation"""
     try:
-        # Récupérer les enquêtes avec un résultat mais pas encore validées
+        # Récupérer les enquêtes avec un résultat, un enquêteur assigné, mais pas encore validées
         pending_enquetes = db.session.query(
             Donnee, DonneeEnqueteur
         ).join(
             DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
         ).filter(
-            DonneeEnqueteur.code_resultat.isnot(None),
-            ~Donnee.id.in_(db.session.query(EnqueteTerminee.donnee_id))
+            Donnee.enqueteurId.isnot(None),  # Enquêteur assigné
+            DonneeEnqueteur.code_resultat.isnot(None),  # Résultat renseigné
+            ~Donnee.id.in_(db.session.query(EnqueteTerminee.donnee_id))  # Pas encore validée
         ).all()
         
         # Formater les données
@@ -86,6 +87,81 @@ def get_completed_enquetes():
             'error': str(e)
         }), 500
 
+@enquetes_bp.route('/api/enquetes/enqueteur/<int:enqueteur_id>', methods=['GET'])
+def get_enquetes_by_enqueteur(enqueteur_id):
+    """Récupère les enquêtes assignées à un enquêteur"""
+    try:
+        # Récupérer les enquêtes assignées à l'enquêteur spécifié
+        enquetes = Donnee.query.filter_by(enqueteurId=enqueteur_id).all()
+        
+        # Formater les données
+        result = []
+        for donnee in enquetes:
+            # Récupérer les données enquêteur associées
+            donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
+            
+            # Créer un dictionnaire avec les données de l'enquête
+            enquete_data = {
+                'id': donnee.id,
+                'numeroDossier': donnee.numeroDossier,
+                'nom': donnee.nom,
+                'prenom': donnee.prenom,
+                'created_at': donnee.created_at.strftime('%Y-%m-%d %H:%M:%S') if donnee.created_at else None,
+                'typeDemande': donnee.typeDemande,
+                'code_resultat': donnee_enqueteur.code_resultat if donnee_enqueteur else None,
+                'elements_retrouves': donnee_enqueteur.elements_retrouves if donnee_enqueteur else None
+            }
+            
+            result.append(enquete_data)
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des enquêtes pour l'enquêteur {enqueteur_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@enquetes_bp.route('/api/enquetes/enqueteur/<int:enqueteur_id>/completed', methods=['GET'])
+def get_completed_enquetes_by_enqueteur(enqueteur_id):
+    """Récupère les enquêtes complétées par un enquêteur"""
+    try:
+        # Récupérer les enquêtes assignées à l'enquêteur spécifié avec un code_resultat renseigné
+        enquetes = (db.session.query(Donnee, DonneeEnqueteur)
+                   .join(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id)
+                   .filter(Donnee.enqueteurId == enqueteur_id)
+                   .filter(DonneeEnqueteur.code_resultat.isnot(None))
+                   .all())
+        
+        # Formater les données
+        result = []
+        for donnee, donnee_enqueteur in enquetes:
+            enquete_data = {
+                'id': donnee.id,
+                'numeroDossier': donnee.numeroDossier,
+                'nom': donnee.nom,
+                'prenom': donnee.prenom,
+                'updated_at': donnee_enqueteur.updated_at.strftime('%Y-%m-%d %H:%M:%S') if donnee_enqueteur.updated_at else None,
+                'typeDemande': donnee.typeDemande,
+                'code_resultat': donnee_enqueteur.code_resultat,
+                'elements_retrouves': donnee_enqueteur.elements_retrouves
+            }
+            
+            result.append(enquete_data)
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des enquêtes complétées pour l'enquêteur {enqueteur_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 @enquetes_bp.route('/api/enquetes/confirm', methods=['POST'])
 def confirm_enquete():
     """Confirme une enquête (la marque comme validée)"""

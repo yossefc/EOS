@@ -10,7 +10,7 @@ const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 //const ExportHandler = lazy(() => import('./ExportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
-const EnqueteValidationManager = lazy(() => import('./EnqueteValidationManager'));
+const EnqueteurRestrictedDashboard = lazy(() => import('./EnqueteurRestrictedDashboard'));
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
 
 // Non-lazy loaded components
@@ -62,7 +62,7 @@ const Tabs = () => {
       id: 'validation',
       label: 'Validation Enquêtes',
       icon: <CheckSquare className="w-4 h-4" />,
-      component: <EnqueteValidationManager />
+      component: <EnqueteurRestrictedDashboard />
     },
     {
       id: 'data',
