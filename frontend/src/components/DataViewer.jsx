@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import  { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Table, RefreshCw, Search, Filter, Calendar, AlertCircle, FileText, FileUp } from 'lucide-react';
+import { Table, RefreshCw, Search, Filter, Calendar, FileText, FileUp } from 'lucide-react';
 import UpdateModal from './UpdateModal';
 import config from '../config';
 import EnqueteExporter from './EnqueteExporter';
@@ -98,10 +98,11 @@ const DataViewer = () => {
                         return enqueteDate.getTime() === today.getTime();
                     case 'overdue':
                         return enqueteDate < today;
-                    case 'week':
-                        const oneWeek = new Date(today);
+                    case 'week':{
+                                                const oneWeek = new Date(today);
                         oneWeek.setDate(today.getDate() + 7);
                         return enqueteDate >= today && enqueteDate <= oneWeek;
+                    }
                     default:
                         return true;
                 }
@@ -348,7 +349,7 @@ const DataViewer = () => {
                                 className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="all">Toutes les dates</option>
-                                <option value="today">Aujourd'hui</option>
+                                <option value="today">Aujourd&apos;hui</option>
                                 <option value="week">Cette semaine</option>
                                 <option value="overdue">En retard</option>
                             </select>

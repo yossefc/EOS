@@ -1,5 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { Printer, FileText, Download, X } from 'lucide-react';
+import  { useRef, useState } from 'react';
+import { Printer, FileText, X } from 'lucide-react';
+import PropTypes from 'prop-types';
+
+EnqueteExporter.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onClose: PropTypes.func.isRequired,
+};
 
 /**
  * Composant pour exporter et imprimer les données complètes d'une enquête
@@ -7,7 +13,7 @@ import { Printer, FileText, Download, X } from 'lucide-react';
 const EnqueteExporter = ({ data, onClose }) => {
   const printRef = useRef(null);
   // Utiliser directement les données passées sans faire d'appel API
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // Fonction pour imprimer le document
   const handlePrint = () => {
@@ -105,6 +111,7 @@ const EnqueteExporter = ({ data, onClose }) => {
         year: 'numeric'
       });
     } catch (e) {
+      console.log(e)
       return dateString;
     }
   };
@@ -160,7 +167,7 @@ const EnqueteExporter = ({ data, onClose }) => {
           <div ref={printRef} className="container">
             {/* En-tête */}
             <div className="header">
-              <h1 className="main-title">FICHE D'ENQUÊTE EOS FRANCE</h1>
+              <h1 className="main-title">FICHE D&apos;ENQUÊTE EOS FRANCE</h1>
               <p className="note">Document confidentiel - {new Date().toLocaleDateString('fr-FR')}</p>
             </div>
 
@@ -397,7 +404,7 @@ const EnqueteExporter = ({ data, onClose }) => {
             <div className="footer">
               <p>Document généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}</p>
               <p>EOS FRANCE - Document confidentiel - Ne pas diffuser</p>
-              <p>Uniquement les données de la table "donnees" sont incluses dans ce document</p>
+              <p>Uniquement les données de la table  sont incluses dans ce document</p>
             </div>
           </div>
         </div>

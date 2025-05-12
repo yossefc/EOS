@@ -99,6 +99,45 @@ def creer_facturations_manquantes():
             'success': False,
             'error': str(e)
         }), 500
+@tarification_bp.route('/api/contestations/check-facturations', methods=['GET'])
+def check_contestations_facturations():
+    """Vérifie les facturations de toutes les contestations"""
+    try:
+        # Récupérer toutes les contestations
+        contestations = Donnee.query.filter_by(est_contestation=True).all()
+        
+        results = []
+        for contestation in contestations:
+            donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=contestation.id).first()
+            facturation = None
+            
+            if donnee_enqueteur:
+                facturation = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+            
+            results.append({
+                'id': contestation.id,
+                'numeroDossier': contestation.numeroDossier,
+                'enquete_originale_id': contestation.enquete_originale_id,
+                'enqueteurId': contestation.enqueteurId,
+                'code_resultat': donnee_enqueteur.code_resultat if donnee_enqueteur else None,
+                'elements_retrouves': donnee_enqueteur.elements_retrouves if donnee_enqueteur else None,
+                'has_donnee_enqueteur': donnee_enqueteur is not None,
+                'has_facturation': facturation is not None,
+                'montant': float(facturation.resultat_enqueteur_montant) if facturation else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'count': len(results),
+            'data': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification des facturations: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 @tarification_bp.route('/api/tarifs/eos', methods=['POST'])
 def create_tarif_eos():
     """Crée un nouveau tarif EOS"""
@@ -603,7 +642,73 @@ def get_enquetes_a_facturer():
             'success': False,
             'error': str(e)
         }), 500
-
+@tarification_bp.route('/api/contestations/create-missing-facturations', methods=['POST'])
+def create_missing_contestation_facturations():
+    """Crée des facturations pour toutes les contestations qui n'en ont pas"""
+    try:
+        # Récupérer toutes les contestations sans facturation
+        contestations_sans_facturation = db.session.query(
+            Donnee, DonneeEnqueteur
+        ).outerjoin(
+            DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
+        ).filter(
+            Donnee.est_contestation == True
+        ).all()
+        
+        created_count = 0
+        
+        for donnee, donnee_enqueteur in contestations_sans_facturation:
+            if not donnee_enqueteur:
+                # Créer DonneeEnqueteur s'il n'existe pas
+                donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee.id)
+                db.session.add(donnee_enqueteur)
+                db.session.commit()
+            
+            # Vérifier si une facturation existe déjà
+            existing = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+            
+            if not existing:
+                # Forcer un code résultat s'il n'existe pas
+                if not donnee_enqueteur.code_resultat:
+                    donnee_enqueteur.code_resultat = 'P'  # Par défaut Positif
+                
+                if not donnee_enqueteur.elements_retrouves:
+                    donnee_enqueteur.elements_retrouves = 'A'  # Par défaut Adresse
+                
+                # Vérifier et assigner un enquêteur si nécessaire
+                if not donnee.enqueteurId:
+                    # Essayer d'assigner depuis l'enquête originale
+                    if donnee.enquete_originale_id:
+                        enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
+                        if enquete_originale and enquete_originale.enqueteurId:
+                            donnee.enqueteurId = enquete_originale.enqueteurId
+                        else:
+                            # Assigner le premier enquêteur disponible
+                            from models.enqueteur import Enqueteur
+                            default_enqueteur = Enqueteur.query.first()
+                            if default_enqueteur:
+                                donnee.enqueteurId = default_enqueteur.id
+                
+                db.session.commit()
+                
+                # Calculer la facturation
+                facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+                if facturation:
+                    created_count += 1
+        
+        return jsonify({
+            'success': True,
+            'message': f'{created_count} facturations créées pour des contestations',
+            'count': created_count
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erreur lors de la création des facturations: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 @tarification_bp.route('/api/tarification/calculer-toutes-facturations', methods=['POST'])
 def calculer_toutes_facturations():
     """Force le recalcul de toutes les facturations"""

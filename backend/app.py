@@ -19,6 +19,8 @@ import codecs
 from config import create_app
 from routes.paiement import register_paiement_routes
 from services.tarification_service import EnqueteFacturation
+from routes.enquetes import register_enquetes_routes
+from models.enquetes_terminees import EnqueteTerminee  # Importer le modèle EnqueteTerminee
 
 
 

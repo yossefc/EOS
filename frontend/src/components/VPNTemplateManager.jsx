@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { Shield, Upload } from "lucide-react";
 import config from '../config';
 

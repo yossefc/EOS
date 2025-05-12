@@ -78,12 +78,6 @@ class TarificationService:
         """
         Calcule les tarifs applicables pour une enquête ou une contestation
         et crée ou met à jour une facturation correspondante.
-        
-        Args:
-            donnee_enqueteur_id: ID de la DonneeEnqueteur à facturer
-            
-        Returns:
-            EnqueteFacturation: L'objet facturation créé ou mis à jour, ou None en cas d'erreur
         """
         try:
             # 1. Récupérer donnee_enqueteur
@@ -100,19 +94,29 @@ class TarificationService:
 
             # 3. Vérifier si c'est une contestation
             is_contestation = donnee.est_contestation and donnee.enquete_originale_id
+            logger.info(f"Traitement de {donnee.id}: est_contestation={is_contestation}, code_resultat={donnee_enqueteur.code_resultat}")
             
             # Vérifier si un enquêteur est assigné
             if not donnee.enqueteurId:
                 if is_contestation:
-                    # Pour une contestation, tenter d'assigner l'enquêteur de l'originale
+                    # Pour une contestation, assigner automatiquement l'enquêteur de l'originale
                     enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
                     if enquete_originale and enquete_originale.enqueteurId:
                         donnee.enqueteurId = enquete_originale.enqueteurId
                         db.session.commit()
                         logger.info(f"Enquêteur {donnee.enqueteurId} assigné automatiquement depuis l'enquête originale")
                     else:
-                        logger.error(f"No enqueteur assigned to donnee {donnee.id}, cannot calculate payment")
-                        return None
+                        # MODIFICATION: Assigner un enquêteur par défaut si non trouvé
+                        # Récupérer le premier enquêteur disponible
+                        from models.enqueteur import Enqueteur
+                        default_enqueteur = Enqueteur.query.first()
+                        if default_enqueteur:
+                            donnee.enqueteurId = default_enqueteur.id
+                            db.session.commit()
+                            logger.info(f"Enquêteur par défaut {default_enqueteur.id} assigné à la contestation")
+                        else:
+                            logger.error(f"Impossible d'assigner un enquêteur à la contestation {donnee.id}")
+                            return None
                 else:
                     logger.error(f"No enqueteur assigned to donnee {donnee.id}, cannot calculate payment")
                     return None
@@ -141,7 +145,7 @@ class TarificationService:
             logger.error(f"Erreur lors du calcul des tarifs: {str(e)}", exc_info=True)
             db.session.rollback()
             return None
-
+    
     @staticmethod
     def _get_or_create_facturation(donnee, donnee_enqueteur):
         """Récupère ou crée une facturation pour l'enquête"""
@@ -166,9 +170,9 @@ class TarificationService:
     @staticmethod
     def _handle_contestation_facturation(facturation, donnee, donnee_enqueteur):
         """Gère la facturation pour une contestation"""
-        # Si le code_resultat est vide, on crée juste une facturation vide pour le moment
-        # Dans _handle_contestation_facturation ou calculate_tarif_for_enquete
         logger.info(f"Traitement contestation {donnee.id}: code_resultat={donnee_enqueteur.code_resultat}, elements={donnee_enqueteur.elements_retrouves}")
+        
+        # Si le code_resultat est vide, on crée juste une facturation vide pour le moment
         if not donnee_enqueteur.code_resultat:
             facturation.tarif_eos_code = "ENCOURS"
             facturation.tarif_eos_montant = 0.0
@@ -184,11 +188,39 @@ class TarificationService:
         enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
         if not enquete_originale:
             logger.error(f"Enquête originale {donnee.enquete_originale_id} non trouvée")
+            # MODIFICATION: Même sans enquête originale, créer une facturation basique
+            elements_code = donnee_enqueteur.elements_retrouves or 'A'
+            tarif_eos = TarificationService.get_tarif_eos(elements_code)
+            tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
+            
+            if tarif_eos:
+                facturation.tarif_eos_code = elements_code
+                facturation.tarif_eos_montant = tarif_eos.montant
+                facturation.resultat_eos_montant = tarif_eos.montant
+            else:
+                facturation.tarif_eos_code = elements_code
+                facturation.tarif_eos_montant = 10.0  # Valeur par défaut
+                facturation.resultat_eos_montant = 10.0
+            
+            if tarif_enqueteur:
+                facturation.tarif_enqueteur_code = elements_code
+                facturation.tarif_enqueteur_montant = tarif_enqueteur.montant
+                facturation.resultat_enqueteur_montant = tarif_enqueteur.montant
+            else:
+                facturation.tarif_enqueteur_code = elements_code
+                facturation.tarif_enqueteur_montant = 7.0  # Valeur par défaut
+                facturation.resultat_enqueteur_montant = 7.0
+            
+            logger.info(f"Facturation créée sans enquête originale: {facturation.resultat_enqueteur_montant}€")
             return
         
         original_enquete = DonneeEnqueteur.query.filter_by(donnee_id=enquete_originale.id).first()
         if not original_enquete:
             logger.warning(f"Données enquêteur de l'enquête originale {enquete_originale.id} non trouvées")
+            # MODIFICATION: Créer l'objet DonneeEnqueteur s'il n'existe pas
+            original_enquete = DonneeEnqueteur(donnee_id=enquete_originale.id)
+            db.session.add(original_enquete)
+            db.session.commit()
         
         original_facturation = None
         if original_enquete:
@@ -257,20 +289,13 @@ class TarificationService:
         """Gère une contestation avec résultat positif ou confirmé"""
         elements_code = donnee_enqueteur.elements_retrouves
         
-        # Si pas d'éléments retrouvés, on ne peut pas faire le calcul
+        # Si pas d'éléments retrouvés, utiliser A par défaut
         if not elements_code:
-            logger.warning(f"Contestation positive sans éléments retrouvés pour l'enquête {donnee.id}")
-            facturation.resultat_eos_montant = 0.0
-            facturation.resultat_enqueteur_montant = 0.0
-            return
+            logger.warning(f"Contestation positive sans éléments retrouvés pour l'enquête {donnee.id}. Utilisation de 'A' par défaut.")
+            elements_code = 'A'
+            donnee_enqueteur.elements_retrouves = 'A'
         
-        # Si on a l'enquête originale, vérifier si les éléments ont changé
-        if original_enquete and original_facturation and original_enquete.elements_retrouves:
-            original_elements = original_enquete.elements_retrouves
-            
-            # Si les éléments ont changé, il faut ajuster
-            if elements_code != original_elements:
-                TarificationService._handle_elements_change(facturation, donnee, elements_code, original_elements, original_enquete)
+        # MODIFICATION: Même si original_enquete est None, nous continuons
         
         # Calculer les tarifs pour cette contestation
         tarif_eos = TarificationService.get_tarif_eos(elements_code)
@@ -295,6 +320,8 @@ class TarificationService:
             facturation.tarif_enqueteur_code = elements_code
             facturation.tarif_enqueteur_montant = 7.0
             facturation.resultat_enqueteur_montant = 7.0
+        
+        logger.info(f"Facturation contestation positive: code={elements_code}, montant={facturation.resultat_enqueteur_montant}€")
 
     @staticmethod
     def _handle_elements_change(facturation, donnee, elements_code, original_elements, original_enquete):

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import  { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   DollarSign, PlusCircle, RefreshCw, Check, AlertCircle, Edit, Trash2,
-  FilePlus, Archive, Calculator, AlertTriangle, BarChart2, Users
+  FilePlus,  Calculator,  BarChart2, Users
 } from 'lucide-react';
 import config from '../config';
 
@@ -506,7 +506,7 @@ useEffect(() => {
                   ) : tarifsEOS.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                        Aucun tarif défini. Utilisez le bouton "Initialiser les tarifs" pour créer les tarifs par défaut.
+                        Aucun tarif défini. Utilisez le bouton Initialiser les tarifs pour créer les tarifs par défaut.
                       </td>
                     </tr>
                   ) : (
@@ -693,7 +693,7 @@ useEffect(() => {
                   ) : tarifsEnqueteur.length === 0 ? (
                     <tr>
                       <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                        Aucun tarif défini. Utilisez le bouton "Initialiser les tarifs" pour créer les tarifs par défaut.
+                        Aucun tarif défini. Utilisez le bouton Initialiser les tarifs pour créer les tarifs par défaut.
                       </td>
                     </tr>
                   ) : (
@@ -853,7 +853,7 @@ useEffect(() => {
         </div>
       ) : enquetesAFacturer.length === 0 ? (
         <div className="p-8 text-center text-gray-500">
-          <p>Aucune enquête à facturer n'a été trouvée</p>
+          <p>Aucune enquête à facturer n&apos;a été trouvée</p>
         </div>
       ) : (
         <div className="overflow-x-auto">

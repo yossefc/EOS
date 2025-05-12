@@ -1,5 +1,6 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { BarChart2, FileText, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign } from 'lucide-react';
+import  { useState, lazy, Suspense } from 'react';
+import { BarChart2, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign, CheckSquare } from 'lucide-react';
+
 
 // Lazy loading des composants
 const StatsViewer = lazy(() => import('./StatsViewer'));
@@ -10,6 +11,8 @@ const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 const ExportHandler = lazy(() => import('./ExportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
+const EnqueteValidationManager = lazy(() => import('./EnqueteValidationManager'));
+
 import PaiementManager from './PaiementManager';
 import FinancialReports from './FinancialReports'; // Nouveau composant pour la tarification
 
@@ -23,7 +26,7 @@ const LoadingComponent = () => (
 
 const Tabs = () => {
   const [activeTab, setActiveTab] = useState('stats');
-  const [enquetes, setEnquetes] = useState([]);
+  const [enquetes] = useState([]);
 
   // Fonction pour rafraîchir les données après import
   const handleImportComplete = async () => {
@@ -52,6 +55,12 @@ const Tabs = () => {
       label: 'Interface Enquêteur',
       icon: <User className="w-4 h-4" />,
       component: <EnqueteurDashboard />
+    },
+    {
+      id: 'validation',
+      label: 'Validation Enquêtes',
+      icon: <CheckSquare className="w-4 h-4" />,
+      component: <EnqueteValidationManager />
     },
     {
       id: 'data',
@@ -138,6 +147,7 @@ const Tabs = () => {
     </div>
   );
 };
+
 
 // Ajout d'un style pour masquer la barre de défilement horizontale tout en permettant le défilement
 const style = document.createElement('style');

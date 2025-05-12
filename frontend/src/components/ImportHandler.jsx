@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import axios from 'axios';
 import { FileUp, AlertCircle, Check, Calendar } from 'lucide-react';
 import config from '../config';
+import PropTypes from 'prop-types';
+
+ImportHandler.propTypes = {
+  onImportComplete: PropTypes.func.isRequired, // ou `.isOptional` si ce n’est pas obligatoire
+};
 
 const API_URL = config.API_URL;
 
@@ -198,7 +203,18 @@ const ImportHandler = ({ onImportComplete }) => {
                     <div>{success}</div>
                 </div>
             )}
-
+            {stats && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+          <h3 className="font-medium text-gray-900 mb-2">Résumé de l’import</h3>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>ID du fichier :</strong> {stats.fileId}</li>
+            <li><strong>Enregistrements traités :</strong> {stats.recordsProcessed}</li>
+            {stats.deadlineDate && (
+              <li><strong>Date butoir :</strong> {formatDate(stats.deadlineDate)}</li>
+            )}
+          </ul>
+        </div>
+      )}
             <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sélectionner un fichier au format texte
@@ -323,7 +339,7 @@ const ImportHandler = ({ onImportComplete }) => {
                 <h3 className="font-medium mb-2">À propos du format de fichier</h3>
                 <p>
                     Selon le cahier des charges EOS, les fichiers doivent être au format texte à longueur fixe.
-                    Assurez-vous que votre fichier respecte ce format avant de l'importer.
+                    Assurez-vous que votre fichier respecte ce format avant de l&apos;importer.
                 </p>
                 <ul className="mt-2 list-disc pl-5 space-y-1">
                     <li>Format Windows (pas Unix)</li>

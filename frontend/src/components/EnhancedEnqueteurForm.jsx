@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import  { useState } from "react";
+import PropTypes from 'prop-types'; // Import PropTypes
 import { User, Plus, Download, Mail, Phone, Shield, Check, X } from "lucide-react";
 import axios from 'axios';
 import config from '../config';
@@ -203,7 +204,7 @@ const EnhancedEnqueteurForm = ({ onEnqueteurAdded, onClose }) => {
                                 />
                             </div>
                             <p className="mt-1 text-xs text-gray-500">
-                                Cet email sera utilisé par l'enquêteur pour se connecter
+                                Cet email sera utilisé par l&apos;enquêteur pour se connecter
                             </p>
                         </div>
                         <div>
@@ -257,7 +258,7 @@ const EnhancedEnqueteurForm = ({ onEnqueteurAdded, onClose }) => {
                             ) : (
                                 <>
                                     <Plus className="w-5 h-5" />
-                                    <span>Créer l'enquêteur</span>
+                                    <span>Créer l&apos;enquêteur</span>
                                 </>
                             )}
                         </button>
@@ -266,6 +267,12 @@ const EnhancedEnqueteurForm = ({ onEnqueteurAdded, onClose }) => {
             )}
         </div>
     );
+};
+
+// Add PropTypes validation
+EnhancedEnqueteurForm.propTypes = {
+    onEnqueteurAdded: PropTypes.func.isRequired,
+    onClose: PropTypes.func.isRequired
 };
 
 export default EnhancedEnqueteurForm;

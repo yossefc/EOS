@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import  { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-    Users, ArrowLeft, DollarSign, Calendar, Download, RefreshCw, CheckCircle, 
-    AlertCircle, FileDown, FileText, Check, X, AlertTriangle, Clock, Search
+    Users, ArrowLeft, DollarSign, Calendar,  RefreshCw, CheckCircle, 
+    AlertCircle, FileDown, Check, X, AlertTriangle, Clock, Search
 } from 'lucide-react';
 import config from '../config';
 
@@ -261,7 +261,7 @@ const PaiementManager = () => {
                 <div className="p-8 text-center text-gray-500">
                     <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
                     <p className="text-lg font-medium mb-2">Tous les paiements sont à jour!</p>
-                    <p>Il n'y a aucun paiement en attente pour le moment.</p>
+                    <p>Il n&apos;y a aucun paiement en attente pour le moment.</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto">
@@ -550,7 +550,7 @@ const PaiementManager = () => {
                                         Date
                                     </th>
                                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Nombre d'enquêtes
+                                        Nombre d&apos;enquêtes
                                     </th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Montant total

@@ -1,13 +1,40 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import  { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-  User, Phone, MapPin, Building2, Calendar, Info,
-  CreditCard, MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X, Search, Building, StickyNote, HelpCircle
+  User, MapPin,  Calendar, Info,
+   MessageSquare, Briefcase, CircleDollarSign,
+  Check, AlertCircle, X,  Building, StickyNote, HelpCircle
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
 import EtatCivilPanel from './EtatCivilPanel';
+import PropTypes from 'prop-types';
+
+UpdateModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  data: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    numeroDossier: PropTypes.string,
+    referenceDossier: PropTypes.string,
+    typeDemande: PropTypes.string,
+    motifDeContestation: PropTypes.string,
+    elementDemandes: PropTypes.string,
+    elementObligatoires: PropTypes.string,
+    qualite: PropTypes.string,
+    nom: PropTypes.string,
+    prenom: PropTypes.string,
+    dateNaissance: PropTypes.string,
+    lieuNaissance: PropTypes.string,
+    codePostalNaissance: PropTypes.string,
+    paysNaissance: PropTypes.string,
+    nomPatronymique: PropTypes.string,
+    enqueteOriginale: PropTypes.shape({
+      numeroDossier: PropTypes.string,
+      enqueteurNom: PropTypes.string,
+    }),
+  }).isRequired
+};
 
 
 const API_URL = config.API_URL;
@@ -162,12 +189,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
+  const [showEtatCivilHelp, setShowEtatCivilHelp] = useState(false);
   
 
   // Charger les données de l'enquêteur si disponibles
   useEffect(() => {
     if (data) {
-      // Récupérer les données enquêteur si elles existent
       const fetchEnqueteurData = async () => {
         try {
           const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${data.id}`);
@@ -279,26 +306,24 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
               }));
             }
           } else {
-            // Initialiser avec des valeurs par défaut
             initializeWithDossierData();
           }
         } catch (error) {
+          console.log(error);
           initializeWithDossierData();
         }
       };
-
+  
       fetchEnqueteurData();
     }
-  }, [data]);
+  }, [data, initializeWithDossierData]);
 
   // Initialiser le formulaire avec les données du dossier
-  const initializeWithDossierData = () => {
+  const initializeWithDossierData = useCallback(() => {
     if (!data) return;
-
-    // Initialisation avec des valeurs vides pour tous les champs sauf code_resultat et elements_retrouves
+  
     setFormData(prev => ({
       ...prev,
-      // Les seules valeurs initialisées depuis donnees sont les éléments retrouvés par défaut
       code_resultat: 'P',
       elements_retrouves: data.elementDemandes || 'A',
       flag_etat_civil_errone: '',
@@ -341,7 +366,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       code_banque: '',
       code_guichet: '',
     }));
-  };
+  }, [data]);
 
   // Recherche d'adresse via API adresse.data.gouv.fr
   const searchAddress = useCallback(async (query) => {
@@ -797,11 +822,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     return null; // Pas d'erreur
   };
 
-  // Formatter les données pour l'affichage
-  const formatValue = (value) => {
-    if (value === null || value === undefined || value === '') return '-';
-    return value;
-  };
+
 
   // Si le modal n'est pas ouvert, ne rien afficher
   if (!isOpen || !data) return null;
@@ -937,7 +958,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         <p><span className="font-medium">Motif de contestation :</span> {data.motifDeContestation || 'Non précisé'}</p>
       </div>
     ) : (
-      <p className="text-yellow-600">Information sur l'enquête originale non disponible</p>
+      <p className="text-yellow-600">Information sur l&apos;enquête originale non disponible</p>
     )}
   </div>
 )}
@@ -969,7 +990,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   </div>
 
                   <div className="border-t pt-4">
-                    <h4 className="font-medium mb-3">Résultat de l'enquête</h4>
+                    <h4 className="font-medium mb-3">Résultat de l&apos;enquête</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm text-gray-600 mb-1">Code résultat</label>
@@ -1238,7 +1259,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     </div>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">
-                        Téléphone chez l'employeur
+                        Téléphone chez l&apos;employeur
                       </label>
                       <input
                         type="text"
@@ -1276,7 +1297,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">
-                      Numéro de l'acte de décès
+                      Numéro de l&apos;acte de décès
                     </label>
                     <input
                       type="text"
@@ -1339,12 +1360,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             {/* Onglet Employeur */}
             {activeTab === 'employeur' && (
               <div className="bg-white border rounded-lg p-4">
-                <h3 className="font-medium mb-4">Informations sur l'employeur</h3>
+                <h3 className="font-medium mb-4">Informations sur l&apos;employeur</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="sm:col-span-3">
                       <label className="block text-sm text-gray-600 mb-1">
-                        Nom de l'employeur *
+                        Nom de l&apos;employeur *
                       </label>
                       <input
                         type="text"
@@ -1385,7 +1406,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       />
                     </div>
                   </div>
-                  <h4 className="font-medium mt-4 mb-2">Adresse de l'employeur</h4>
+                  <h4 className="font-medium mt-4 mb-2">Adresse de l&apos;employeur</h4>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">
                       Adresse 1
@@ -1836,7 +1857,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       <HelpCircle className="w-4 h-4" />
                       <span>État civil erroné</span>
                     </div>
-                    <p className="text-sm">Documentez ici précisément les différences entre l'état civil fourni et celui détecté (ex: date de naissance avec un chiffre différent, prénom correspondant au 2ème prénom, etc.)</p>
+                    <p className="text-sm">Documentez ici précisément les différences entre l&apos;état civil fourni et celui détecté (ex: date de naissance avec un chiffre différent, prénom correspondant au 2ème prénom, etc.)</p>
                   </div>
                 )}
                 <div className="space-y-4">

@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect,useCallback } from 'react';
 import axios from 'axios';
 import { 
-    X, Clock, AlertCircle, FileText, User, 
-    Calendar, Info, CheckCircle, RefreshCw 
+    X, Clock, AlertCircle, FileText, 
+   CheckCircle, RefreshCw 
 } from 'lucide-react';
 import config from '../config';
+import PropTypes from 'prop-types';
+
+HistoryModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  donneeId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};
+
 
 const API_URL = config.API_URL;
 
@@ -13,31 +21,31 @@ const HistoryModal = ({ isOpen, onClose, donneeId }) => {
     const [error, setError] = useState(null);
     const [historyData, setHistoryData] = useState(null);
     
-    useEffect(() => {
-        if (isOpen && donneeId) {
-            fetchHistoryData();
-        }
-    }, [isOpen, donneeId]);
+
     
-    const fetchHistoryData = async () => {
+    const fetchHistoryData = useCallback(async () => {
         try {
-            setLoading(true);
-            setError(null);
-            
-            const response = await axios.get(`${API_URL}/api/donnees/${donneeId}/historique`);
-            
-            if (response.data.success) {
-                setHistoryData(response.data.data);
-            } else {
-                throw new Error(response.data.error || "Erreur lors de la récupération de l'historique");
-            }
+          setLoading(true);
+          setError(null);
+          const response = await axios.get(`${API_URL}/api/donnees/${donneeId}/historique`);
+          if (response.data.success) {
+            setHistoryData(response.data.data);
+          } else {
+            throw new Error(response.data.error || "Erreur lors de la récupération de l'historique");
+          }
         } catch (error) {
-            console.error("Erreur:", error);
-            setError(error.response?.data?.error || error.message || "Une erreur s'est produite");
+          console.error("Erreur:", error);
+          setError(error.response?.data?.error || error.message || "Une erreur s'est produite");
         } finally {
-            setLoading(false);
+          setLoading(false);
         }
-    };
+      }, [donneeId]);
+      
+      useEffect(() => {
+        if (isOpen && donneeId) {
+          fetchHistoryData();
+        }
+      }, [isOpen, donneeId, fetchHistoryData]);
 
     // Formater la date
     const formatDate = (dateString) => {
@@ -171,7 +179,7 @@ const HistoryModal = ({ isOpen, onClose, donneeId }) => {
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <h4 className="font-medium">Résultat d'enquête</h4>
+                                                            <h4 className="font-medium">Résultat d&apos;enquête</h4>
                                                             <span className="text-sm text-gray-500">{formatDate(mod.date)}</span>
                                                         </div>
                                                         <p className="text-gray-600 mt-1">
@@ -192,7 +200,7 @@ const HistoryModal = ({ isOpen, onClose, donneeId }) => {
                         </div>
                     ) : (
                         <div className="text-center py-8 text-gray-500">
-                            Aucune donnée d'historique disponible
+                            Aucune donnée d&apos;historique disponible
                         </div>
                     )}
                 </div>

@@ -1,5 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { Printer, FileText, Download, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Printer, FileText,  CheckCircle, AlertCircle, X } from 'lucide-react';
+import PropTypes from 'prop-types';
+
+EnqueteBatchExporter.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onClose: PropTypes.func.isRequired,
+};
 
 /**
  * Composant pour exporter plusieurs enquêtes en un seul document
@@ -236,7 +242,7 @@ const EnqueteBatchExporter = ({ data, onClose }) => {
           {/* Page de garde */}
           <div className="header-logo mb-8 text-center">
             <h1 className="text-2xl font-bold text-blue-600 mb-1">EOS FRANCE</h1>
-            <p className="text-gray-500">Rapport d'enquêtes</p>
+            <p className="text-gray-500">Rapport d&apos;enquêtes</p>
             <p className="mt-6 text-lg font-medium">Export de {data.length} enquête{data.length > 1 ? 's' : ''}</p>
             <p className="mt-2 text-gray-500">Généré le {new Date().toLocaleDateString('fr-FR')}</p>
           </div>

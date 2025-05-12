@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import axios from 'axios';
 import {
-    Users, Plus, Trash2, Download, RefreshCw, Mail, Phone, Key, Shield,
-    Search, Filter, LinkIcon, AlertTriangle, Check, User, ArrowUpRight
+    Users, Plus, Trash2, Download, RefreshCw, Mail, Phone,  Shield,
+    Search,  AlertTriangle, Check, User, ArrowUpRight
 } from "lucide-react";
 import VPNTemplateManager from "./VPNTemplateManager";
 import EnhancedEnqueteurForm from "./EnhancedEnqueteurForm";
@@ -22,26 +22,23 @@ function ImprovedEnqueteurViewer() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statsVisible, setStatsVisible] = useState({});
 
-    const fetchEnqueteurs = async () => {
+    const fetchEnqueteurs = useCallback(async () => {
         try {
-            setLoading(true);
-            
-            // Récupérer les enquêteurs avec leurs statistiques
-            const response = await axios.get(`${API_URL}/api/enqueteurs-stats`);
-            
-            if (response.data.success) {
-                setEnqueteurs(response.data.data);
-                applyFilters(response.data.data, searchTerm);
-            } else {
-                throw new Error(response.data.error || 'Erreur lors de la récupération des enquêteurs');
-            }
+          setLoading(true);
+          const response = await axios.get(`${API_URL}/api/enqueteurs-stats`);
+          if (response.data.success) {
+            setEnqueteurs(response.data.data);
+          } else {
+            throw new Error(response.data.error || 'Erreur lors de la récupération des enquêteurs');
+          }
         } catch (error) {
-            console.error("Erreur lors de la récupération des enquêteurs:", error);
-            setError(error.message);
+          console.error("Erreur:", error);
+          setError(error.message);
         } finally {
-            setLoading(false);
+          setLoading(false);
         }
-    };
+      }, []);
+      
 
     // Appliquer les filtres
     const applyFilters = (data, search) => {
@@ -61,10 +58,10 @@ function ImprovedEnqueteurViewer() {
         setFilteredEnqueteurs(filtered);
     };
 
-    // Effets pour le chargement initial et les filtres
     useEffect(() => {
         fetchEnqueteurs();
-    }, []);
+      }, [fetchEnqueteurs]);
+      
 
     useEffect(() => {
         applyFilters(enqueteurs, searchTerm);
@@ -236,7 +233,7 @@ function ImprovedEnqueteurViewer() {
                             <div>
                                 <h3 className="font-medium text-blue-800 mb-1">Configuration OpenVPN</h3>
                                 <p className="text-sm text-blue-700">
-                                    Chaque enquêteur peut se connecter à l'interface restreinte avec son adresse email. 
+                                    Chaque enquêteur peut se connecter à l&apos;interface restreinte avec son adresse email. 
                                     Pour un accès sécurisé, téléchargez et partagez avec lui sa configuration OpenVPN personnelle.
                                 </p>
                             </div>

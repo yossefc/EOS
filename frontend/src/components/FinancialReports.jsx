@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-    BarChart2, PieChart, Calendar, RefreshCw, AlertCircle, 
+    BarChart2,  RefreshCw, AlertCircle, 
     Download, DollarSign, TrendingUp, FileText, Users
 } from 'lucide-react';
 import { 
@@ -35,59 +35,60 @@ const FinancialReports = () => {
     // Période sélectionnée pour les filtres
     const [selectedPeriod, setSelectedPeriod] = useState('12months');
     
-    // Récupération des données
     useEffect(() => {
         fetchAllData();
-    }, [selectedPeriod]);
+      }, [fetchAllData]);
     
-    const fetchAllData = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            
-            // Récupérer les statistiques par période
-            const periodResponse = await axios.get(`${API_URL}/api/paiement/stats/periodes?mois=${selectedPeriod === '12months' ? 12 : 24}`);
-            
-            if (periodResponse.data.success) {
-                setPeriodeStats(periodResponse.data.data);
-            }
-            
-            // Récupérer les statistiques globales
-            const globalResponse = await axios.get(`${API_URL}/api/tarification/stats/global`);
-            
-            if (globalResponse.data.success) {
-                setGlobalStats(globalResponse.data.data);
-            }
-            
-            // Récupérer les statistiques par tarif (simulation pour l'exemple)
-            const mockTarifStats = [
-                { code: 'A', description: 'Adresse seule', count: 124, montant: 992.00 },
-                { code: 'AT', description: 'Adresse et téléphone', count: 248, montant: 5456.00 },
-                { code: 'ATB', description: 'Adresse, téléphone et banque', count: 76, montant: 1824.00 },
-                { code: 'D', description: 'Décès', count: 12, montant: 120.00 },
-                { code: 'ATBE', description: 'Adresse, téléphone, banque et employeur', count: 42, montant: 1092.00 }
-            ];
-            
-            setTarifStats(mockTarifStats);
-            
-            // Récupérer les statistiques par enquêteur (simulation pour l'exemple)
-            const mockEnqueteurStats = [
-                { id: 1, nom: 'Dupont', prenom: 'Jean', count: 87, montant: 1914.00, status: { positive: 68, negative: 19 } },
-                { id: 2, nom: 'Martin', prenom: 'Sophie', count: 124, montant: 2728.00, status: { positive: 102, negative: 22 } },
-                { id: 3, nom: 'Bernard', prenom: 'Philippe', count: 56, montant: 1232.00, status: { positive: 48, negative: 8 } },
-                { id: 4, nom: 'Petit', prenom: 'Marie', count: 103, montant: 2266.00, status: { positive: 85, negative: 18 } },
-                { id: 5, nom: 'Lefebvre', prenom: 'Thomas', count: 132, montant: 2904.00, status: { positive: 112, negative: 20 } }
-            ];
-            
-            setEnqueteurStats(mockEnqueteurStats);
-            
-        } catch (error) {
-            console.error("Erreur lors de la récupération des données:", error);
-            setError("Erreur lors du chargement des données");
-        } finally {
-            setLoading(false);
-        }
-    };
+
+      
+      const fetchAllData = useCallback(async () => {
+          try {
+              setLoading(true);
+              setError(null);
+      
+              // 📊 Récupérer les statistiques par période (12 ou 24 mois)
+              const periodCount = selectedPeriod === '12months' ? 12 : 24;
+              const periodRes = await axios.get(`${API_URL}/api/paiement/stats/periodes?mois=${periodCount}`);
+      
+              if (periodRes.data.success) {
+                  setPeriodeStats(periodRes.data.data);
+              }
+      
+              // 📈 Récupérer les statistiques globales
+              const globalRes = await axios.get(`${API_URL}/api/tarification/stats/global`);
+      
+              if (globalRes.data.success) {
+                  setGlobalStats(globalRes.data.data);
+              }
+      
+              // 🧪 Statistiques simulées par type de tarif
+              const mockTarifStats = [
+                  { code: 'A', description: 'Adresse seule', count: 124, montant: 992.00 },
+                  { code: 'AT', description: 'Adresse et téléphone', count: 248, montant: 5456.00 },
+                  { code: 'ATB', description: 'Adresse, téléphone et banque', count: 76, montant: 1824.00 },
+                  { code: 'D', description: 'Décès', count: 12, montant: 120.00 },
+                  { code: 'ATBE', description: 'Adresse, téléphone, banque et employeur', count: 42, montant: 1092.00 }
+              ];
+              setTarifStats(mockTarifStats);
+      
+              // 🧪 Statistiques simulées par enquêteur
+              const mockEnqueteurStats = [
+                  { id: 1, nom: 'Dupont', prenom: 'Jean', count: 87, montant: 1914.00, status: { positive: 68, negative: 19 } },
+                  { id: 2, nom: 'Martin', prenom: 'Sophie', count: 124, montant: 2728.00, status: { positive: 102, negative: 22 } },
+                  { id: 3, nom: 'Bernard', prenom: 'Philippe', count: 56, montant: 1232.00, status: { positive: 48, negative: 8 } },
+                  { id: 4, nom: 'Petit', prenom: 'Marie', count: 103, montant: 2266.00, status: { positive: 85, negative: 18 } },
+                  { id: 5, nom: 'Lefebvre', prenom: 'Thomas', count: 132, montant: 2904.00, status: { positive: 112, negative: 20 } }
+              ];
+              setEnqueteurStats(mockEnqueteurStats);
+      
+          } catch (err) {
+              console.error("Erreur lors de la récupération des données:", err);
+              setError("Erreur lors du chargement des données");
+          } finally {
+              setLoading(false);
+          }
+      }, [selectedPeriod, setLoading, setError, setPeriodeStats, setGlobalStats, setTarifStats, setEnqueteurStats]);
+      
     
     // Générer un rapport PDF (exemple)
     const handleGenerateReport = () => {
@@ -204,7 +205,7 @@ const FinancialReports = () => {
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                     >
-                        Vue d'ensemble
+                        Vue d&apos;ensemble
                     </button>
                     <button
                         onClick={() => setActiveTab('trends')}

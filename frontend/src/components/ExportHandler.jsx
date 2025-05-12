@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { Download, AlertCircle, Check, FileDown } from 'lucide-react';
 import config from '../config';
+import PropTypes from 'prop-types';
+
+ExportHandler.propTypes = {
+  enquetes: PropTypes.arrayOf(PropTypes.object).isRequired,
+  onExportComplete: PropTypes.func.isRequired,
+};
 
 const API_URL = config.API_URL;
 
@@ -107,7 +113,7 @@ const ExportHandler = ({ enquetes = [], onExportComplete }) => {
         <div className="bg-white shadow-md rounded-lg p-6">
             <div className="flex items-center gap-2 mb-6">
                 <FileDown className="w-6 h-6 text-green-500" />
-                <h2 className="text-xl font-bold">Export des résultats d'enquête</h2>
+                <h2 className="text-xl font-bold">Export des résultats d&apos;enquête</h2>
             </div>
 
             {error && (
@@ -126,7 +132,7 @@ const ExportHandler = ({ enquetes = [], onExportComplete }) => {
 
             <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Type d'export
+                    Type d&apos;export
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                     <div
@@ -183,9 +189,9 @@ const ExportHandler = ({ enquetes = [], onExportComplete }) => {
 
             {/* Informations sur le format de fichier */}
             <div className="mt-6 p-4 bg-green-50 rounded-lg text-sm text-green-800">
-                <h3 className="font-medium mb-2">Informations sur l'export</h3>
+                <h3 className="font-medium mb-2">Informations sur l&apos;export</h3>
                 <p>
-                    Le fichier d'export sera généré selon le format spécifié dans le cahier des charges EOS :
+                    Le fichier d&apos;export sera généré selon le format spécifié dans le cahier des charges EOS :
                 </p>
                 <ul className="mt-2 list-disc pl-5 space-y-1">
                     <li>Format texte à longueur fixe</li>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  RefreshCw, Check, AlertCircle, Search, 
+  RefreshCw, Check, AlertCircle,  Search, 
   ClipboardCheck, Clock, FileX, Trash2
 } from 'lucide-react';
 import config from '../config';
@@ -124,7 +124,7 @@ const EnqueteValidationManager = () => {
               updatedCache = JSON.parse(cachedData);
               updatedCache = [data.data, ...updatedCache];
             } catch (error) {
-              console.log(error);
+              console.error("Erreur lors de la mise à jour du cache:", error);
               updatedCache = [data.data];
             }
           } else {
@@ -427,7 +427,7 @@ const EnqueteValidationManager = () => {
               <div className="text-center p-12 text-gray-500">
                 <FileX className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                 <p className="text-lg font-medium">Aucune enquête validée</p>
-                <p className="mt-1">Aucune enquête n&apos;a encore été validée, ou le filtre ne donne aucun résultat.</p>
+                <p className="mt-1">Aucune enquête na encore été validée, ou le filtre ne donne aucun résultat.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

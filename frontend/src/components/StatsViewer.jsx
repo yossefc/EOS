@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import  { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { BarChart, RefreshCcw } from 'lucide-react';
 
 const API_URL = 'http://localhost:5000';

@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { Mail, Key, LogIn, AlertCircle } from 'lucide-react';
+import  { useState } from 'react';
+import { Mail, LogIn, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import config from '../config';
+import PropTypes from 'prop-types';
+
+EnqueteurLogin.propTypes = {
+    onLoginSuccess: PropTypes.func.isRequired, // ou .isOptional si ce n’est pas obligatoire
+  };
 
 const API_URL = config.API_URL;
 
@@ -101,7 +106,7 @@ const EnqueteurLogin = ({ onLoginSuccess }) => {
                 </form>
 
                 <div className="mt-8 text-center text-sm text-gray-500">
-                    Pour accéder à votre espace, utilisez l'adresse email fournie par l'administrateur.
+                    Pour accéder à votre espace, utilisez l&apos;adresse email fournie par l&apos;administrateur.
                 </div>
             </div>
         </div>
