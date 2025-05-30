@@ -8,19 +8,30 @@ function EnqueteurApp() {
   const [loading, setLoading] = useState(true);
 
   // Vérifier l'authentification au chargement
-  useEffect(() => {
-    const enqueteurId = localStorage.getItem('enqueteurId');
-    if (enqueteurId) {
-      setIsAuthenticated(true);
-      setEnqueteur({
-        id: enqueteurId,
-        nom: localStorage.getItem('enqueteurNom'),
-        prenom: localStorage.getItem('enqueteurPrenom'),
-        email: localStorage.getItem('enqueteurEmail')
-      });
-    }
-    setLoading(false);
-  }, []);
+  // EnqueteurApp.jsx - Améliorer la vérification d'authentification
+useEffect(() => {
+  const enqueteurId = localStorage.getItem('enqueteurId');
+  console.log("Vérification d'authentification - enqueteurId:", enqueteurId);
+  
+  if (enqueteurId) {
+    const enqueteurData = {
+      id: enqueteurId,
+      nom: localStorage.getItem('enqueteurNom') || '',
+      prenom: localStorage.getItem('enqueteurPrenom') || '',
+      email: localStorage.getItem('enqueteurEmail') || ''
+    };
+    
+    console.log("Informations d'enquêteur trouvées:", enqueteurData);
+    setEnqueteur(enqueteurData);
+    setIsAuthenticated(true);
+  } else {
+    console.log("Aucune information d'authentification trouvée");
+    setIsAuthenticated(false);
+    setEnqueteur(null);
+  }
+  
+  setLoading(false);
+}, []);
 
   // Gérer la connexion réussie
   const handleLoginSuccess = (enqueteurData) => {

@@ -160,7 +160,34 @@ def get_vpn_config(id):
             'success': False,
             'error': str(e)
         }), 500
-
+    
+@enqueteurs_bp.route('/api/enqueteur/auth', methods=['POST'])
+def auth_enqueteur():
+    try:
+        data = request.json
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'success': False, 'error': 'Email requis'}), 400
+            
+        # Rechercher l'enquêteur par email
+        enqueteur = Enqueteur.query.filter_by(email=email).first()
+        
+        if not enqueteur:
+            return jsonify({'success': False, 'error': 'Email non trouvé'}), 404
+            
+        # Renvoyer les informations de l'enquêteur
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': enqueteur.id,  # Assurez-vous que ce champ existe
+                'nom': enqueteur.nom,
+                'prenom': enqueteur.prenom,
+                'email': enqueteur.email
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 def register_enqueteurs_routes(app):
     """Enregistre les routes de gestion des enquêteurs"""
     app.register_blueprint(enqueteurs_bp)

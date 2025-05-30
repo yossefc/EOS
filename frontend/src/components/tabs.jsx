@@ -10,8 +10,9 @@ const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 //const ExportHandler = lazy(() => import('./ExportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
-const EnqueteurRestrictedDashboard = lazy(() => import('./EnqueteurRestrictedDashboard'));
+
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
+const AdminDashboard = lazy(() => import('./AdminDashboard'));
 
 // Non-lazy loaded components
 import PaiementManager from './PaiementManager';
@@ -56,13 +57,13 @@ const Tabs = () => {
       id: 'enqueteur-interface',
       label: 'Interface Enquêteur',
       icon: <User className="w-4 h-4" />,
-      component: <EnqueteurDashboard />
+      component: <EnqueteurDashboard onLogout={() => console.log('Logout clicked')} />
     },
     {
       id: 'validation',
       label: 'Validation Enquêtes',
       icon: <CheckSquare className="w-4 h-4" />,
-      component: <EnqueteurRestrictedDashboard />
+      component: <AdminDashboard />
     },
     {
       id: 'data',

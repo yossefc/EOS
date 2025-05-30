@@ -93,6 +93,25 @@ const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
   />
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
+import PropTypes from "prop-types"
+
+// Composants avec className seulement
+const classNameOnlyPropType = {
+  className: PropTypes.string,
+}
+
+// Composants avec className + children
+const classNameChildrenPropType = {
+  className: PropTypes.string,
+  children: PropTypes.node,
+}
+
+DialogOverlay.propTypes = classNameOnlyPropType
+DialogContent.propTypes = classNameChildrenPropType
+DialogHeader.propTypes = classNameChildrenPropType
+DialogFooter.propTypes = classNameChildrenPropType
+DialogTitle.propTypes = classNameOnlyPropType
+DialogDescription.propTypes = classNameOnlyPropType
 
 export {
   Dialog,

@@ -40,6 +40,9 @@ class Donnee(db.Model):
     motif_contestation_detail = db.Column(db.String(255))
     historique = db.Column(db.Text)  # Stocké en JSON
     
+    # Champ pour le statut de validation
+    statut_validation = db.Column(db.String(20), default='en_attente', nullable=False)
+    
     # Relation avec l'enquête originale
     enquete_originale = db.relationship('Donnee', remote_side=[id], 
                                        backref='contestations', 
@@ -154,6 +157,7 @@ class Donnee(db.Model):
             'codesociete': self.codesociete,
             'urgence': self.urgence,
             'commentaire': self.commentaire,
+            'statut_validation': self.statut_validation,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }

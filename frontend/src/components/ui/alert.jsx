@@ -45,5 +45,20 @@ const AlertDescription = React.forwardRef(({ className, ...props }, ref) => (
   />
 ))
 AlertDescription.displayName = "AlertDescription"
+import PropTypes from "prop-types"
+
+Alert.propTypes = {
+  className: PropTypes.string,
+  variant: PropTypes.oneOf(["default", "destructive"]),
+}
+
+AlertTitle.propTypes = {
+  className: PropTypes.string,
+}
+
+AlertDescription.propTypes = {
+  className: PropTypes.string,
+}
+
 
 export { Alert, AlertTitle, AlertDescription }

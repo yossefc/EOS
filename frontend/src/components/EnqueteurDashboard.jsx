@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense,useCallback } from 'react';
 import axios from 'axios';
 import {
   Database, BarChart2, RefreshCw, AlertCircle, 
@@ -6,15 +6,8 @@ import {
 } from 'lucide-react';
 import config from '../config';
 import PropTypes from 'prop-types';
-EnqueteurDashboard.propTypes = {
-  enqueteur: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    nom: PropTypes.string,
-    prenom: PropTypes.string,
-    email: PropTypes.string,
-  }),
-  onLogout: PropTypes.func.isRequired,
-};
+
+
 
 
 // Importation des composants
@@ -43,7 +36,7 @@ const EnqueteurDashboard = ({ enqueteur, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Récupérer les enquêtes assignées à l'enquêteur
-  const fetchEnquetesAssignees = async () => {
+  const fetchEnquetesAssignees = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -75,13 +68,14 @@ const EnqueteurDashboard = ({ enqueteur, onLogout }) => {
     } finally {
       setLoading(false);
     }
-  };
-  
-  // Chargement initial
-  useEffect(() => {
-    fetchEnquetesAssignees();
   }, [enqueteur]);
   
+  // Puis modifiez votre useEffect pour inclure cette dépendance
+  useEffect(() => {
+    fetchEnquetesAssignees();
+  }, [fetchEnquetesAssignees]);
+  
+
   // Filtrer les enquêtes selon le terme de recherche
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -413,5 +407,14 @@ const EnqueteurDashboard = ({ enqueteur, onLogout }) => {
     </div>
   );
 };
-
+// À la fin de votre fichier EnqueteurDashboard.jsx, ajoutez cette validation de props:
+EnqueteurDashboard.propTypes = {
+  enqueteur: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    nom: PropTypes.string,
+    prenom: PropTypes.string,
+    email: PropTypes.string
+  }),
+  onLogout: PropTypes.func.isRequired
+};
 export default EnqueteurDashboard;

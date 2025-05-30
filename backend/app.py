@@ -20,6 +20,7 @@ from config import create_app
 from routes.paiement import register_paiement_routes
 from services.tarification_service import EnqueteFacturation
 from routes.enquetes import register_enquetes_routes  # Ajoutez cette ligne
+from routes.validation import register_validation_routes
 
 
 from models.enquetes_terminees import EnqueteTerminee  # Importer le modèle EnqueteTerminee
@@ -60,6 +61,7 @@ def init_app():
     register_tarification_routes(app)
     register_paiement_routes(app)
     register_enquetes_routes(app)
+    register_validation_routes(app)
 
 
     

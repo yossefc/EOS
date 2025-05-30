@@ -745,7 +745,23 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       );
   
       if (response.data.success) {
-        setSuccess("Données enregistrées avec succès");
+        // Après avoir enregistré les données enquêteur, mettre le statut à "en_attente"
+        try {
+          await axios.put(
+            `${API_URL}/api/donnees/${data.id}/statut`,
+            { statut_validation: 'en_attente' },
+            {
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+        } catch (statutError) {
+          console.warn('Erreur lors de la mise à jour du statut:', statutError);
+          // Ne pas bloquer le processus si la mise à jour du statut échoue
+        }
+        
+        setSuccess("Données enregistrées avec succès - En attente de validation");
         setDonneesSauvegardees(response.data.data);
         // Attendre un peu avant de fermer pour montrer le message de succès
         setTimeout(() => {

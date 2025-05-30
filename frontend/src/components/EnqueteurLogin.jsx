@@ -15,39 +15,56 @@ const EnqueteurLogin = ({ onLoginSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
+    // EnqueteurLogin.jsx
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-        try {
-            // Valider l'email
-            if (!email) {
-                throw new Error("Veuillez saisir votre adresse email");
-            }
-
-            // Envoyer la demande d'authentification
-            const response = await axios.post(`${API_URL}/api/enqueteur/auth`, { email });
-
-            if (response.data.success) {
-                // Stocker l'ID et les informations de l'enquêteur dans localStorage
-                localStorage.setItem('enqueteurId', response.data.data.id);
-                localStorage.setItem('enqueteurNom', response.data.data.nom);
-                localStorage.setItem('enqueteurPrenom', response.data.data.prenom);
-                localStorage.setItem('enqueteurEmail', response.data.data.email);
-                
-                // Informer le parent du succès
-                onLoginSuccess(response.data.data);
-            } else {
-                throw new Error(response.data.error || "Adresse email non reconnue");
-            }
-        } catch (err) {
-            setError(err.response?.data?.error || err.message || "Erreur lors de la connexion");
-            console.error("Erreur de connexion:", err);
-        } finally {
-            setLoading(false);
+    try {
+        // Valider l'email
+        if (!email) {
+            throw new Error("Veuillez saisir votre adresse email");
         }
-    };
+
+        console.log("Tentative de connexion avec:", email);
+
+        // Envoyer la demande d'authentification
+        const response = await axios.post(`${API_URL}/api/enqueteur/auth`, { email });
+        console.log("Réponse d'authentification:", response.data);
+
+        if (response.data.success) {
+            // Vérifier que l'ID est présent
+            if (!response.data.data.id) {
+                throw new Error("L'ID de l'enquêteur est manquant dans la réponse");
+            }
+
+            // Stocker les informations avec conversion explicite en chaîne
+            const enqueteurId = String(response.data.data.id);
+            localStorage.setItem('enqueteurId', enqueteurId);
+            localStorage.setItem('enqueteurNom', response.data.data.nom || '');
+            localStorage.setItem('enqueteurPrenom', response.data.data.prenom || '');
+            localStorage.setItem('enqueteurEmail', response.data.data.email || '');
+            
+            console.log("Informations stockées dans localStorage:", {
+                enqueteurId,
+                nom: response.data.data.nom,
+                prenom: response.data.data.prenom,
+                email: response.data.data.email
+            });
+            
+            // Informer le parent du succès
+            onLoginSuccess(response.data.data);
+        } else {
+            throw new Error(response.data.error || "Erreur d'authentification");
+        }
+    } catch (err) {
+        console.error("Erreur de connexion:", err);
+        setError(err.response?.data?.error || err.message || "Erreur lors de la connexion");
+    } finally {
+        setLoading(false);
+    }
+};
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
