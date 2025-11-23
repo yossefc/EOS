@@ -1,20 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import PropTypes from 'prop-types';
 import { 
   FileDown, RefreshCw, AlertCircle, 
-  CheckCircle, Filter, Calendar, AlertTriangle
+  CheckCircle, Filter, Calendar, AlertTriangle, Download
 } from 'lucide-react';
 import config from '../config';
 
 const API_URL = config.API_URL;
 
-const EnqueteExporter = ({ enquetes = [] }) => {
-  // State for managing export functionality
-  const [loading, setLoading] = useState(false);
+const EnqueteExporter = () => { // Removed enquetes prop
+  // State for managing enquetes list
+  const [enquetes, setEnquetes] = useState([]);
+  const [loading, setLoading] = useState(true); // Initial loading state
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [exportURL, setExportURL] = useState(null);
+  const [exportingIndividual, setExportingIndividual] = useState(null);
   
   // State for filtering
   const [dateRange, setDateRange] = useState({
@@ -34,6 +35,29 @@ const EnqueteExporter = ({ enquetes = [] }) => {
     I: true,  // Untreatable
     Y: true   // Canceled (EOS)
   });
+
+  // Fetch validated enquetes
+  const fetchValidatedEnquetes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`${API_URL}/api/enquetes/validees`);
+      if (response.data.success) {
+        setEnquetes(response.data.data);
+      } else {
+        setError(response.data.error || "Erreur lors du chargement des enquêtes validées.");
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement des enquêtes validées:", err);
+      setError(err.response?.data?.error || err.message || "Une erreur s'est produite.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchValidatedEnquetes();
+  }, [fetchValidatedEnquetes]);
 
   // Clear messages after a timeout
   useEffect(() => {
@@ -81,12 +105,43 @@ const EnqueteExporter = ({ enquetes = [] }) => {
       window.URL.revokeObjectURL(url);
       
       setSuccess(`${enquetesToExport.length} enquête(s) exportée(s) avec succès en format Word`);
+      fetchValidatedEnquetes(); // Reload list to remove exported items
       
     } catch (error) {
       console.error("Erreur:", error);
       setError(error.response?.data?.error || error.message || "Une erreur s'est produite lors de l'export");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Export individual enquete
+  const handleExportIndividual = async (enqueteId) => {
+    setExportingIndividual(enqueteId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await axios.post(`${API_URL}/api/export/enquete/${enqueteId}`, {}, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Export_Enquete_${enqueteId}_${new Date().toISOString().split('T')[0]}.txt`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setSuccess(`Enquête ${enqueteId} exportée et archivée avec succès !`);
+      fetchValidatedEnquetes(); // Reload list to remove exported item
+
+    } catch (err) {
+      console.error(`Erreur lors de l'export de l'enquête ${enqueteId}:`, err);
+      setError(err.response?.data?.error || err.message || "Une erreur s'est produite lors de l'export.");
+    } finally {
+      setExportingIndividual(null);
     }
   };
 
@@ -274,42 +329,85 @@ const EnqueteExporter = ({ enquetes = [] }) => {
         </div>
       )}
 
-      {/* Zone d'informations sur l'export */}
-      <div className="bg-white border rounded-lg p-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="font-medium mb-2">Informations sur l&#39;export</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Le fichier généré sera au format Word (.docx) avec une page par enquête. Les enquêtes exportées seront automatiquement archivées.
-            </p>
-            
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Total des enquêtes disponibles:</span>
-                <span className="text-sm">{enquetes.length}</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Enquêtes après filtrage:</span>
-                <span className="text-sm">{getFilteredCount()}</span>
-              </div>
-            </div>
-          </div>
-          
-          {exportURL && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col items-center">
-              <CheckCircle className="w-8 h-8 text-green-500 mb-2" />
-              <p className="text-sm text-green-700 mb-2">Fichier prêt à télécharger</p>
-              <button
-                onClick={handleDownload}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center gap-1 text-sm"
-              >
-                <FileDown className="w-4 h-4" />
-                <span>Télécharger</span>
-              </button>
-            </div>
-          )}
+      {/* Tableau des enquêtes validées */}
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="p-4 border-b bg-gray-50">
+          <h3 className="font-medium">Enquêtes validées prêtes pour l&#39;export</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {enquetes.length} enquête(s) confirmée(s) non archivée(s)
+          </p>
         </div>
+        
+        {loading ? (
+          <div className="p-8 text-center">
+            <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-2" />
+            <p className="text-gray-600">Chargement des enquêtes...</p>
+          </div>
+        ) : enquetes.length === 0 ? (
+          <div className="p-8 text-center">
+            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600">Aucune enquête validée disponible pour l&#39;export</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">N° Dossier</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Nom</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Prénom</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Enquêteur</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Résultat</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {enquetes.map((enquete) => (
+                  <tr key={enquete.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm">{enquete.numeroDossier}</td>
+                    <td className="px-4 py-3 text-sm">{enquete.nom}</td>
+                    <td className="px-4 py-3 text-sm">{enquete.prenom}</td>
+                    <td className="px-4 py-3 text-sm">{enquete.typeDemande}</td>
+                    <td className="px-4 py-3 text-sm">{enquete.enqueteurNom}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        enquete.code_resultat === 'P' ? 'bg-green-100 text-green-800' :
+                        enquete.code_resultat === 'N' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {enquete.code_resultat}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {enquete.updated_at ? new Date(enquete.updated_at).toLocaleDateString('fr-FR') : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleExportIndividual(enquete.id)}
+                        disabled={exportingIndividual === enquete.id}
+                        className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-1 text-sm mx-auto"
+                      >
+                        {exportingIndividual === enquete.id ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Export...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            <span>Exporter</span>
+                          </>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Instructions d'export */}
@@ -326,11 +424,6 @@ const EnqueteExporter = ({ enquetes = [] }) => {
       </div>
     </div>
   );
-};
-
-// Define prop types to fix the ESLint warning
-EnqueteExporter.propTypes = {
-  enquetes: PropTypes.array
 };
 
 export default EnqueteExporter;

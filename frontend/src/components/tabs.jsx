@@ -28,7 +28,6 @@ const LoadingComponent = () => (
 
 const Tabs = () => {
   const [activeTab, setActiveTab] = useState('stats');
-  const [enquetes] = useState([]);
 
   // Function to refresh data after import
   const handleImportComplete = async () => {
@@ -75,7 +74,7 @@ const Tabs = () => {
       id: 'export',
       label: 'Export des résultats',
       icon: <FileDown className="w-4 h-4" />,
-      component: <EnqueteExporter enquetes={enquetes} />
+      component: <EnqueteExporter />
     },
     {
       id: 'enqueteurs',

@@ -4,16 +4,11 @@ from flask import Blueprint, request, jsonify, send_file
 import os
 import datetime
 import logging
-from io import BytesIO
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
-from models.models import Donnee
+from io import StringIO
+import tempfile
+from models.models import Donnee, Fichier
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
-from extensions import db
 
 # Configuration du logging
 logger = logging.getLogger(__name__)
@@ -23,8 +18,8 @@ export_bp = Blueprint('export', __name__)
 @export_bp.route('/api/export-enquetes', methods=['POST'])
 def export_enquetes():
     """
-    Génère un fichier Word (.docx) avec les résultats d'enquête
-    Format: Un document Word avec une page par enquête
+    Génère un fichier texte avec les résultats d'enquête au format EOS
+    Format: fichier texte à longueur fixe selon le cahier des charges
     """
     try:
         data = request.json
@@ -39,240 +34,241 @@ def export_enquetes():
         if not donnees:
             return jsonify({"error": "Aucune donnée trouvée pour les enquêtes spécifiées"}), 404
             
-        # Générer le document Word
-        doc = generate_word_document(donnees)
+        # Générer le contenu du fichier texte
+        content = generate_export_content(donnees)
         
-        # Sauvegarder le document dans un BytesIO
-        file_stream = BytesIO()
-        doc.save(file_stream)
-        file_stream.seek(0)
-        
-        # Nom du fichier
-        filename = f"Export_Enquetes_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-        
-        logger.info(f"{len(donnees)} enquêtes exportées avec succès en Word")
+        # Créer un fichier temporaire
+        temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt', encoding='utf-8')
+        temp_file.write(content)
+        temp_file.close()
         
         # Envoyer le fichier au client
         return send_file(
-            file_stream,
+            temp_file.name,
             as_attachment=True,
-            download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            download_name=f"EOSExp_{datetime.datetime.now().strftime('%Y%m%d')}.txt",
+            mimetype='text/plain'
         )
         
     except Exception as e:
         logger.error(f"Erreur lors de l'export des enquêtes: {str(e)}")
         return jsonify({"error": f"Erreur lors de l'export: {str(e)}"}), 500
 
-
-def generate_word_document(donnees):
+def generate_export_content(donnees):
     """
-    Génère un document Word avec toutes les enquêtes
-    Une page par enquête avec mise en forme professionnelle
+    Génère le contenu du fichier d'export au format texte à longueur fixe
+    selon les spécifications du cahier des charges EOS
     """
-    doc = Document()
+    output = StringIO()
     
-    # Style du document
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
-    
-    for idx, donnee in enumerate(donnees):
+    for donnee in donnees:
         # Récupérer les données enquêteur associées
         donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
+        
+        # Si pas de données enquêteur, on utilise des valeurs par défaut
+        if not donnee_enqueteur:
+            donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee.id)
         
         # Récupérer l'enquêteur
         enqueteur = None
         if donnee.enqueteurId:
             enqueteur = Enqueteur.query.get(donnee.enqueteurId)
         
-        # Ajouter le contenu de l'enquête
-        add_enquete_to_document(doc, donnee, donnee_enqueteur, enqueteur)
-        
-        # Ajouter un saut de page sauf pour la dernière enquête
-        if idx < len(donnees) - 1:
-            doc.add_page_break()
+        # Construire la ligne selon le format du cahier des charges
+        line = format_export_line(donnee, donnee_enqueteur, enqueteur)
+        output.write(line + '\n')
     
-    return doc
+    return output.getvalue()
 
-
-def add_enquete_to_document(doc, donnee, donnee_enqueteur, enqueteur):
+def format_export_line(donnee, donnee_enqueteur, enqueteur=None):
     """
-    Ajoute une enquête au document Word avec mise en forme
+    Formatte une ligne de données selon le format spécifié dans le cahier des charges
+    Prend en compte les corrections d'état civil lorsque le flag est activé
     """
-    # ========== TITRE PRINCIPAL ==========
-    title = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or 'Sans nom'} {donnee.prenom or ''}", level=1)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_run = title.runs[0]
-    title_run.font.size = Pt(18)
-    title_run.font.bold = True
-    title_run.font.color.rgb = RGBColor(0, 51, 102)  # Bleu foncé
+    # Initialisation de la ligne avec des espaces
+    line = " " * 1854  # Longueur totale de la ligne selon le cahier des charges
     
-    # Espacement après le titre
-    title.paragraph_format.space_after = Pt(12)
+    # Liste des positions et longueurs de chaque champ selon le cahier des charges
+    fields = [
+        # Champ, début, longueur
+        ("numeroDossier", 0, 10),
+        ("referenceDossier", 10, 15),
+        ("numeroInterlocuteur", 25, 12),
+        ("guidInterlocuteur", 37, 36),
+        ("typeDemande", 73, 3),
+        ("numeroDemande", 76, 11),
+        ("numeroDemandeContestee", 87, 11),
+        ("numeroDemandeInitiale", 98, 11),
+        ("forfaitDemande", 109, 16),
+        ("dateRetourEspere", 125, 10),
+        ("qualite", 135, 10),
+        ("nom", 145, 30),
+        ("prenom", 175, 20),
+        ("dateNaissance", 195, 10),
+        ("lieuNaissance", 205, 50),
+        ("codePostalNaissance", 255, 10),
+        ("paysNaissance", 265, 32),
+        ("nomPatronymique", 297, 30),
+        ("dateRetour", 327, 10),
+        ("codeResultat", 337, 1),
+        ("elementsRetrouves", 338, 10),
+        ("flagEtatCivilErrone", 348, 1),
+        ("numeroFacture", 349, 9),
+        ("dateFacture", 358, 10),
+        ("montantFacture", 368, 8),
+        ("tarifApplique", 376, 8),
+        ("cumulMontantsPrecedents", 384, 8),
+        ("repriseFacturation", 392, 8),
+        ("remiseEventuelle", 400, 8),
+        ("dateDeces", 408, 10),
+        ("numeroActeDeces", 418, 10),
+        ("codeInseeDeces", 428, 5),
+        ("codePostalDeces", 433, 10),
+        ("localiteDeces", 443, 32),
+        ("adresse1", 475, 32),
+        ("adresse2", 507, 32),
+        ("adresse3", 539, 32),
+        ("adresse4", 571, 32),
+        ("codePostal", 603, 10),
+        ("ville", 613, 32),
+        ("paysResidence", 645, 32),
+        ("telephonePersonnel", 677, 15),
+        ("telephoneEmployeur", 692, 15),
+        ("nomEmployeur", 707, 32),
+        ("telephoneEmployeur2", 739, 15),
+        ("telecopieEmployeur", 754, 15),
+        ("adresse1Employeur", 769, 32),
+        ("adresse2Employeur", 801, 32),
+        ("adresse3Employeur", 833, 32),
+        ("adresse4Employeur", 865, 32),
+        ("codePostalEmployeur", 897, 10),
+        ("villeEmployeur", 907, 32),
+        ("paysEmployeur", 939, 32),
+        ("banqueDomiciliation", 971, 32),
+        ("libelleGuichet", 1003, 30),
+        ("titulaireCompte", 1033, 32),
+        ("codeBanque", 1065, 5),
+        ("codeGuichet", 1070, 5),
+        ("numeroCompte", 1075, 11),
+        ("ribCompte", 1086, 2),
+    ]
     
-    # ========== SOUS-TITRE ==========
-    date_str = donnee.created_at.strftime('%d/%m/%Y') if hasattr(donnee, 'created_at') and donnee.created_at else 'N/A'
-    enqueteur_nom = f"{enqueteur.prenom} {enqueteur.nom}" if enqueteur else "Non assigné"
-    statut = get_statut_label(donnee_enqueteur.code_resultat if donnee_enqueteur else None)
+    # Déterminer si on doit utiliser les données d'état civil corrigées
+    use_corrected_data = donnee_enqueteur and hasattr(donnee_enqueteur, 'flag_etat_civil_errone') and donnee_enqueteur.flag_etat_civil_errone == 'E'
     
-    subtitle = doc.add_paragraph()
-    subtitle_text = f"Date : {date_str} | Enquêteur : {enqueteur_nom} | Statut : {statut}"
-    subtitle_run = subtitle.add_run(subtitle_text)
-    subtitle_run.font.size = Pt(12)
-    subtitle_run.font.color.rgb = RGBColor(64, 64, 64)  # Gris foncé
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    subtitle.paragraph_format.space_after = Pt(18)
+    # Déterminer les valeurs d'état civil à utiliser (originales ou corrigées)
+    qualite = donnee.qualite
+    nom = donnee.nom
+    prenom = donnee.prenom
+    nom_patronymique = donnee.nomPatronymique
+    date_naissance = donnee.dateNaissance.strftime('%d/%m/%Y') if donnee.dateNaissance else ""
+    lieu_naissance = donnee.lieuNaissance
+    code_postal_naissance = donnee.codePostalNaissance
+    pays_naissance = donnee.paysNaissance
     
-    # ========== TABLEAU DES DONNÉES ==========
-    # Créer le tableau (2 colonnes)
-    table = doc.add_table(rows=1, cols=2)
-    table.style = 'Light Grid Accent 1'
+    # Si on doit utiliser les données corrigées, on les récupère
+    if use_corrected_data:
+        if hasattr(donnee_enqueteur, 'qualite_corrigee') and donnee_enqueteur.qualite_corrigee:
+            qualite = donnee_enqueteur.qualite_corrigee
+        if hasattr(donnee_enqueteur, 'nom_corrige') and donnee_enqueteur.nom_corrige:
+            nom = donnee_enqueteur.nom_corrige
+        if hasattr(donnee_enqueteur, 'prenom_corrige') and donnee_enqueteur.prenom_corrige:
+            prenom = donnee_enqueteur.prenom_corrige
+        if hasattr(donnee_enqueteur, 'nom_patronymique_corrige') and donnee_enqueteur.nom_patronymique_corrige:
+            nom_patronymique = donnee_enqueteur.nom_patronymique_corrige
+        if hasattr(donnee_enqueteur, 'date_naissance_corrigee') and donnee_enqueteur.date_naissance_corrigee:
+            date_naissance = donnee_enqueteur.date_naissance_corrigee.strftime('%d/%m/%Y')
+        if hasattr(donnee_enqueteur, 'lieu_naissance_corrige') and donnee_enqueteur.lieu_naissance_corrige:
+            lieu_naissance = donnee_enqueteur.lieu_naissance_corrige
+        if hasattr(donnee_enqueteur, 'code_postal_naissance_corrige') and donnee_enqueteur.code_postal_naissance_corrige:
+            code_postal_naissance = donnee_enqueteur.code_postal_naissance_corrige
+        if hasattr(donnee_enqueteur, 'pays_naissance_corrige') and donnee_enqueteur.pays_naissance_corrige:
+            pays_naissance = donnee_enqueteur.pays_naissance_corrige
     
-    # En-tête du tableau
-    header_cells = table.rows[0].cells
-    header_cells[0].text = 'Champ'
-    header_cells[1].text = 'Valeur'
+    # Formater la date de retour avec la date actuelle
+    date_retour = datetime.datetime.now().strftime('%d/%m/%Y')
     
-    # Style de l'en-tête
-    for cell in header_cells:
-        cell_paragraph = cell.paragraphs[0]
-        cell_run = cell_paragraph.runs[0]
-        cell_run.font.bold = True
-        cell_run.font.size = Pt(11)
-        cell_run.font.color.rgb = RGBColor(255, 255, 255)  # Blanc
-        # Fond bleu clair pour l'en-tête
-        shading_elm = cell._element.get_or_add_tcPr()
-        shading = parse_xml(r'<w:shd {} w:fill="4472C4"/>'.format(nsdecls('w')))
-        shading_elm.append(shading)
-    
-    # Ajouter les données
-    fields_data = get_enquete_fields_data(donnee, donnee_enqueteur)
-    
-    for field_name, field_value in fields_data:
-        row_cells = table.add_row().cells
-        row_cells[0].text = field_name
-        row_cells[1].text = str(field_value) if field_value else ''
+    # Préparer toutes les valeurs à insérer
+    values = {
+        "numeroDossier": donnee.numeroDossier or "",
+        "referenceDossier": donnee.referenceDossier or "",
+        "numeroInterlocuteur": donnee.numeroInterlocuteur or "",
+        "guidInterlocuteur": donnee.guidInterlocuteur or "",
+        "typeDemande": donnee.typeDemande or "",
+        "numeroDemande": donnee.numeroDemande or "",
+        "numeroDemandeContestee": donnee.numeroDemandeContestee or "",
+        "numeroDemandeInitiale": donnee.numeroDemandeInitiale or "",
+        "forfaitDemande": donnee.forfaitDemande or "",
+        "dateRetourEspere": donnee.dateRetourEspere.strftime('%d/%m/%Y') if donnee.dateRetourEspere else "",
         
-        # Style des cellules
-        for cell in row_cells:
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    run.font.size = Pt(10)
-    
-    # Espacement après le tableau
-    doc.add_paragraph()
-    
-    # ========== NOTES / COMMENTAIRES ==========
-    notes_heading = doc.add_heading('Notes / Commentaires', level=2)
-    notes_heading.paragraph_format.space_before = Pt(12)
-    notes_heading_run = notes_heading.runs[0]
-    notes_heading_run.font.size = Pt(14)
-    notes_heading_run.font.color.rgb = RGBColor(0, 51, 102)
-    
-    notes_content = ""
-    if donnee_enqueteur:
-        notes_parts = []
-        if hasattr(donnee_enqueteur, 'notes_personnelles') and donnee_enqueteur.notes_personnelles:
-            notes_parts.append(donnee_enqueteur.notes_personnelles)
-        if hasattr(donnee_enqueteur, 'commentaires_revenus') and donnee_enqueteur.commentaires_revenus:
-            notes_parts.append(f"Revenus: {donnee_enqueteur.commentaires_revenus}")
+        # État civil (original ou corrigé)
+        "qualite": qualite or "",
+        "nom": nom or "",
+        "prenom": prenom or "",
+        "dateNaissance": date_naissance or "",
+        "lieuNaissance": lieu_naissance or "",
+        "codePostalNaissance": code_postal_naissance or "",
+        "paysNaissance": pays_naissance or "",
+        "nomPatronymique": nom_patronymique or "",
         
-        notes_content = "\n".join(notes_parts) if notes_parts else "Aucune note"
-    else:
-        notes_content = "Aucune note"
-    
-    notes_para = doc.add_paragraph(notes_content)
-    notes_para.paragraph_format.space_after = Pt(12)
-
-
-def get_statut_label(code):
-    """Retourne le label du statut en fonction du code"""
-    statuts = {
-        'P': 'Positif',
-        'N': 'Négatif',
-        'H': 'Confirmé',
-        'Z': 'Annulé (agence)',
-        'I': 'Intraitable',
-        'Y': 'Annulé (EOS)'
+        "dateRetour": date_retour,
+        "codeResultat": donnee_enqueteur.code_resultat or "",
+        "elementsRetrouves": donnee_enqueteur.elements_retrouves or "",
+        "flagEtatCivilErrone": donnee_enqueteur.flag_etat_civil_errone if hasattr(donnee_enqueteur, 'flag_etat_civil_errone') else "",
+        "numeroFacture": "",  # Laisser vide selon le cahier des charges
+        "dateFacture": "",    # Laisser vide selon le cahier des charges
+        "montantFacture": "0",
+        "tarifApplique": "0",
+        "cumulMontantsPrecedents": "0",
+        "repriseFacturation": "0",
+        "remiseEventuelle": "0",
+        "dateDeces": donnee_enqueteur.date_deces.strftime('%d/%m/%Y') if hasattr(donnee_enqueteur, 'date_deces') and donnee_enqueteur.date_deces else "",
+        "numeroActeDeces": donnee_enqueteur.numero_acte_deces or "",
+        "codeInseeDeces": donnee_enqueteur.code_insee_deces or "",
+        "codePostalDeces": donnee_enqueteur.code_postal_deces or "",
+        "localiteDeces": donnee_enqueteur.localite_deces or "",
+        "adresse1": donnee_enqueteur.adresse1 or "",
+        "adresse2": donnee_enqueteur.adresse2 or "",
+        "adresse3": donnee_enqueteur.adresse3 or "",
+        "adresse4": donnee_enqueteur.adresse4 or "",
+        "codePostal": donnee_enqueteur.code_postal or "",
+        "ville": donnee_enqueteur.ville or "",
+        "paysResidence": donnee_enqueteur.pays_residence or "",
+        "telephonePersonnel": donnee_enqueteur.telephone_personnel or "",
+        "telephoneEmployeur": donnee_enqueteur.telephone_chez_employeur or "",
+        "nomEmployeur": donnee_enqueteur.nom_employeur or "",
+        "telephoneEmployeur2": donnee_enqueteur.telephone_employeur or "",
+        "telecopieEmployeur": donnee_enqueteur.telecopie_employeur or "",
+        "adresse1Employeur": donnee_enqueteur.adresse1_employeur or "",
+        "adresse2Employeur": donnee_enqueteur.adresse2_employeur or "",
+        "adresse3Employeur": donnee_enqueteur.adresse3_employeur or "",
+        "adresse4Employeur": donnee_enqueteur.adresse4_employeur or "",
+        "codePostalEmployeur": donnee_enqueteur.code_postal_employeur or "",
+        "villeEmployeur": donnee_enqueteur.ville_employeur or "",
+        "paysEmployeur": donnee_enqueteur.pays_employeur or "",
+        "banqueDomiciliation": donnee_enqueteur.banque_domiciliation or "",
+        "libelleGuichet": donnee_enqueteur.libelle_guichet or "",
+        "titulaireCompte": donnee_enqueteur.titulaire_compte or "",
+        "codeBanque": donnee_enqueteur.code_banque or "",
+        "codeGuichet": donnee_enqueteur.code_guichet or "",
+        "numeroCompte": "",  # Laisser vide selon le cahier des charges
+        "ribCompte": "",     # Laisser vide selon le cahier des charges
     }
-    return statuts.get(code, 'En attente')
-
-
-def get_enquete_fields_data(donnee, donnee_enqueteur):
-    """
-    Retourne la liste des champs et valeurs pour une enquête
-    Format: [(nom_champ, valeur), ...]
-    """
-    fields = []
     
-    # Informations de base
-    fields.append(("N° Dossier", donnee.numeroDossier))
-    fields.append(("Référence", donnee.referenceDossier))
-    fields.append(("Type de demande", "Enquête" if donnee.typeDemande == "ENQ" else "Contestation"))
+    # Construire la ligne en insérant chaque valeur à la position correcte
+    line_list = list(line)
+    for field, start, length in fields:
+        value = values.get(field, "")
+        # Tronquer si la valeur est trop longue
+        if len(value) > length:
+            value = value[:length]
+        # Insérer la valeur dans la ligne à la position correcte
+        for i, char in enumerate(value):
+            if i < length and start + i < len(line_list):
+                line_list[start + i] = char
     
-    # État civil
-    fields.append(("Nom", donnee.nom))
-    fields.append(("Prénom", donnee.prenom))
-    fields.append(("Date de naissance", donnee.dateNaissance.strftime('%d/%m/%Y') if donnee.dateNaissance else ''))
-    fields.append(("Lieu de naissance", donnee.lieuNaissance))
-    
-    # Adresse d'origine
-    fields.append(("Adresse (origine)", donnee.adresse1))
-    fields.append(("Code postal (origine)", donnee.codePostal))
-    fields.append(("Ville (origine)", donnee.ville))
-    fields.append(("Téléphone (origine)", donnee.telephonePersonnel))
-    
-    if donnee_enqueteur:
-        # Résultat de l'enquête
-        fields.append(("Code résultat", get_statut_label(donnee_enqueteur.code_resultat)))
-        fields.append(("Éléments retrouvés", donnee_enqueteur.elements_retrouves))
-        
-        # Adresse trouvée
-        if donnee_enqueteur.adresse1:
-            fields.append(("--- ADRESSE TROUVÉE ---", ""))
-            fields.append(("Adresse 1", donnee_enqueteur.adresse1))
-            if donnee_enqueteur.adresse2:
-                fields.append(("Adresse 2", donnee_enqueteur.adresse2))
-            if donnee_enqueteur.adresse3:
-                fields.append(("Adresse 3", donnee_enqueteur.adresse3))
-            fields.append(("Code postal", donnee_enqueteur.code_postal))
-            fields.append(("Ville", donnee_enqueteur.ville))
-            fields.append(("Pays", donnee_enqueteur.pays_residence))
-        
-        # Contact
-        if donnee_enqueteur.telephone_personnel:
-            fields.append(("Téléphone personnel", donnee_enqueteur.telephone_personnel))
-        if donnee_enqueteur.telephone_chez_employeur:
-            fields.append(("Téléphone chez employeur", donnee_enqueteur.telephone_chez_employeur))
-        
-        # Employeur
-        if donnee_enqueteur.nom_employeur:
-            fields.append(("--- EMPLOYEUR ---", ""))
-            fields.append(("Nom employeur", donnee_enqueteur.nom_employeur))
-            fields.append(("Téléphone employeur", donnee_enqueteur.telephone_employeur))
-            fields.append(("Adresse employeur", donnee_enqueteur.adresse1_employeur))
-            fields.append(("Ville employeur", donnee_enqueteur.ville_employeur))
-        
-        # Banque
-        if donnee_enqueteur.banque_domiciliation:
-            fields.append(("--- BANQUE ---", ""))
-            fields.append(("Banque", donnee_enqueteur.banque_domiciliation))
-            fields.append(("Guichet", donnee_enqueteur.libelle_guichet))
-            fields.append(("Titulaire", donnee_enqueteur.titulaire_compte))
-            fields.append(("Code banque", donnee_enqueteur.code_banque))
-            fields.append(("Code guichet", donnee_enqueteur.code_guichet))
-        
-        # Décès
-        if donnee_enqueteur.date_deces:
-            fields.append(("--- DÉCÈS ---", ""))
-            fields.append(("Date de décès", donnee_enqueteur.date_deces.strftime('%d/%m/%Y')))
-            fields.append(("N° acte de décès", donnee_enqueteur.numero_acte_deces))
-            fields.append(("Lieu de décès", donnee_enqueteur.localite_deces))
-    
-    return fields
-
+    # Reconvertir la liste en chaîne
+    return "".join(line_list)
 
 def register_export_routes(app):
     """

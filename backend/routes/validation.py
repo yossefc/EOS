@@ -23,7 +23,9 @@ def get_enquetes_a_valider():
         ).filter(
             Donnee.statut_validation == 'en_attente',
             Donnee.enqueteurId.isnot(None),
-            DonneeEnqueteur.code_resultat.isnot(None)
+            DonneeEnqueteur.code_resultat.in_(['P', 'N', 'H', 'Z', 'I', 'Y']),
+            DonneeEnqueteur.elements_retrouves.isnot(None),
+            DonneeEnqueteur.adresse1.isnot(None)
         ).order_by(
             DonneeEnqueteur.updated_at.desc()
         ).all()

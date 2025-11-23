@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from "react";
 import axios from 'axios';
 import {
     Users, Plus, Trash2, Download, RefreshCw, Mail, Phone,  Shield,
-    Search,  AlertTriangle, Check, User, ArrowUpRight, FileDown
+    Search,  AlertTriangle, Check, User, ArrowUpRight
 } from "lucide-react";
 import VPNTemplateManager from "./VPNTemplateManager";
 import EnhancedEnqueteurForm from "./EnhancedEnqueteurForm";
@@ -21,8 +21,6 @@ function ImprovedEnqueteurViewer() {
     const [successMessage, setSuccessMessage] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statsVisible, setStatsVisible] = useState({});
-    const [exportingEnquetes, setExportingEnquetes] = useState(null);
-    const [exportingAll, setExportingAll] = useState(false);
 
     const fetchEnqueteurs = useCallback(async () => {
         try {
@@ -139,66 +137,6 @@ function ImprovedEnqueteurViewer() {
         }));
     };
 
-    const handleExportEnqueteurEnquetes = async (enqueteurId, enqueteurNom) => {
-        try {
-            setExportingEnquetes(enqueteurId);
-            
-            // Faire la requête d'export avec le paramètre enqueteur_id
-            const response = await axios.get(`${API_URL}/api/export-enquetes?enqueteur_id=${enqueteurId}`, {
-                responseType: 'blob' // Important pour recevoir un fichier
-            });
-            
-            // Créer un lien de téléchargement
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `EOSExp_${enqueteurNom}_${new Date().toISOString().split('T')[0]}.txt`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            
-            setSuccessMessage(`Enquêtes de ${enqueteurNom} exportées avec succès`);
-            setTimeout(() => setSuccessMessage(null), 5000);
-            
-        } catch (error) {
-            console.error("Erreur lors de l'export:", error);
-            setError(error.response?.data?.error || "Erreur lors de l'export des enquêtes");
-        } finally {
-            setExportingEnquetes(null);
-        }
-    };
-
-    const handleExportAllEnquetes = async () => {
-        try {
-            setExportingAll(true);
-            
-            // Faire la requête d'export sans paramètre enqueteur_id pour tout exporter
-            const response = await axios.get(`${API_URL}/api/export-enquetes`, {
-                responseType: 'blob' // Important pour recevoir un fichier
-            });
-            
-            // Créer un lien de téléchargement
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `EOSExp_Toutes_${new Date().toISOString().split('T')[0]}.txt`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            
-            setSuccessMessage("Toutes les enquêtes exportées avec succès");
-            setTimeout(() => setSuccessMessage(null), 5000);
-            
-        } catch (error) {
-            console.error("Erreur lors de l'export:", error);
-            setError(error.response?.data?.error || "Erreur lors de l'export de toutes les enquêtes");
-        } finally {
-            setExportingAll(false);
-        }
-    };
-
     if (loading && enqueteurs.length === 0) {
         return (
             <div className="flex justify-center items-center p-8">
@@ -261,19 +199,6 @@ function ImprovedEnqueteurViewer() {
                                     onChange={handleSearch}
                                 />
                             </div>
-                            <button
-                                onClick={handleExportAllEnquetes}
-                                disabled={exportingAll}
-                                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
-                                title="Exporter toutes les enquêtes"
-                            >
-                                {exportingAll ? (
-                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <FileDown className="w-4 h-4" />
-                                )}
-                                <span className="hidden md:inline">Exporter tout</span>
-                            </button>
                             <button
                                 onClick={() => setShowTemplateManager(true)}
                                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -354,19 +279,6 @@ function ImprovedEnqueteurViewer() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 ml-auto">
-                                            <button
-                                                onClick={() => handleExportEnqueteurEnquetes(enqueteur.id, enqueteur.nom)}
-                                                disabled={exportingEnquetes === enqueteur.id}
-                                                className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-md hover:bg-green-100 disabled:opacity-50"
-                                                title="Exporter les enquêtes de cet enquêteur"
-                                            >
-                                                {exportingEnquetes === enqueteur.id ? (
-                                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <FileDown className="w-4 h-4" />
-                                                )}
-                                                <span>Exporter ses enquêtes</span>
-                                            </button>
                                             <button
                                                 onClick={() => handleDownloadVpnConfig(enqueteur.id)}
                                                 className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100"
