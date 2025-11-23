@@ -47,50 +47,44 @@ const EnqueteExporter = ({ enquetes = [] }) => {
     }
   }, [error, success]);
 
-  // Generate export file
+  // Generate export file (Word format)
   const handleExport = async () => {
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
       
-      // Prepare filter parameters
-      const params = new URLSearchParams();
+      // Préparer les enquêtes à exporter
+      const enquetesToExport = enquetes.map(enquete => ({ id: enquete.id }));
       
-      // Add date filters if set
-      if (dateRange.start) params.append('start_date', dateRange.start);
-      if (dateRange.end) params.append('end_date', dateRange.end);
-      
-      // Add type filters
-      const selectedTypesList = Object.entries(selectedTypes)
-        .filter(([, selected]) => selected)
-        .map(([type]) => type);
-      
-      if (selectedTypesList.length > 0 && selectedTypesList.length < 2) {
-        params.append('types', selectedTypesList.join(','));
+      if (enquetesToExport.length === 0) {
+        setError("Aucune enquête à exporter");
+        setLoading(false);
+        return;
       }
       
-      // Add result filters
-      const selectedResultsList = Object.entries(selectedResults)
-        .filter(([, selected]) => selected)
-        .map(([result]) => result);
+      // Faire la requête d'export
+      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
+        enquetes: enquetesToExport
+      }, {
+        responseType: 'blob' // Important pour recevoir un fichier binaire
+      });
       
-      if (selectedResultsList.length > 0 && selectedResultsList.length < 6) {
-        params.append('results', selectedResultsList.join(','));
-      }
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
       
-      // Make export request
-      const response = await axios.get(`${API_URL}/api/export?${params.toString()}`);
+      setSuccess(`${enquetesToExport.length} enquête(s) exportée(s) avec succès en format Word`);
       
-      if (response.data.success) {
-        setSuccess("Fichier d'export généré avec succès");
-        setExportURL(`${API_URL}/api/export/download/${response.data.file_id}`);
-      } else {
-        throw new Error(response.data.error || "Erreur lors de la génération du fichier d'export");
-      }
     } catch (error) {
       console.error("Erreur:", error);
-      setError(error.response?.data?.error || error.message || "Une erreur s'est produite");
+      setError(error.response?.data?.error || error.message || "Une erreur s'est produite lors de l'export");
     } finally {
       setLoading(false);
     }
@@ -115,7 +109,7 @@ const EnqueteExporter = ({ enquetes = [] }) => {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <FileDown className="w-6 h-6 text-blue-500" />
-          Export des Résultats
+          Export des Résultats (Word)
         </h2>
         <div className="flex gap-2">
           <button
@@ -138,7 +132,7 @@ const EnqueteExporter = ({ enquetes = [] }) => {
             ) : (
               <>
                 <FileDown className="w-4 h-4" />
-                <span>Générer le fichier EOS</span>
+                <span>Exporter en Word & archiver</span>
               </>
             )}
           </button>
@@ -286,7 +280,7 @@ const EnqueteExporter = ({ enquetes = [] }) => {
           <div>
             <h3 className="font-medium mb-2">Informations sur l&#39;export</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Le fichier généré sera au format spécifié dans le cahier des charges EOS France.
+              Le fichier généré sera au format Word (.docx) avec une page par enquête. Les enquêtes exportées seront automatiquement archivées.
             </p>
             
             <div className="space-y-2">
@@ -325,8 +319,7 @@ const EnqueteExporter = ({ enquetes = [] }) => {
           <div>
             <h3 className="font-medium text-blue-800 mb-1">Informations importantes</h3>
             <p className="text-sm text-blue-700">
-              Seules les enquêtes avec un code résultat défini (P, N, H, Z, I, Y) seront exportées.
-              Les enquêtes sans résultat ou en cours de traitement ne seront pas incluses dans le fichier d&#39;export.
+              Chaque enquête sera exportée sur une page séparée du document Word. Le document inclura un tableau détaillé des informations, les notes et commentaires. Les enquêtes seront automatiquement archivées après l&#39;export.
             </p>
           </div>
         </div>

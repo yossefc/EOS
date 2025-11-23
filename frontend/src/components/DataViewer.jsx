@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   Database, Search, Filter, RefreshCw, 
   AlertCircle, X,
-  History,  FileDown, Pencil
+  History,  FileDown, Pencil, Download
 } from 'lucide-react';
 import config from '../config';
 
@@ -43,6 +43,9 @@ const DataViewer = () => {
   const [selectedDonnee, setSelectedDonnee] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  
+  // State for export
+  const [exportingData, setExportingData] = useState(false);
   
   // Fetch data with pagination
   const fetchData = useCallback(async (page = 1) => {
@@ -153,6 +156,79 @@ const DataViewer = () => {
     }
   };
   
+  // Handle export to Word
+  const handleExportWord = async () => {
+    try {
+      setExportingData(true);
+      
+      const enquetesToExport = filteredDonnees.map(donnee => ({ id: donnee.id }));
+      
+      if (enquetesToExport.length === 0) {
+        alert("Aucune enquête à exporter");
+        return;
+      }
+      
+      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
+        enquetes: enquetesToExport
+      }, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error("Erreur lors de l'export:", error);
+      alert(error.response?.data?.error || "Erreur lors de l'export");
+    } finally {
+      setExportingData(false);
+    }
+  };
+  
+  // Handle export of visible enquetes to Word
+  const handleExportVisible = async () => {
+    try {
+      setExportingData(true);
+      
+      // Préparer les données à exporter (enquêtes visibles après filtrage)
+      const enquetesToExport = filteredDonnees.map(donnee => ({ id: donnee.id }));
+      
+      if (enquetesToExport.length === 0) {
+        alert("Aucune enquête à exporter");
+        return;
+      }
+      
+      // Envoyer la requête d'export
+      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
+        enquetes: enquetesToExport
+      }, {
+        responseType: 'blob' // Important pour recevoir un fichier Word
+      });
+      
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error("Erreur lors de l'export:", error);
+      alert(error.response?.data?.error || "Erreur lors de l'export des enquêtes");
+    } finally {
+      setExportingData(false);
+    }
+  };
+  
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -162,6 +238,19 @@ const DataViewer = () => {
         </h2>
         
         <div className="flex gap-2">
+          <button
+            onClick={handleExportWord}
+            disabled={exportingData || filteredDonnees.length === 0}
+            className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exporter en Word"
+          >
+            {exportingData ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>Export Word ({filteredDonnees.length})</span>
+          </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50"
@@ -362,6 +451,9 @@ const DataViewer = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Éléments
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Enquêteur
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -370,7 +462,7 @@ const DataViewer = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading && filteredDonnees.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center">
+                  <td colSpan="8" className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center">
                       <RefreshCw className="w-5 h-5 animate-spin mr-2" />
                       <span>Chargement...</span>
@@ -379,7 +471,7 @@ const DataViewer = () => {
                 </tr>
               ) : filteredDonnees.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                     Aucun résultat trouvé
                   </td>
                 </tr>
@@ -413,6 +505,15 @@ const DataViewer = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {donnee.elements_retrouves || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {donnee.enqueteur_nom && donnee.enqueteur_prenom ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                          {donnee.enqueteur_prenom} {donnee.enqueteur_nom}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">Non assigné</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">

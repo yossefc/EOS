@@ -1,34 +1,33 @@
-from flask import Flask
-from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+import os
 import logging
 
-def create_app():
-    app = Flask(__name__)
+class Config:
+    """Configuration de base pour l'application Flask"""
     
-    # Configuration
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///eos.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
+    # Configuration de la base de données
+    # Utilise une variable d'environnement ou SQLite par défaut pour le développement
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+        'sqlite:///' + os.path.join(BASE_DIR, 'instance', 'eos.db')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # CORS configuration
-    CORS(app, resources={
-        r"/*": {
-            "origins": "*",
-            "methods": ["GET", "POST", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type"]
-        }
-    })
+    # Configuration des fichiers
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max file size
     
-    # Logging configuration
+    # Configuration CORS
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://192.168.175.1:5173').split(',')
+    
+    # Configuration de logging
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+    LOG_FILE = 'app.log'
+
+def setup_logging():
+    """Configure le système de logging"""
     logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s [%(levelname)s] %(message)s',
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler('app.log')
+            logging.FileHandler(Config.LOG_FILE, encoding='utf-8'),
+            logging.StreamHandler()
         ]
     )
-    
-    return app

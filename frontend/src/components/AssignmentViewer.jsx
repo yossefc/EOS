@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types'; // Ajout des PropTypes
 import axios from 'axios';
-import { Loader2, AlertCircle, UserPlus, Check, Search, Users, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, AlertCircle, UserPlus, Check, Search, Users, RefreshCw, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { FixedSizeList as List } from 'react-window';
 
 // Création d'une instance axios avec les configurations de base
@@ -166,6 +166,9 @@ const AssignmentViewer = () => {
     const [selectedEnqueteur, setSelectedEnqueteur] = useState('');
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     
+    // État pour l'export
+    const [exportingData, setExportingData] = useState(false);
+    
     // Effet pour le debounce sur la recherche
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -325,6 +328,89 @@ const AssignmentViewer = () => {
         setCurrentPage(newPage);
     }, []);
     
+    // Fonction pour exporter en Word
+    const handleExportWord = useCallback(async () => {
+        try {
+            setExportingData(true);
+            
+            const enquetesToExport = filteredEnquetes.map(enquete => ({ id: enquete.id }));
+            
+            if (enquetesToExport.length === 0) {
+                setError("Aucune enquête à exporter");
+                setTimeout(() => setError(null), 3000);
+                return;
+            }
+            
+            const response = await api.post('/api/export-enquetes', {
+                enquetes: enquetesToExport
+            }, {
+                responseType: 'blob'
+            });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            
+            setSuccessMessage(`${enquetesToExport.length} enquête(s) exportée(s) en Word`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+            
+        } catch (error) {
+            console.error("Erreur lors de l'export:", error);
+            setError(error.response?.data?.error || "Erreur lors de l'export");
+            setTimeout(() => setError(null), 3000);
+        } finally {
+            setExportingData(false);
+        }
+    }, [filteredEnquetes]);
+    
+    // Fonction pour exporter les enquêtes visibles en Word
+    const handleExportVisible = useCallback(async () => {
+        try {
+            setExportingData(true);
+            
+            // Préparer les données à exporter (enquêtes visibles après filtrage)
+            const enquetesToExport = filteredEnquetes.map(enquete => ({ id: enquete.id }));
+            
+            if (enquetesToExport.length === 0) {
+                setError("Aucune enquête à exporter");
+                setTimeout(() => setError(null), 3000);
+                return;
+            }
+            
+            // Envoyer la requête d'export
+            const response = await api.post('/api/export-enquetes', {
+                enquetes: enquetesToExport
+            }, {
+                responseType: 'blob' // Important pour recevoir un fichier Word
+            });
+            
+            // Créer un lien de téléchargement
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            
+            setSuccessMessage(`${enquetesToExport.length} enquête(s) exportée(s) en Word avec succès`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+            
+        } catch (error) {
+            console.error("Erreur lors de l'export:", error);
+            setError(error.response?.data?.error || "Erreur lors de l'export des enquêtes");
+            setTimeout(() => setError(null), 3000);
+        } finally {
+            setExportingData(false);
+        }
+    }, [filteredEnquetes]);
+    
     return (
         <div className="bg-gray-50 min-h-screen p-6">
             <div className="max-w-7xl mx-auto">
@@ -351,6 +437,19 @@ const AssignmentViewer = () => {
                         />
                     </div>
                     <div className="flex gap-2">
+                        <button
+                            onClick={handleExportWord}
+                            disabled={exportingData || filteredEnquetes.length === 0}
+                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Exporter en Word"
+                        >
+                            {exportingData ? (
+                                <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                            ) : (
+                                <Download className="w-5 h-5 mr-2" />
+                            )}
+                            Export Word ({filteredEnquetes.length})
+                        </button>
                         <button
                             onClick={() => fetchData(true)}
                             disabled={refreshing}
