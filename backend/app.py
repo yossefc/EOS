@@ -738,6 +738,16 @@ def register_legacy_routes(app):
                     }
                 }), 409
 
+            # Récupérer la date butoir si fournie
+            date_butoir_str = request.form.get('date_butoir')
+            date_butoir = None
+            if date_butoir_str:
+                try:
+                    date_butoir = datetime.strptime(date_butoir_str, '%Y-%m-%d').date()
+                    logger.info(f"Date butoir reçue: {date_butoir}")
+                except ValueError:
+                    logger.warning(f"Format de date butoir invalide: {date_butoir_str}")
+
             content = file.read()
             if not content:
                 return jsonify({"error": "Fichier vide"}), 400
@@ -749,7 +759,7 @@ def register_legacy_routes(app):
                 logger.info(f"Fichier créé avec ID: {nouveau_fichier.id}")
 
                 from utils import process_file_content
-                processed_records = process_file_content(content, nouveau_fichier.id)
+                processed_records = process_file_content(content, nouveau_fichier.id, date_butoir)
                 
                 if processed_records:
                     return jsonify({
@@ -788,6 +798,16 @@ def register_legacy_routes(app):
             if not file.filename:
                 return jsonify({"error": "Nom de fichier invalide"}), 400
 
+            # Récupérer la date butoir si fournie
+            date_butoir_str = request.form.get('date_butoir')
+            date_butoir = None
+            if date_butoir_str:
+                try:
+                    date_butoir = datetime.strptime(date_butoir_str, '%Y-%m-%d').date()
+                    logger.info(f"Date butoir reçue pour remplacement: {date_butoir}")
+                except ValueError:
+                    logger.warning(f"Format de date butoir invalide: {date_butoir_str}")
+
             existing_file = Fichier.query.filter_by(nom=file.filename).first()
             if existing_file:
                 Donnee.query.filter_by(fichier_id=existing_file.id).delete()
@@ -800,7 +820,7 @@ def register_legacy_routes(app):
             
             content = file.read()
             from utils import process_file_content
-            processed_records = process_file_content(content, nouveau_fichier.id)
+            processed_records = process_file_content(content, nouveau_fichier.id, date_butoir)
 
             return jsonify({
                 "message": "Fichier remplacé avec succès",

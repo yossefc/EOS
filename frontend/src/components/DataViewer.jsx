@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   Database, Search, Filter, RefreshCw, 
   AlertCircle, X,
-  History,  FileDown, Pencil, Download
+  History,  FileDown, Pencil, Download, CalendarDays
 } from 'lucide-react';
 import config from '../config';
 
@@ -153,6 +153,99 @@ const DataViewer = () => {
       case 'I': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Intraitable</span>;
       case 'Y': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Annulé (EOS)</span>;
       default: return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">En attente</span>;
+    }
+  };
+
+  // Fonction pour déterminer la classe CSS de la ligne en fonction de la date butoir
+  const getButoirRowClass = (dateButoir) => {
+    if (!dateButoir) return '';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const butoirDate = new Date(dateButoir);
+    butoirDate.setHours(0, 0, 0, 0);
+    
+    // Calculer la différence en jours
+    const diffTime = butoirDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      // Date dépassée - Rouge
+      return 'bg-red-50 hover:bg-red-100';
+    } else if (diffDays <= 7) {
+      // Date dans moins de 7 jours - Orange
+      return 'bg-orange-50 hover:bg-orange-100';
+    } else {
+      // Date dans plus de 7 jours - Vert
+      return 'bg-green-50 hover:bg-green-100';
+    }
+  };
+
+  // Fonction pour déterminer la classe CSS du texte de la date butoir
+  const getButoirTextClass = (dateButoir) => {
+    if (!dateButoir) return 'text-gray-700';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const butoirDate = new Date(dateButoir);
+    butoirDate.setHours(0, 0, 0, 0);
+    
+    // Calculer la différence en jours
+    const diffTime = butoirDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      // Date dépassée - Rouge
+      return 'text-red-700 font-bold';
+    } else if (diffDays <= 7) {
+      // Date dans moins de 7 jours - Orange
+      return 'text-orange-700 font-semibold';
+    } else {
+      // Date dans plus de 7 jours - Vert
+      return 'text-green-700 font-medium';
+    }
+  };
+
+  // Fonction pour obtenir le badge de statut de la date butoir
+  const getButoirBadge = (dateButoir) => {
+    if (!dateButoir) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const butoirDate = new Date(dateButoir);
+    butoirDate.setHours(0, 0, 0, 0);
+    
+    // Calculer la différence en jours
+    const diffTime = butoirDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return (
+        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+          Échue ({Math.abs(diffDays)} jour{Math.abs(diffDays) > 1 ? 's' : ''})
+        </span>
+      );
+    } else if (diffDays === 0) {
+      return (
+        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+          Aujourd'hui
+        </span>
+      );
+    } else if (diffDays <= 7) {
+      return (
+        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+          Dans {diffDays} jour{diffDays > 1 ? 's' : ''}
+        </span>
+      );
+    } else {
+      return (
+        <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+          Dans {diffDays} jours
+        </span>
+      );
     }
   };
   
@@ -449,6 +542,9 @@ const DataViewer = () => {
                   Statut
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date Butoir
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Éléments
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -462,7 +558,7 @@ const DataViewer = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading && filteredDonnees.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-4 text-center">
+                  <td colSpan="9" className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center">
                       <RefreshCw className="w-5 h-5 animate-spin mr-2" />
                       <span>Chargement...</span>
@@ -471,13 +567,13 @@ const DataViewer = () => {
                 </tr>
               ) : filteredDonnees.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
                     Aucun résultat trouvé
                   </td>
                 </tr>
               ) : (
                 filteredDonnees.map((donnee) => (
-                  <tr key={donnee.id} className="hover:bg-gray-50">
+                  <tr key={donnee.id} className={`${getButoirRowClass(donnee.date_butoir)} transition-colors`}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {donnee.numeroDossier}
                     </td>
@@ -502,6 +598,19 @@ const DataViewer = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {getStatusDisplay(donnee.code_resultat)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {donnee.date_butoir ? (
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex items-center gap-1 ${getButoirTextClass(donnee.date_butoir)}`}>
+                            <CalendarDays className="w-4 h-4" />
+                            {new Date(donnee.date_butoir).toLocaleDateString('fr-FR')}
+                          </span>
+                          {getButoirBadge(donnee.date_butoir)}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {donnee.elements_retrouves || '-'}

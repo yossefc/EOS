@@ -14,6 +14,7 @@ const ImportHandlerPropTypes = {
 const ImportHandler = ({ onImportComplete }) => {
   // États
   const [selectedFile, setSelectedFile] = useState(null);
+  const [dateButoir, setDateButoir] = useState('');
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
@@ -65,6 +66,11 @@ const ImportHandler = ({ onImportComplete }) => {
       const formData = new FormData();
       formData.append("file", selectedFile);
       
+      // Ajouter la date butoir si elle est définie
+      if (dateButoir) {
+        formData.append("date_butoir", dateButoir);
+      }
+      
       // Utiliser l'URL appropriée selon que l'on remplace ou non un fichier existant
       const url = replace ? `${API_URL}/replace-file` : `${API_URL}/parse`;
       
@@ -81,6 +87,7 @@ const ImportHandler = ({ onImportComplete }) => {
       } else {
         setSuccess(`Fichier importé avec succès. ${response.data.records_processed} enregistrements traités.`);
         setSelectedFile(null);
+        setDateButoir(''); // Réinitialiser la date butoir
         
         // Rafraîchir les statistiques
         fetchStats();
@@ -195,6 +202,22 @@ const ImportHandler = ({ onImportComplete }) => {
             </div>
           </div>
           
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date butoir (optionnelle)
+            </label>
+            <input
+              type="date"
+              value={dateButoir}
+              onChange={(e) => setDateButoir(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="Sélectionner une date butoir"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Si définie, cette date sera appliquée à toutes les enquêtes du fichier importé
+            </p>
+          </div>
+          
           {!fileExists ? (
             <button
               onClick={() => handleUpload(false)}
@@ -241,6 +264,7 @@ const ImportHandler = ({ onImportComplete }) => {
                   onClick={() => {
                     setFileExists(false);
                     setSelectedFile(null);
+                    setDateButoir('');
                   }}
                   className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50"
                 >

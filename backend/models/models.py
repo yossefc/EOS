@@ -94,6 +94,7 @@ class Donnee(db.Model):
     codesociete = db.Column(db.String(2))
     urgence = db.Column(db.String(1))
     commentaire = db.Column(db.String(1000))
+    date_butoir = db.Column(db.Date, nullable=True)  # Date limite pour traiter l'enquête
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -157,6 +158,7 @@ class Donnee(db.Model):
             'codesociete': self.codesociete,
             'urgence': self.urgence,
             'commentaire': self.commentaire,
+            'date_butoir': self.date_butoir.strftime('%Y-%m-%d') if self.date_butoir else None,
             'statut_validation': self.statut_validation,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None

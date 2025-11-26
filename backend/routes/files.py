@@ -55,6 +55,15 @@ def parse_file():
         db.session.add(new_file)
         db.session.commit()
 
+        # Récupérer la date butoir si fournie
+        date_butoir_str = request.form.get('date_butoir')
+        date_butoir = None
+        if date_butoir_str:
+            try:
+                date_butoir = datetime.strptime(date_butoir_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass  # Ignorer si le format est invalide
+
         # Lire et parser le fichier OST
         # Note: Cette partie doit être adaptée selon le format exact de vos fichiers OST
         df = pd.read_csv(filepath, delimiter=';')  # Ajustez le délimiteur selon votre format
@@ -66,7 +75,8 @@ def parse_file():
                 nom=row.get('nom', ''),
                 prenom=row.get('prenom', ''),
                 typeDemande=row.get('typeDemande', ''),
-                fichier_id=new_file.id
+                fichier_id=new_file.id,
+                date_butoir=date_butoir  # Ajouter la date butoir
             )
             # Si c'est une contestation (type = 'CON'), chercher l'enquête originale
             # Dans la fonction parse_file
@@ -163,6 +173,15 @@ def replace_file():
         db.session.add(new_file)
         db.session.commit()
 
+        # Récupérer la date butoir si fournie
+        date_butoir_str = request.form.get('date_butoir')
+        date_butoir = None
+        if date_butoir_str:
+            try:
+                date_butoir = datetime.strptime(date_butoir_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass  # Ignorer si le format est invalide
+
         # Lire et parser le fichier OST
         df = pd.read_csv(filepath, delimiter=';')
         
@@ -173,7 +192,8 @@ def replace_file():
                 nom=row.get('nom', ''),
                 prenom=row.get('prenom', ''),
                 typeDemande=row.get('typeDemande', ''),
-                fichier_id=new_file.id
+                fichier_id=new_file.id,
+                date_butoir=date_butoir  # Ajouter la date butoir
             )
             db.session.add(donnee)
         

@@ -189,7 +189,7 @@ def parse_line(line):
         logger.error(f"Erreur lors du parsing de la ligne: {str(e)}")
         return None
 
-def process_file_content(content, fichier_id):
+def process_file_content(content, fichier_id, date_butoir=None):
     """Traite le contenu du fichier et crée les enregistrements"""
     try:
         # Décodage du contenu en UTF-8 (avec remplacement des caractères non valides)
@@ -279,7 +279,8 @@ def process_file_content(content, fichier_id):
                     cumulMontantsPrecedents=convert_float(record.get('cumulMontantsPrecedents', '')),
                     codesociete=record.get('codeSociete', ''),
                     urgence=record.get('urgence', ''),
-                    commentaire=record.get('commentaire', '')
+                    commentaire=record.get('commentaire', ''),
+                    date_butoir=date_butoir  # Ajouter la date butoir
                 )
                 
                 if record.get('typeDemande') == 'CON':
