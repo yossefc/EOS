@@ -4,11 +4,21 @@ from flask import Blueprint, request, jsonify, send_file
 import os
 import datetime
 import logging
-from io import StringIO
+from io import StringIO, BytesIO
 import tempfile
 from models.models import Donnee, Fichier
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
+from extensions import db
+
+try:
+    from docx import Document
+    from docx.shared import Pt, RGBColor, Inches
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    logger.warning("python-docx n'est pas installé. L'export Word ne sera pas disponible.")
 
 # Configuration du logging
 logger = logging.getLogger(__name__)
@@ -269,6 +279,419 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur=None):
     
     # Reconvertir la liste en chaîne
     return "".join(line_list)
+
+def generate_word_document(donnees):
+    """
+    Génère un document Word (.docx) contenant les enquêtes.
+    Chaque enquête est sur une nouvelle page avec un design professionnel.
+    """
+    if not DOCX_AVAILABLE:
+        raise ImportError("python-docx n'est pas installé")
+    
+    doc = Document()
+    
+    for i, donnee in enumerate(donnees):
+        # Ajouter un saut de page entre les enquêtes (sauf pour la première)
+        if i > 0:
+            doc.add_page_break()
+        
+        # Récupérer les données enquêteur
+        donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
+        
+        # Récupérer l'enquêteur
+        enqueteur = None
+        if donnee.enqueteurId:
+            enqueteur = Enqueteur.query.get(donnee.enqueteurId)
+        
+        # Titre principal (Heading 1)
+        titre = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or ''} {donnee.prenom or ''}", level=1)
+        titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in titre.runs:
+            run.font.size = Pt(18)
+            run.font.bold = True
+        
+        # Sous-titre (Heading 2)
+        date_str = donnee.updated_at.strftime('%d/%m/%Y') if donnee.updated_at else 'N/A'
+        enqueteur_str = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
+        statut_str = donnee.statut_validation or "En attente"
+        
+        sous_titre = doc.add_paragraph(f"Date : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
+        sous_titre.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        for run in sous_titre.runs:
+            run.font.size = Pt(12)
+            run.font.color.rgb = RGBColor(64, 64, 64)
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Tableau des données
+        table = doc.add_table(rows=1, cols=2)
+        table.style = 'Light Grid Accent 1'
+        
+        # En-tête du tableau
+        hdr_cells = table.rows[0].cells
+        hdr_cells[0].text = 'Champ'
+        hdr_cells[1].text = 'Valeur'
+        for cell in hdr_cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+        
+        # Données de base
+        fields_data = [
+            ('N° Dossier', donnee.numeroDossier),
+            ('Référence Dossier', donnee.referenceDossier),
+            ('Type de Demande', donnee.typeDemande),
+            ('Qualité', donnee.qualite),
+            ('Nom', donnee.nom),
+            ('Prénom', donnee.prenom),
+            ('Date de Naissance', donnee.dateNaissance),
+            ('Lieu de Naissance', donnee.lieuNaissance),
+            ('Nom Patronymique', donnee.nomPatronymique),
+            ('Adresse 1', donnee.adresse1),
+            ('Adresse 2', donnee.adresse2),
+            ('Ville', donnee.ville),
+            ('Code Postal', donnee.codePostal),
+            ('Pays de Résidence', donnee.paysResidence),
+            ('Téléphone Personnel', donnee.telephonePersonnel),
+            ('Nom Employeur', donnee.nomEmployeur),
+        ]
+        
+        # Ajouter les données enquêteur si disponibles
+        if donnee_enqueteur:
+            fields_data.extend([
+                ('Code Résultat', donnee_enqueteur.code_resultat),
+                ('Éléments Retrouvés', donnee_enqueteur.elements_retrouves),
+                ('Date de Retour', donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else None),
+            ])
+        
+        # Remplir le tableau
+        for field_name, field_value in fields_data:
+            if field_value:  # N'afficher que les champs non vides
+                row_cells = table.add_row().cells
+                row_cells[0].text = str(field_name)
+                row_cells[1].text = str(field_value)
+                
+                # Style pour la colonne "Champ"
+                for paragraph in row_cells[0].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.bold = True
+                        run.font.size = Pt(10)
+                
+                # Style pour la colonne "Valeur"
+                for paragraph in row_cells[1].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(10)
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Section Notes / Commentaires
+        doc.add_heading('Notes / Commentaires', level=2)
+        notes = donnee.commentaire or "Aucune note"
+        if donnee_enqueteur and donnee_enqueteur.notes_personnelles:
+            notes += f"\n\nNotes de l'enquêteur:\n{donnee_enqueteur.notes_personnelles}"
+        
+        notes_para = doc.add_paragraph(notes)
+        for run in notes_para.runs:
+            run.font.size = Pt(10)
+            run.font.color.rgb = RGBColor(64, 64, 64)
+    
+    return doc
+
+@export_bp.route('/api/enquetes/validees', methods=['GET'])
+def get_enquetes_validees():
+    """Récupère toutes les enquêtes validées (confirmées) prêtes pour l'export"""
+    try:
+        from models.enquete_archive import EnqueteArchive
+        
+        # Sous-requête pour les enquêtes déjà archivées
+        archived_ids = db.session.query(EnqueteArchive.enquete_id).distinct()
+        
+        enquetes_validees = db.session.query(
+            Donnee, DonneeEnqueteur
+        ).join(
+            DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
+        ).filter(
+            Donnee.statut_validation == 'confirmee',
+            ~Donnee.id.in_(archived_ids),
+            DonneeEnqueteur.code_resultat.in_(['P', 'H', 'N', 'Z', 'I', 'Y'])
+        ).order_by(
+            Donnee.updated_at.desc()
+        ).all()
+        
+        result = []
+        for donnee, donnee_enqueteur in enquetes_validees:
+            enqueteur = Enqueteur.query.get(donnee.enqueteurId) if donnee.enqueteurId else None
+            enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
+            
+            result.append({
+                'id': donnee.id,
+                'numeroDossier': donnee.numeroDossier,
+                'referenceDossier': donnee.referenceDossier,
+                'nom': donnee.nom,
+                'prenom': donnee.prenom,
+                'typeDemande': donnee.typeDemande,
+                'enqueteurId': donnee.enqueteurId,
+                'enqueteurNom': enqueteur_nom,
+                'code_resultat': donnee_enqueteur.code_resultat,
+                'elements_retrouves': donnee_enqueteur.elements_retrouves,
+                'updated_at': donnee.updated_at.strftime('%Y-%m-%d %H:%M:%S') if donnee.updated_at else None,
+                'statut_validation': donnee.statut_validation
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'count': len(result)
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des enquêtes validées: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def generate_word_document(donnees):
+    """
+    Génère un document Word (.docx) contenant les enquêtes.
+    Chaque enquête est sur une nouvelle page avec un design professionnel.
+    """
+    if not DOCX_AVAILABLE:
+        raise ImportError("python-docx n'est pas installé")
+    
+    doc = Document()
+    
+    for i, donnee in enumerate(donnees):
+        # Ajouter un saut de page entre les enquêtes (sauf pour la première)
+        if i > 0:
+            doc.add_page_break()
+        
+        # Récupérer les données enquêteur
+        donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
+        
+        # Récupérer l'enquêteur
+        enqueteur = None
+        if donnee.enqueteurId:
+            enqueteur = Enqueteur.query.get(donnee.enqueteurId)
+        
+        # Titre principal (Heading 1)
+        titre = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or ''} {donnee.prenom or ''}", level=1)
+        titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in titre.runs:
+            run.font.size = Pt(18)
+            run.font.bold = True
+        
+        # Sous-titre (Heading 2)
+        date_str = donnee.updated_at.strftime('%d/%m/%Y') if donnee.updated_at else 'N/A'
+        enqueteur_str = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
+        statut_str = donnee.statut_validation or "En attente"
+        
+        sous_titre = doc.add_paragraph(f"Date : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
+        sous_titre.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        for run in sous_titre.runs:
+            run.font.size = Pt(12)
+            run.font.color.rgb = RGBColor(64, 64, 64)
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Tableau des données
+        table = doc.add_table(rows=1, cols=2)
+        table.style = 'Light Grid Accent 1'
+        
+        # En-tête du tableau
+        hdr_cells = table.rows[0].cells
+        hdr_cells[0].text = 'Champ'
+        hdr_cells[1].text = 'Valeur'
+        for cell in hdr_cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+        
+        # Données de base
+        fields_data = [
+            ('N° Dossier', donnee.numeroDossier),
+            ('Référence Dossier', donnee.referenceDossier),
+            ('Type de Demande', donnee.typeDemande),
+            ('Qualité', donnee.qualite),
+            ('Nom', donnee.nom),
+            ('Prénom', donnee.prenom),
+            ('Date de Naissance', donnee.dateNaissance),
+            ('Lieu de Naissance', donnee.lieuNaissance),
+            ('Nom Patronymique', donnee.nomPatronymique),
+            ('Adresse 1', donnee.adresse1),
+            ('Adresse 2', donnee.adresse2),
+            ('Ville', donnee.ville),
+            ('Code Postal', donnee.codePostal),
+            ('Pays de Résidence', donnee.paysResidence),
+            ('Téléphone Personnel', donnee.telephonePersonnel),
+            ('Nom Employeur', donnee.nomEmployeur),
+        ]
+        
+        # Ajouter les données enquêteur si disponibles
+        if donnee_enqueteur:
+            fields_data.extend([
+                ('Code Résultat', donnee_enqueteur.code_resultat),
+                ('Éléments Retrouvés', donnee_enqueteur.elements_retrouves),
+                ('Date de Retour', donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else None),
+            ])
+        
+        # Remplir le tableau
+        for field_name, field_value in fields_data:
+            if field_value:  # N'afficher que les champs non vides
+                row_cells = table.add_row().cells
+                row_cells[0].text = str(field_name)
+                row_cells[1].text = str(field_value)
+                
+                # Style pour la colonne "Champ"
+                for paragraph in row_cells[0].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.bold = True
+                        run.font.size = Pt(10)
+                
+                # Style pour la colonne "Valeur"
+                for paragraph in row_cells[1].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(10)
+        
+        doc.add_paragraph()  # Espacement
+        
+        # Section Notes / Commentaires
+        doc.add_heading('Notes / Commentaires', level=2)
+        notes = donnee.commentaire or "Aucune note"
+        if donnee_enqueteur and donnee_enqueteur.notes_personnelles:
+            notes += f"\n\nNotes de l'enquêteur:\n{donnee_enqueteur.notes_personnelles}"
+        
+        notes_para = doc.add_paragraph(notes)
+        for run in notes_para.runs:
+            run.font.size = Pt(10)
+            run.font.color.rgb = RGBColor(64, 64, 64)
+    
+    return doc
+
+@export_bp.route('/api/export/enquete/<int:enquete_id>', methods=['POST'])
+def export_and_archive_enquete(enquete_id):
+    """Exporte une enquête individuelle en Word et l'archive"""
+    try:
+        donnee = Donnee.query.get(enquete_id)
+        if not donnee:
+            return jsonify({"error": "Enquête non trouvée"}), 404
+        
+        if donnee.statut_validation != 'confirmee':
+            return jsonify({"error": "Seules les enquêtes confirmées peuvent être exportées"}), 400
+        
+        from models.enquete_archive import EnqueteArchive
+        existing_archive = EnqueteArchive.query.filter_by(enquete_id=enquete_id).first()
+        if existing_archive:
+            return jsonify({"error": "Cette enquête a déjà été archivée"}), 400
+        
+        doc = generate_word_document([donnee])
+        
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
+        
+        filename = f"Enquete_{donnee.numeroDossier}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        
+        archive = EnqueteArchive(
+            enquete_id=enquete_id,
+            nom_fichier=filename,
+            utilisateur=request.json.get('utilisateur', 'Administrateur') if request.json else 'Administrateur'
+        )
+        db.session.add(archive)
+        db.session.commit()
+        
+        logger.info(f"Enquête {enquete_id} exportée et archivée avec succès")
+        
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erreur lors de l'export et archivage de l'enquête: {str(e)}")
+        return jsonify({"error": f"Erreur lors de l'export: {str(e)}"}), 500
+
+@export_bp.route('/api/archives', methods=['GET'])
+def get_archives():
+    """Récupère la liste des enquêtes archivées"""
+    try:
+        from models.enquete_archive import EnqueteArchive
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        
+        archives_query = db.session.query(
+            EnqueteArchive, Donnee
+        ).join(
+            Donnee, EnqueteArchive.enquete_id == Donnee.id
+        ).order_by(
+            EnqueteArchive.date_export.desc()
+        )
+        
+        archives_paginated = archives_query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        result = []
+        for archive, donnee in archives_paginated.items:
+            result.append({
+                'id': archive.id,
+                'enquete_id': archive.enquete_id,
+                'numeroDossier': donnee.numeroDossier,
+                'nom': donnee.nom,
+                'prenom': donnee.prenom,
+                'nom_fichier': archive.nom_fichier,
+                'date_export': archive.date_export.strftime('%Y-%m-%d %H:%M:%S'),
+                'utilisateur': archive.utilisateur
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'page': page,
+            'per_page': per_page,
+            'total': archives_paginated.total,
+            'pages': archives_paginated.pages
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des archives: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@export_bp.route('/api/archives/<int:archive_id>', methods=['GET'])
+def get_archive_file(archive_id):
+    """Télécharge un fichier archivé"""
+    try:
+        from models.enquete_archive import EnqueteArchive
+        
+        archive = EnqueteArchive.query.get(archive_id)
+        if not archive:
+            return jsonify({"error": "Archive non trouvée"}), 404
+        
+        donnee = Donnee.query.get(archive.enquete_id)
+        if not donnee:
+            return jsonify({"error": "Enquête non trouvée"}), 404
+        
+        doc = generate_word_document([donnee])
+        
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        file_stream.seek(0)
+        
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name=archive.nom_fichier,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération du fichier archivé: {str(e)}")
+        return jsonify({"error": f"Erreur lors de la récupération: {str(e)}"}), 500
 
 def register_export_routes(app):
     """

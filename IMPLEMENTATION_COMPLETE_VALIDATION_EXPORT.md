@@ -512,3 +512,4 @@ curl http://localhost:5000/api/archives?page=1&per_page=10
 **Version** : 3.0 - Implémentation Complète  
 **Statut** : ✅ Fonctionnel et Testé
 
+

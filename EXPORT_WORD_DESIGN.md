@@ -245,3 +245,4 @@ pip install python-docx
 **Date de création** : 23 novembre 2024
 **Version** : 2.0 (Export Word avec Design)
 
+

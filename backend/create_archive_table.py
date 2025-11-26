@@ -28,3 +28,4 @@ with app.app_context():
     else:
         print("❌ Erreur : La table n'a pas été créée")
 
+

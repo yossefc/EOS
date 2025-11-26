@@ -345,3 +345,4 @@ Rechargement liste (enquête disparaît)
 **Version** : 1.0
 **Statut** : ✅ Implémenté et testé
 
+

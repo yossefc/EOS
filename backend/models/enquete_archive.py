@@ -31,3 +31,4 @@ class EnqueteArchive(db.Model):
             'utilisateur': self.utilisateur
         }
 
+
