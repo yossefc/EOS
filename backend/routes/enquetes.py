@@ -177,7 +177,7 @@ def confirm_enquete():
             }), 400
         
         # Vérifier si l'enquête existe
-        donnee = Donnee.query.get(enquete_id)
+        donnee = db.session.get(Donnee, enquete_id)
         if not donnee:
             return jsonify({
                 'success': False,
@@ -195,7 +195,7 @@ def confirm_enquete():
         # Créer l'entrée pour marquer l'enquête comme validée
         enquete_terminee = EnqueteTerminee(
             donnee_id=enquete_id,
-            confirmed_at=datetime.utcnow(),
+            confirmed_at=datetime.now(),
             confirmed_by=director
         )
         
@@ -231,7 +231,7 @@ def delete_enquete(enquete_id):
     """Supprime une enquête (pour les cas exceptionnels)"""
     try:
         # Vérifier si l'enquête existe
-        donnee = Donnee.query.get(enquete_id)
+        donnee = db.session.get(Donnee, enquete_id)
         if not donnee:
             return jsonify({
                 'success': False,

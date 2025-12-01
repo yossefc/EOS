@@ -29,3 +29,5 @@ with app.app_context():
         print("❌ Erreur : La table n'a pas été créée")
 
 
+
+

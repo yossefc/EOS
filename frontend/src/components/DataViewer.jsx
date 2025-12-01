@@ -3,7 +3,8 @@ import axios from 'axios';
 import {
   Database, Search, Filter, RefreshCw, 
   AlertCircle, X,
-  History,  FileDown, Pencil, Download, CalendarDays
+  History,  FileDown, Pencil, Download, CalendarDays,
+  CheckCircle, XCircle
 } from 'lucide-react';
 import config from '../config';
 
@@ -46,6 +47,10 @@ const DataViewer = () => {
   
   // State for export
   const [exportingData, setExportingData] = useState(false);
+  
+  // State for validation
+  const [validating, setValidating] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
   
   // Fetch data with pagination
   const fetchData = useCallback(async (page = 1) => {
@@ -141,6 +146,70 @@ const DataViewer = () => {
   const handleOpenHistoryModal = (donnee) => {
     setSelectedDonnee(donnee);
     setShowHistoryModal(true);
+  };
+  
+  // Validation handlers
+  const handleValiderEnquete = async (enqueteId) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir valider cette enquête ? Elle sera archivée et apparaîtra dans l\'onglet Export des résultats.')) {
+      return;
+    }
+    
+    try {
+      setValidating(true);
+      setError(null);
+      
+      const response = await axios.put(`${API_URL}/api/enquetes/${enqueteId}/valider`, {
+        utilisateur: 'Administrateur'
+      });
+      
+      if (response.data.success) {
+        setSuccessMessage('Enquête validée avec succès !');
+        // Retirer l'enquête du tableau local
+        setDonnees(prev => prev.filter(d => d.id !== enqueteId));
+        setFilteredDonnees(prev => prev.filter(d => d.id !== enqueteId));
+        
+        // Effacer le message après 3 secondes
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        throw new Error(response.data.error || 'Erreur lors de la validation');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      setError(error.response?.data?.error || error.message || 'Erreur lors de la validation');
+    } finally {
+      setValidating(false);
+    }
+  };
+  
+  const handleRefuserEnquete = async (enqueteId) => {
+    const motif = window.prompt('Motif du refus (optionnel):');
+    if (motif === null) return; // User cancelled
+    
+    try {
+      setValidating(true);
+      setError(null);
+      
+      const response = await axios.put(`${API_URL}/api/enquetes/${enqueteId}/refuser`, {
+        utilisateur: 'Administrateur',
+        motif: motif || 'Aucun motif spécifié'
+      });
+      
+      if (response.data.success) {
+        setSuccessMessage('Enquête refusée, statut remis à en_attente');
+        // Rafraîchir les données pour mettre à jour le statut
+        await fetchData(currentPage);
+        
+        // Effacer le message après 3 secondes
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        throw new Error(response.data.error || 'Erreur lors du refus');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      setError(error.response?.data?.error || error.message || 'Erreur lors du refus');
+    } finally {
+      setValidating(false);
+    }
   };
   
   // Status display helper
@@ -360,6 +429,20 @@ const DataViewer = () => {
           </button>
         </div>
       </div>
+      
+      {/* Success message */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          <p>{successMessage}</p>
+          <button 
+            onClick={() => setSuccessMessage(null)}
+            className="ml-auto text-green-700 hover:text-green-900"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       
       {/* Error message */}
       {error && (
@@ -626,6 +709,29 @@ const DataViewer = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
+                        {/* Boutons de validation - affichés seulement si l'enquête a une réponse */}
+                        {donnee.can_validate && (
+                          <>
+                            <button
+                              onClick={() => handleValiderEnquete(donnee.id)}
+                              disabled={validating}
+                              className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                              title="Valider et archiver"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleRefuserEnquete(donnee.id)}
+                              disabled={validating}
+                              className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                              title="Refuser"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        
+                        {/* Boutons standards */}
                         <button
                           onClick={() => handleOpenUpdateModal(donnee)}
                           className="text-blue-600 hover:text-blue-900"

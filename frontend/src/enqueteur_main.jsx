@@ -1,10 +1,10 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import EnqueteurApp from './EnqueteurApp'
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
 import './index.css'
+import EnqueteurApp from './components/EnqueteurApp.jsx'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
     <EnqueteurApp />
-  </React.StrictMode>,
+  </StrictMode>,
 )

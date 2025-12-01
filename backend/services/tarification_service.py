@@ -15,7 +15,7 @@ class TarificationService:
     def get_tarif_eos(code_elements, date=None):
         """Récupère le tarif EOS pour un code d'éléments donné à une date donnée"""
         if not date:
-            date = datetime.utcnow().date()
+            date = datetime.now().date()
             
         # Imprimer les informations de recherche de tarif
         logger.info(f"Recherche de tarif EOS pour code: {code_elements}, date: {date}")
@@ -47,7 +47,7 @@ class TarificationService:
         sinon utilise le tarif par défaut
         """
         if not date:
-            date = datetime.utcnow().date()
+            date = datetime.now().date()
             
         # Chercher un tarif spécifique pour cet enquêteur
         if enqueteur_id:
@@ -87,7 +87,7 @@ class TarificationService:
                 return None
 
             # 2. Récupérer la donnée associée
-            donnee = Donnee.query.get(donnee_enqueteur.donnee_id)
+            donnee = db.session.get(Donnee, donnee_enqueteur.donnee_id)
             if not donnee:
                 logger.error(f"Donnee {donnee_enqueteur.donnee_id} non trouvé")
                 return None
@@ -100,7 +100,7 @@ class TarificationService:
             if not donnee.enqueteurId:
                 if is_contestation:
                     # Pour une contestation, assigner automatiquement l'enquêteur de l'originale
-                    enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
+                    enquete_originale = db.session.get(Donnee, donnee.enquete_originale_id)
                     if enquete_originale and enquete_originale.enqueteurId:
                         donnee.enqueteurId = enquete_originale.enqueteurId
                         db.session.commit()
@@ -185,7 +185,7 @@ class TarificationService:
             return
         
         # Récupérer l'enquête originale et ses données
-        enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
+        enquete_originale = db.session.get(Donnee, donnee.enquete_originale_id)
         if not enquete_originale:
             logger.error(f"Enquête originale {donnee.enquete_originale_id} non trouvée")
             # MODIFICATION: Même sans enquête originale, créer une facturation basique
@@ -433,7 +433,7 @@ class TarificationService:
             if code_resultat == 'P' and original_code == 'P' and elements_retrouves != original_elements:
                 # Calculer les tarifs pour les deux ensembles d'éléments
                 from models.models import Donnee
-                original_donnee = Donnee.query.get(original_id) if original_id else None
+                original_donnee = db.session.get(Donnee, original_id) if original_id else None
                 
                 # Obtenir les tarifs pour les éléments originaux et nouveaux
                 tarif_original_eos = TarificationService.get_tarif_eos(original_elements)
@@ -517,7 +517,7 @@ class TarificationService:
                 if original_id and previous_montant > 0:
                     try:
                         from models.models import Donnee
-                        original_donnee = Donnee.query.get(original_id)
+                        original_donnee = db.session.get(Donnee, original_id)
                         
                         if original_donnee and original_donnee.enqueteurId:
                             from models.tarifs import EnqueteFacturation
@@ -645,7 +645,7 @@ class TarificationService:
             facturations = []
             for row in result:
                 # Récupérer la facturation complète à partir de son ID
-                facturation = EnqueteFacturation.query.get(row[0])
+                facturation = db.session.get(EnqueteFacturation, row[0])
                 if facturation:
                     facturations.append(facturation)
             
@@ -678,7 +678,7 @@ class TarificationService:
     def marquer_comme_paye(facturation_ids, reference_paiement=None):
         """Marque un ensemble de facturations comme payées"""
         try:
-            date_paiement = datetime.utcnow().date()
+            date_paiement = datetime.now().date()
             
             # Mettre à jour toutes les facturations en une seule requête
             updated = EnqueteFacturation.query.filter(
@@ -728,7 +728,7 @@ class TarificationService:
                         code=tarif_data['code'],
                         description=tarif_data['description'],
                         montant=tarif_data['montant'],
-                        date_debut=datetime.utcnow().date(),
+                        date_debut=datetime.now().date(),
                         actif=True
                     )
                     db.session.add(tarif)
@@ -757,7 +757,7 @@ class TarificationService:
                         description=tarif_data['description'],
                         montant=tarif_data['montant'],
                         enqueteur_id=None,  # Tarif par défaut
-                        date_debut=datetime.utcnow().date(),
+                        date_debut=datetime.now().date(),
                         actif=True
                     )
                     db.session.add(tarif)

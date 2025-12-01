@@ -8,11 +8,10 @@ const ImprovedEnqueteurViewer = lazy(() => import('./ImprovedEnqueteurViewer'));
 const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
-//const ExportHandler = lazy(() => import('./ExportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
 
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
-const AdminDashboard = lazy(() => import('./AdminDashboard'));
+// const AdminDashboard = lazy(() => import('./AdminDashboard')); // Supprimé - validation intégrée dans DataViewer
 
 // Non-lazy loaded components
 import PaiementManager from './PaiementManager';
@@ -57,12 +56,6 @@ const Tabs = () => {
       label: 'Interface Enquêteur',
       icon: <User className="w-4 h-4" />,
       component: <EnqueteurDashboard onLogout={() => console.log('Logout clicked')} />
-    },
-    {
-      id: 'validation',
-      label: 'Validation Enquêtes',
-      icon: <CheckSquare className="w-4 h-4" />,
-      component: <AdminDashboard />
     },
     {
       id: 'data',

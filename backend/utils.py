@@ -303,7 +303,7 @@ def process_file_content(content, fichier_id, date_butoir=None):
                         # Établir la relation
                         nouvelle_donnee.est_contestation = True
                         nouvelle_donnee.enquete_originale_id = enquete_originale.id
-                        nouvelle_donnee.date_contestation = datetime.utcnow().date()
+                        nouvelle_donnee.date_contestation = datetime.now().date()
                         nouvelle_donnee.motif_contestation_code = record.get('codeMotif', '')
                         nouvelle_donnee.motif_contestation_detail = record.get('motifDeContestation', '')
                         

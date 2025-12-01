@@ -112,7 +112,7 @@ def get_facturations_enqueteur(enqueteur_id):
             })
 
         # Récupérer les informations de l'enquêteur
-        enqueteur = Enqueteur.query.get(enqueteur_id)
+        enqueteur = db.session.get(Enqueteur, enqueteur_id)
         if not enqueteur:
             return jsonify({
                 'success': False,
@@ -287,7 +287,7 @@ def generer_pdf_paiement(enqueteur_id):
             date_paiement = datetime.strptime(date_paiement_str, '%Y-%m-%d').date()
         
         # Récupérer l'enquêteur
-        enqueteur = Enqueteur.query.get(enqueteur_id)
+        enqueteur = db.session.get(Enqueteur, enqueteur_id)
         if not enqueteur:
             return jsonify({
                 'success': False,
@@ -336,8 +336,8 @@ def generer_pdf_paiement(enqueteur_id):
         montant_total = 0
         
         for facturation in facturations:
-            donnee = Donnee.query.get(facturation.donnee_id)
-            donnee_enqueteur = DonneeEnqueteur.query.get(facturation.donnee_enqueteur_id)
+            donnee = db.session.get(Donnee, facturation.donnee_id)
+            donnee_enqueteur = db.session.get(DonneeEnqueteur, facturation.donnee_enqueteur_id)
             
             facturations_details.append({
                 'id': facturation.id,

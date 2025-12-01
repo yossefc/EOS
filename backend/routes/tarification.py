@@ -161,14 +161,14 @@ def create_tarif_eos():
         if existing_tarif:
             # Désactiver l'ancien tarif
             existing_tarif.actif = False
-            existing_tarif.date_fin = datetime.utcnow().date()
+            existing_tarif.date_fin = datetime.now().date()
         
         # Créer le nouveau tarif
         nouveau_tarif = TarifEOS(
             code=data.get('code'),
             description=data.get('description'),
             montant=data.get('montant'),
-            date_debut=datetime.utcnow().date(),
+            date_debut=datetime.now().date(),
             actif=True
         )
         
@@ -228,7 +228,7 @@ def delete_tarif_eos(id):
         
         # Désactivation logique
         tarif.actif = False
-        tarif.date_fin = datetime.utcnow().date()
+        tarif.date_fin = datetime.now().date()
         
         db.session.commit()
         
@@ -312,7 +312,7 @@ def create_tarif_enqueteur():
         if existing_tarif:
             # Désactiver l'ancien tarif
             existing_tarif.actif = False
-            existing_tarif.date_fin = datetime.utcnow().date()
+            existing_tarif.date_fin = datetime.now().date()
         
         # Créer le nouveau tarif
         nouveau_tarif = TarifEnqueteur(
@@ -320,7 +320,7 @@ def create_tarif_enqueteur():
             description=data.get('description'),
             montant=data.get('montant'),
             enqueteur_id=data.get('enqueteur_id'),  # Peut être None (tarif par défaut)
-            date_debut=datetime.utcnow().date(),
+            date_debut=datetime.now().date(),
             actif=True
         )
         
@@ -380,7 +380,7 @@ def delete_tarif_enqueteur(id):
         
         # Désactivation logique
         tarif.actif = False
-        tarif.date_fin = datetime.utcnow().date()
+        tarif.date_fin = datetime.now().date()
         
         db.session.commit()
         
@@ -489,7 +489,7 @@ def get_enqueteur_earnings(enqueteur_id):
         
         # Si un seul des deux est spécifié, utiliser les deux
         if (month and not year) or (year and not month):
-            now = datetime.utcnow()
+            now = datetime.now()
             month = month or now.month
             year = year or now.year
         
@@ -679,7 +679,7 @@ def create_missing_contestation_facturations():
                 if not donnee.enqueteurId:
                     # Essayer d'assigner depuis l'enquête originale
                     if donnee.enquete_originale_id:
-                        enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
+                        enquete_originale = db.session.get(Donnee, donnee.enquete_originale_id)
                         if enquete_originale and enquete_originale.enqueteurId:
                             donnee.enqueteurId = enquete_originale.enqueteurId
                         else:

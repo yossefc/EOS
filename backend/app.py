@@ -69,7 +69,8 @@ def register_blueprints(app):
     from routes.paiement import register_paiement_routes
     from routes.enquetes import register_enquetes_routes
     from routes.validation import register_validation_routes
-    from routes.donnees import donnees_bp
+    from routes.validation_v2 import register_validation_v2_routes
+    from routes.maintenance import maintenance_bp
     
     # Enregistrer les blueprints
     register_enqueteurs_routes(app)
@@ -81,9 +82,10 @@ def register_blueprints(app):
     register_paiement_routes(app)
     register_enquetes_routes(app)
     register_validation_routes(app)
+    register_validation_v2_routes(app)
+    app.register_blueprint(maintenance_bp)
     
     # Enregistrer le blueprint donnees (s'il n'est pas déjà enregistré ailleurs)
-    # app.register_blueprint(donnees_bp)
     
     logger.info("Blueprints enregistrés")
 
@@ -109,100 +111,7 @@ def register_legacy_routes(app):
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>API EOS - Système de Gestion d'Enquêtes</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
-                }
-                .container {
-                    background: white;
-                    border-radius: 20px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                    max-width: 800px;
-                    width: 100%;
-                    padding: 40px;
-                }
-                h1 {
-                    color: #667eea;
-                    font-size: 2.5em;
-                    margin-bottom: 10px;
-                    text-align: center;
-                }
-                .subtitle {
-                    color: #666;
-                    text-align: center;
-                    margin-bottom: 30px;
-                    font-size: 1.1em;
-                }
-                .status {
-                    background: #d4edda;
-                    border: 2px solid #28a745;
-                    border-radius: 10px;
-                    padding: 15px;
-                    margin: 20px 0;
-                    text-align: center;
-                }
-                .status-icon {
-                    font-size: 2em;
-                    margin-bottom: 10px;
-                }
-                .endpoints {
-                    margin-top: 30px;
-                }
-                .endpoint-group {
-                    margin-bottom: 25px;
-                }
-                .endpoint-group h3 {
-                    color: #667eea;
-                    margin-bottom: 10px;
-                    font-size: 1.3em;
-                    border-bottom: 2px solid #667eea;
-                    padding-bottom: 5px;
-                }
-                .endpoint {
-                    background: #f8f9fa;
-                    padding: 12px 15px;
-                    margin: 8px 0;
-                    border-radius: 8px;
-                    border-left: 4px solid #667eea;
-                    font-family: 'Courier New', monospace;
-                    font-size: 0.9em;
-                }
-                .method {
-                    display: inline-block;
-                    padding: 3px 8px;
-                    border-radius: 4px;
-                    font-weight: bold;
-                    margin-right: 10px;
-                    font-size: 0.85em;
-                }
-                .get { background: #28a745; color: white; }
-                .post { background: #007bff; color: white; }
-                .put { background: #ffc107; color: black; }
-                .delete { background: #dc3545; color: white; }
-                .footer {
-                    margin-top: 30px;
-                    text-align: center;
-                    color: #666;
-                    font-size: 0.9em;
-                    padding-top: 20px;
-                    border-top: 1px solid #ddd;
-                }
-                a {
-                    color: #667eea;
-                    text-decoration: none;
-                    font-weight: bold;
-                }
-                a:hover {
-                    text-decoration: underline;
-                }
-            </style>
+            <link rel="stylesheet" href="/static/api.css">
         </head>
         <body>
             <div class="container">
@@ -389,7 +298,7 @@ def register_legacy_routes(app):
             # Si c'est une contestation, chercher l'enquête originale
             enquete_originale = None
             if donnee.est_contestation and donnee.enquete_originale_id:
-                original = Donnee.query.get(donnee.enquete_originale_id)
+                original = db.session.get(Donnee, donnee.enquete_originale_id)
                 if original:
                     enquete_originale = {
                         'id': original.id,
@@ -503,21 +412,37 @@ def register_legacy_routes(app):
     def get_donnees_complete():
         """Récupère les données complètes avec jointure"""
         try:
+            # Filtrer pour exclure les enquêtes archivées (validées)
+            # Elles apparaîtront dans l'onglet Export des résultats
             donnees = db.session.query(Donnee).options(
                 db.joinedload(Donnee.donnee_enqueteur)
+            ).filter(
+                Donnee.statut_validation != 'archive'
             ).all()
             
             result = []
             for donnee in donnees:
                 donnee_dict = donnee.to_dict()
+                
+                # Indicateur si l'enquête a une réponse d'enquêteur
+                has_response = False
                 if donnee.donnee_enqueteur:
                     for k, v in donnee.donnee_enqueteur.to_dict().items():
                         if k not in ['id', 'donnee_id']:
                             donnee_dict[k] = v
+                    # Vérifier si l'enquête a une réponse complète
+                    has_response = (
+                        donnee.donnee_enqueteur.code_resultat is not None and
+                        donnee.donnee_enqueteur.code_resultat != ''
+                    )
+                
+                # Ajouter les indicateurs pour la validation
+                donnee_dict['has_response'] = has_response
+                donnee_dict['can_validate'] = has_response and donnee.statut_validation == 'en_attente'
                 
                 # Ajouter les informations de l'enquêteur assigné
                 if donnee.enqueteurId:
-                    enqueteur = Enqueteur.query.get(donnee.enqueteurId)
+                    enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
                     if enqueteur:
                         donnee_dict['enqueteur_nom'] = enqueteur.nom
                         donnee_dict['enqueteur_prenom'] = enqueteur.prenom
@@ -578,7 +503,7 @@ def register_legacy_routes(app):
                     setattr(donnee_enqueteur, field, float(montant) if montant else None)
             
             # Mise à jour de la date de modification
-            donnee_enqueteur.updated_at = datetime.utcnow()
+            donnee_enqueteur.updated_at = datetime.now()
             db.session.commit()
             
             # Si le code résultat est positif, calculer la facturation
@@ -643,7 +568,7 @@ def register_legacy_routes(app):
                 return jsonify({'success': False, 'error': 'Enquête not found'}), 404
                 
             if enqueteur_id:
-                enqueteur = Enqueteur.query.get(enqueteur_id)
+                enqueteur = db.session.get(Enqueteur, enqueteur_id)
                 if not enqueteur:
                     return jsonify({'success': False, 'error': 'Enquêteur not found'}), 404
             
@@ -860,7 +785,7 @@ def register_legacy_routes(app):
                 
             enquete_originale = None
             if donnee.enquete_originale_id:
-                enquete_originale = Donnee.query.get(donnee.enquete_originale_id)
+                enquete_originale = db.session.get(Donnee, donnee.enquete_originale_id)
                 
             return jsonify({
                 'success': True,

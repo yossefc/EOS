@@ -33,10 +33,17 @@ def export_enquetes():
     """
     try:
         data = request.json
-        enquetes_ids = [e.get('id') for e in data.get('enquetes', [])]
+        if not data:
+            return jsonify({"error": "Aucune donnée reçue"}), 400
+        
+        enquetes = data.get('enquetes', [])
+        if not enquetes:
+            return jsonify({"error": "Aucune enquête à exporter"}), 400
+        
+        enquetes_ids = [e.get('id') for e in enquetes if e.get('id')]
         
         if not enquetes_ids:
-            return jsonify({"error": "Aucune enquête à exporter"}), 400
+            return jsonify({"error": "Aucune enquête valide à exporter"}), 400
             
         # Récupérer les données complètes des enquêtes
         donnees = Donnee.query.filter(Donnee.id.in_(enquetes_ids)).all()
@@ -82,7 +89,7 @@ def generate_export_content(donnees):
         # Récupérer l'enquêteur
         enqueteur = None
         if donnee.enqueteurId:
-            enqueteur = Enqueteur.query.get(donnee.enqueteurId)
+            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
         
         # Construire la ligne selon le format du cahier des charges
         line = format_export_line(donnee, donnee_enqueteur, enqueteur)
@@ -301,7 +308,7 @@ def generate_word_document(donnees):
         # Récupérer l'enquêteur
         enqueteur = None
         if donnee.enqueteurId:
-            enqueteur = Enqueteur.query.get(donnee.enqueteurId)
+            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
         
         # Titre principal (Heading 1)
         titre = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or ''} {donnee.prenom or ''}", level=1)
@@ -400,28 +407,28 @@ def generate_word_document(donnees):
 
 @export_bp.route('/api/enquetes/validees', methods=['GET'])
 def get_enquetes_validees():
-    """Récupère toutes les enquêtes validées (confirmées) prêtes pour l'export"""
+    """Récupère toutes les enquêtes validées (archivées) prêtes pour l'export"""
     try:
         from models.enquete_archive import EnqueteArchive
         
-        # Sous-requête pour les enquêtes déjà archivées
-        archived_ids = db.session.query(EnqueteArchive.enquete_id).distinct()
-        
+        # Récupérer les enquêtes avec statut_validation = 'archive'
+        # Ces enquêtes ont été validées depuis l'onglet Données
         enquetes_validees = db.session.query(
-            Donnee, DonneeEnqueteur
+            Donnee, DonneeEnqueteur, EnqueteArchive
         ).join(
             DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
+        ).outerjoin(
+            EnqueteArchive, Donnee.id == EnqueteArchive.enquete_id
         ).filter(
-            Donnee.statut_validation == 'confirmee',
-            ~Donnee.id.in_(archived_ids),
+            Donnee.statut_validation == 'archive',
             DonneeEnqueteur.code_resultat.in_(['P', 'H', 'N', 'Z', 'I', 'Y'])
         ).order_by(
             Donnee.updated_at.desc()
         ).all()
         
         result = []
-        for donnee, donnee_enqueteur in enquetes_validees:
-            enqueteur = Enqueteur.query.get(donnee.enqueteurId) if donnee.enqueteurId else None
+        for donnee, donnee_enqueteur, archive in enquetes_validees:
+            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId) if donnee.enqueteurId else None
             enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
             
             result.append({
@@ -436,7 +443,9 @@ def get_enquetes_validees():
                 'code_resultat': donnee_enqueteur.code_resultat,
                 'elements_retrouves': donnee_enqueteur.elements_retrouves,
                 'updated_at': donnee.updated_at.strftime('%Y-%m-%d %H:%M:%S') if donnee.updated_at else None,
-                'statut_validation': donnee.statut_validation
+                'statut_validation': donnee.statut_validation,
+                'already_exported': archive is not None and archive.nom_fichier is not None,
+                'date_validation': archive.date_export.strftime('%Y-%m-%d %H:%M:%S') if archive else None
             })
         
         return jsonify({
@@ -472,7 +481,7 @@ def generate_word_document(donnees):
         # Récupérer l'enquêteur
         enqueteur = None
         if donnee.enqueteurId:
-            enqueteur = Enqueteur.query.get(donnee.enqueteurId)
+            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
         
         # Titre principal (Heading 1)
         titre = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or ''} {donnee.prenom or ''}", level=1)
@@ -573,12 +582,12 @@ def generate_word_document(donnees):
 def export_and_archive_enquete(enquete_id):
     """Exporte une enquête individuelle en Word et l'archive"""
     try:
-        donnee = Donnee.query.get(enquete_id)
+        donnee = db.session.get(Donnee, enquete_id)
         if not donnee:
             return jsonify({"error": "Enquête non trouvée"}), 404
         
-        if donnee.statut_validation != 'confirmee':
-            return jsonify({"error": "Seules les enquêtes confirmées peuvent être exportées"}), 400
+        if donnee.statut_validation != 'archive':
+            return jsonify({"error": "Seules les enquêtes archivées peuvent être exportées"}), 400
         
         from models.enquete_archive import EnqueteArchive
         existing_archive = EnqueteArchive.query.filter_by(enquete_id=enquete_id).first()
@@ -668,11 +677,11 @@ def get_archive_file(archive_id):
     try:
         from models.enquete_archive import EnqueteArchive
         
-        archive = EnqueteArchive.query.get(archive_id)
+        archive = db.session.get(EnqueteArchive, archive_id)
         if not archive:
             return jsonify({"error": "Archive non trouvée"}), 404
         
-        donnee = Donnee.query.get(archive.enquete_id)
+        donnee = db.session.get(Donnee, archive.enquete_id)
         if not donnee:
             return jsonify({"error": "Enquête non trouvée"}), 404
         

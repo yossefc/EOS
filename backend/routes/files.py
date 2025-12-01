@@ -235,14 +235,14 @@ def delete_file(file_id):
     try:
         file = Fichier.query.get_or_404(file_id)
         
-        # Supprimer les données associées
-        Donnee.query.filter_by(fichier_id=file.id).delete()
-        
         # Supprimer le fichier physique
         if os.path.exists(file.chemin):
             os.remove(file.chemin)
         
         # Supprimer l'entrée de la base de données
+        # La cascade 'all, delete-orphan' définie dans le modèle Fichier
+        # supprimera automatiquement toutes les Donnee associées,
+        # et la cascade sur Donnee supprimera les DonneeEnqueteur
         db.session.delete(file)
         db.session.commit()
         

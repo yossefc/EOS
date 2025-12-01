@@ -34,7 +34,7 @@ def get_enquetes_a_valider():
         result = []
         for donnee, donnee_enqueteur in enquetes_a_valider:
             # Récupérer le nom de l'enquêteur
-            enqueteur = Enqueteur.query.get(donnee.enqueteurId) if donnee.enqueteurId else None
+            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId) if donnee.enqueteurId else None
             enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
             
             result.append({
@@ -77,7 +77,7 @@ def valider_enquete(enquete_id):
             }), 400
         
         # Vérifier si l'enquête existe
-        donnee = Donnee.query.get(enquete_id)
+        donnee = db.session.get(Donnee, enquete_id)
         if not donnee:
             return jsonify({
                 'success': False,
@@ -114,7 +114,7 @@ def valider_enquete(enquete_id):
                 'numeroDossier': donnee.numeroDossier,
                 'statut_validation': donnee.statut_validation,
                 'validated_by': admin_nom,
-                'validated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                'validated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
         })
     except Exception as e:
@@ -139,7 +139,7 @@ def update_statut_validation(donnee_id):
             }), 400
         
         # Vérifier si l'enquête existe
-        donnee = Donnee.query.get(donnee_id)
+        donnee = db.session.get(Donnee, donnee_id)
         if not donnee:
             return jsonify({
                 'success': False,

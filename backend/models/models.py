@@ -6,7 +6,8 @@ class Fichier(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(255), nullable=False)
-    date_upload = db.Column(db.DateTime, default=datetime.utcnow)
+    chemin = db.Column(db.String(500), nullable=True)
+    date_upload = db.Column(db.DateTime, default=datetime.now)
     donnees = db.relationship('Donnee', backref='fichier', lazy=True, cascade='all, delete-orphan')
 
     def to_dict(self):
@@ -164,13 +165,14 @@ class Donnee(db.Model):
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
         if self.est_contestation and self.enquete_originale_id:
-            original = Donnee.query.get(self.enquete_originale_id)
+            from extensions import db
+            original = db.session.get(Donnee, self.enquete_originale_id)
             if original:
                 # Trouver l'enquêteur si possible
                 enqueteur_nom = "Non assigné"
                 if original.enqueteurId:
                     from models.enqueteur import Enqueteur
-                    enqueteur = Enqueteur.query.get(original.enqueteurId)
+                    enqueteur = db.session.get(Enqueteur, original.enqueteurId)
                     if enqueteur:
                         enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}"
                 
@@ -199,7 +201,7 @@ class Donnee(db.Model):
         
         # Ajouter le nouvel événement
         history_list.append({
-            'date': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'type': event_type,  # Ex: 'creation', 'modification', 'contestation'
             'details': event_details,
             'user': user

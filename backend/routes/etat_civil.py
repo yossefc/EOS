@@ -99,7 +99,7 @@ def register_etat_civil_routes(app):
                 donnee_enqueteur.type_divergence = data.get('type_divergence')
             
             # Mise à jour de la date de modification
-            donnee_enqueteur.updated_at = datetime.utcnow()
+            donnee_enqueteur.updated_at = datetime.now()
             
             # Commit des modifications
             db.session.commit()
