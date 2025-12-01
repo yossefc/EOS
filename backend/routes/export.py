@@ -9,6 +9,7 @@ import tempfile
 from models.models import Donnee, Fichier
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
+from models.export_batch import ExportBatch
 from extensions import db
 
 try:
@@ -30,26 +31,29 @@ def export_enquetes():
     """
     Génère un fichier texte avec les résultats d'enquête au format EOS
     Format: fichier texte à longueur fixe selon le cahier des charges
+    
+    Si aucune enquête n'est spécifiée, exporte toutes les enquêtes archivées (validées)
     """
     try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "Aucune donnée reçue"}), 400
+        data = request.json or {}
         
         enquetes = data.get('enquetes', [])
-        if not enquetes:
-            return jsonify({"error": "Aucune enquête à exporter"}), 400
+        enquetes_ids = [e.get('id') for e in enquetes if e.get('id')] if enquetes else []
         
-        enquetes_ids = [e.get('id') for e in enquetes if e.get('id')]
-        
+        # Si aucune enquête spécifiée, récupérer toutes les enquêtes archivées
         if not enquetes_ids:
-            return jsonify({"error": "Aucune enquête valide à exporter"}), 400
+            donnees = Donnee.query.filter(
+                Donnee.statut_validation == 'archive'
+            ).all()
             
-        # Récupérer les données complètes des enquêtes
-        donnees = Donnee.query.filter(Donnee.id.in_(enquetes_ids)).all()
-        
-        if not donnees:
-            return jsonify({"error": "Aucune donnée trouvée pour les enquêtes spécifiées"}), 404
+            if not donnees:
+                return jsonify({"error": "Aucune enquête archivée à exporter"}), 404
+        else:
+            # Récupérer les données complètes des enquêtes spécifiées
+            donnees = Donnee.query.filter(Donnee.id.in_(enquetes_ids)).all()
+            
+            if not donnees:
+                return jsonify({"error": "Aucune donnée trouvée pour les enquêtes spécifiées"}), 404
             
         # Générer le contenu du fichier texte
         content = generate_export_content(donnees)
@@ -405,60 +409,13 @@ def generate_word_document(donnees):
     
     return doc
 
-@export_bp.route('/api/enquetes/validees', methods=['GET'])
-def get_enquetes_validees():
-    """Récupère toutes les enquêtes validées (archivées) prêtes pour l'export"""
-    try:
-        from models.enquete_archive import EnqueteArchive
-        
-        # Récupérer les enquêtes avec statut_validation = 'archive'
-        # Ces enquêtes ont été validées depuis l'onglet Données
-        enquetes_validees = db.session.query(
-            Donnee, DonneeEnqueteur, EnqueteArchive
-        ).join(
-            DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
-        ).outerjoin(
-            EnqueteArchive, Donnee.id == EnqueteArchive.enquete_id
-        ).filter(
-            Donnee.statut_validation == 'archive',
-            DonneeEnqueteur.code_resultat.in_(['P', 'H', 'N', 'Z', 'I', 'Y'])
-        ).order_by(
-            Donnee.updated_at.desc()
-        ).all()
-        
-        result = []
-        for donnee, donnee_enqueteur, archive in enquetes_validees:
-            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId) if donnee.enqueteurId else None
-            enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
-            
-            result.append({
-                'id': donnee.id,
-                'numeroDossier': donnee.numeroDossier,
-                'referenceDossier': donnee.referenceDossier,
-                'nom': donnee.nom,
-                'prenom': donnee.prenom,
-                'typeDemande': donnee.typeDemande,
-                'enqueteurId': donnee.enqueteurId,
-                'enqueteurNom': enqueteur_nom,
-                'code_resultat': donnee_enqueteur.code_resultat,
-                'elements_retrouves': donnee_enqueteur.elements_retrouves,
-                'updated_at': donnee.updated_at.strftime('%Y-%m-%d %H:%M:%S') if donnee.updated_at else None,
-                'statut_validation': donnee.statut_validation,
-                'already_exported': archive is not None and archive.nom_fichier is not None,
-                'date_validation': archive.date_export.strftime('%Y-%m-%d %H:%M:%S') if archive else None
-            })
-        
-        return jsonify({
-            'success': True,
-            'data': result,
-            'count': len(result)
-        })
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération des enquêtes validées: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+# Route obsolète - remplacée par /api/exports/validated
+# @export_bp.route('/api/enquetes/validees', methods=['GET'])
+# def get_enquetes_validees():
+#     """Récupère toutes les enquêtes validées (archivées) prêtes pour l'export"""
+#     # Cette route n'est plus utilisée avec le nouveau système
+#     # Les enquêtes validées sont maintenant récupérées via /api/exports/validated
+#     pass
 
 def generate_word_document(donnees):
     """
@@ -694,13 +651,241 @@ def get_archive_file(archive_id):
         return send_file(
             file_stream,
             as_attachment=True,
-            download_name=archive.nom_fichier,
+            download_name=archive.nom_fichier if archive.nom_fichier else f"enquete_{archive_id}.docx",
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
         
     except Exception as e:
         logger.error(f"Erreur lors de la récupération du fichier archivé: {str(e)}")
         return jsonify({"error": f"Erreur lors de la récupération: {str(e)}"}), 500
+
+@export_bp.route('/api/exports/validated', methods=['GET'])
+def get_enquetes_validees_pour_export():
+    """
+    Récupère toutes les enquêtes validées (statut='validee') prêtes pour l'export
+    Ces enquêtes ont été validées par l'admin mais pas encore archivées
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+        
+        # Récupérer les enquêtes avec statut_validation = 'validee'
+        enquetes_query = db.session.query(
+            Donnee, DonneeEnqueteur
+        ).join(
+            DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id
+        ).filter(
+            Donnee.statut_validation == 'validee',
+            DonneeEnqueteur.code_resultat.in_(['P', 'H', 'N', 'Z', 'I', 'Y'])
+        ).order_by(
+            Donnee.updated_at.desc()
+        )
+        
+        # Pagination
+        enquetes_paginated = enquetes_query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        result = []
+        for donnee, donnee_enqueteur in enquetes_paginated.items:
+            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId) if donnee.enqueteurId else None
+            enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
+            
+            result.append({
+                'id': donnee.id,
+                'numeroDossier': donnee.numeroDossier,
+                'referenceDossier': donnee.referenceDossier,
+                'nom': donnee.nom,
+                'prenom': donnee.prenom,
+                'typeDemande': donnee.typeDemande,
+                'enqueteurId': donnee.enqueteurId,
+                'enqueteurNom': enqueteur_nom,
+                'code_resultat': donnee_enqueteur.code_resultat,
+                'elements_retrouves': donnee_enqueteur.elements_retrouves,
+                'updated_at': donnee.updated_at.strftime('%Y-%m-%d %H:%M:%S') if donnee.updated_at else None,
+                'statut_validation': donnee.statut_validation
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'page': page,
+            'per_page': per_page,
+            'total': enquetes_paginated.total,
+            'pages': enquetes_paginated.pages
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des enquêtes validées: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@export_bp.route('/api/exports/create-batch', methods=['POST'])
+def create_export_batch():
+    """
+    Crée un export groupé de toutes les enquêtes validées
+    - Génère un fichier Word (.docx) avec toutes les enquêtes validées
+    - Sauvegarde le fichier sur disque
+    - Marque les enquêtes comme 'archivee'
+    - Crée une entrée ExportBatch pour tracker l'export
+    - Retourne le fichier pour téléchargement
+    """
+    try:
+        if not DOCX_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'python-docx n\'est pas installé'
+            }), 500
+        
+        # Récupérer les paramètres
+        data = request.json or {}
+        utilisateur = data.get('utilisateur', 'Administrateur')
+        
+        # Récupérer toutes les enquêtes validées (pas encore archivées)
+        donnees = Donnee.query.filter_by(statut_validation='validee').all()
+        
+        if not donnees:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune enquête validée à exporter'
+            }), 404
+        
+        logger.info(f"Création d'un export batch de {len(donnees)} enquêtes par {utilisateur}")
+        
+        # Générer le document Word
+        doc = generate_word_document(donnees)
+        
+        # Créer le dossier exports/batches s'il n'existe pas
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        batches_dir = os.path.join(base_dir, 'exports', 'batches')
+        os.makedirs(batches_dir, exist_ok=True)
+        
+        # Créer un nom de fichier unique
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"Export_Batch_{timestamp}_{len(donnees)}_enquetes.docx"
+        filepath_full = os.path.join(batches_dir, filename)
+        
+        # Sauvegarder le document sur disque
+        doc.save(filepath_full)
+        
+        # Calculer la taille du fichier
+        file_size = os.path.getsize(filepath_full)
+        
+        # Chemin relatif depuis le dossier exports/
+        filepath_relative = os.path.join('batches', filename)
+        
+        # Créer l'entrée ExportBatch
+        enquete_ids = [d.id for d in donnees]
+        export_batch = ExportBatch(
+            filename=filename,
+            filepath=filepath_relative,
+            file_size=file_size,
+            enquete_count=len(donnees),
+            utilisateur=utilisateur
+        )
+        export_batch.set_enquete_ids_list(enquete_ids)
+        db.session.add(export_batch)
+        
+        # Marquer toutes les enquêtes comme archivées
+        for donnee in donnees:
+            donnee.statut_validation = 'archivee'
+            donnee.add_to_history(
+                'archivage',
+                f'Enquête archivée dans le batch #{export_batch.id} par {utilisateur}',
+                utilisateur
+            )
+        
+        db.session.commit()
+        
+        logger.info(f"Export batch créé avec succès: {filename} ({len(donnees)} enquêtes)")
+        
+        # Retourner le fichier pour téléchargement
+        return send_file(
+            filepath_full,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erreur lors de la création de l'export batch: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f"Erreur lors de la création de l'export: {str(e)}"
+        }), 500
+
+
+@export_bp.route('/api/exports/batches', methods=['GET'])
+def get_export_batches():
+    """
+    Récupère la liste des exports batch créés
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        
+        batches_query = ExportBatch.query.order_by(ExportBatch.created_at.desc())
+        batches_paginated = batches_query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        result = [batch.to_dict() for batch in batches_paginated.items]
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'page': page,
+            'per_page': per_page,
+            'total': batches_paginated.total,
+            'pages': batches_paginated.pages
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des batches: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@export_bp.route('/api/exports/batches/<int:batch_id>/download', methods=['GET'])
+def download_export_batch(batch_id):
+    """
+    Télécharge un fichier d'export batch
+    """
+    try:
+        batch = db.session.get(ExportBatch, batch_id)
+        if not batch:
+            return jsonify({
+                'success': False,
+                'error': 'Export batch non trouvé'
+            }), 404
+        
+        # Construire le chemin complet du fichier
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        filepath_full = os.path.join(base_dir, 'exports', batch.filepath)
+        
+        # Vérifier que le fichier existe
+        if not os.path.exists(filepath_full):
+            logger.error(f"Fichier d'export batch non trouvé: {filepath_full}")
+            return jsonify({
+                'success': False,
+                'error': 'Fichier d\'export non trouvé sur le disque'
+            }), 404
+        
+        # Envoyer le fichier
+        return send_file(
+            filepath_full,
+            as_attachment=True,
+            download_name=batch.filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur lors du téléchargement du batch {batch_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f"Erreur lors du téléchargement: {str(e)}"
+        }), 500
+
 
 def register_export_routes(app):
     """

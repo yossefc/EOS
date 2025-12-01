@@ -9,17 +9,16 @@ import config from '../config';
 const API_URL = config.API_URL;
 
 const EnqueteExporter = () => {
-  // State for archives
-  const [archives, setArchives] = useState([]);
-  const [loadingArchives, setLoadingArchives] = useState(true);
-  const [downloadingArchiveId, setDownloadingArchiveId] = useState(null);
+  // State for validated enquetes (ready for export)
+  const [enquetesValidees, setEnquetesValidees] = useState([]);
+  const [loadingEnquetes, setLoadingEnquetes] = useState(true);
   const [creatingExport, setCreatingExport] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Charger les archives au montage du composant
+  // Charger les enquêtes validées au montage du composant
   useEffect(() => {
-    fetchArchives();
+    fetchEnquetesValidees();
   }, []);
 
   // Clear messages after a timeout
@@ -34,33 +33,42 @@ const EnqueteExporter = () => {
     }
   }, [error, success]);
 
-  // Fonction pour charger les archives
-  const fetchArchives = async () => {
+  // Fonction pour charger les enquêtes validées (prêtes pour export)
+  const fetchEnquetesValidees = async () => {
     try {
-      setLoadingArchives(true);
-      const response = await axios.get(`${API_URL}/api/archives`);
+      setLoadingEnquetes(true);
+      const response = await axios.get(`${API_URL}/api/exports/validated`);
       
       if (response.data.success) {
-        setArchives(response.data.data);
+        setEnquetesValidees(response.data.data);
       } else {
         throw new Error(response.data.error || 'Erreur lors du chargement');
       }
     } catch (error) {
       console.error("Erreur:", error);
-      setError(error.response?.data?.error || error.message || "Erreur lors du chargement des archives");
+      setError(error.response?.data?.error || error.message || "Erreur lors du chargement des enquêtes validées");
     } finally {
-      setLoadingArchives(false);
+      setLoadingEnquetes(false);
     }
   };
 
-  // Créer un nouvel export avec toutes les enquêtes non archivées
+  // Créer un nouvel export groupé avec toutes les enquêtes validées
   const handleCreateExport = async () => {
+    if (enquetesValidees.length === 0) {
+      setError("Aucune enquête validée à exporter");
+      return;
+    }
+
+    if (!window.confirm(`Vous allez créer un export de ${enquetesValidees.length} enquête(s) validée(s). Ces enquêtes seront archivées. Continuer ?`)) {
+      return;
+    }
+
     setCreatingExport(true);
     setError(null);
     setSuccess(null);
     
     try {
-      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
+      const response = await axios.post(`${API_URL}/api/exports/create-batch`, {
         utilisateur: 'Administrateur'
       }, {
         responseType: 'blob'
@@ -69,17 +77,27 @@ const EnqueteExporter = () => {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      const filename = `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`;
+      
+      // Extraire le nom du fichier depuis les headers si disponible
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `Export_Batch_${new Date().toISOString().split('T')[0]}.docx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      setSuccess("Toutes les enquêtes validées ont été exportées et archivées avec succès !");
+      setSuccess(`Export créé avec succès ! ${enquetesValidees.length} enquête(s) ont été archivées.`);
       
-      // Recharger la liste des archives
-      await fetchArchives();
+      // Recharger la liste des enquêtes validées (devrait être vide maintenant)
+      await fetchEnquetesValidees();
 
     } catch (error) {
       console.error("Erreur:", error);
@@ -89,53 +107,23 @@ const EnqueteExporter = () => {
     }
   };
 
-  // Télécharger un fichier archivé
-  const handleDownloadArchive = async (archiveId, filename) => {
-    setDownloadingArchiveId(archiveId);
-    setError(null);
-    setSuccess(null);
-    
-    try {
-      const response = await axios.get(`${API_URL}/api/archives/${archiveId}`, {
-        responseType: 'blob'
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      setSuccess(`Fichier "${filename}" téléchargé avec succès !`);
-
-    } catch (error) {
-      console.error("Erreur:", error);
-      setError(error.response?.data?.error || error.message || "Une erreur s'est produite lors du téléchargement");
-    } finally {
-      setDownloadingArchiveId(null);
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* En-tête */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Archive className="w-6 h-6 text-purple-500" />
-            Archives des Exports
+            <Download className="w-6 h-6 text-blue-500" />
+            Export des Résultats
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Créez un nouvel export ou téléchargez les fichiers déjà exportés
+            Enquêtes validées prêtes pour l'export - {enquetesValidees.length} enquête(s)
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleCreateExport}
-            disabled={creatingExport}
+            disabled={creatingExport || enquetesValidees.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             {creatingExport ? (
@@ -146,16 +134,16 @@ const EnqueteExporter = () => {
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>Créer un nouvel export</span>
+                <span>Créer un nouvel export ({enquetesValidees.length})</span>
               </>
             )}
           </button>
           <button
-            onClick={fetchArchives}
-            disabled={loadingArchives}
+            onClick={fetchEnquetesValidees}
+            disabled={loadingEnquetes}
             className="flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${loadingArchives ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loadingEnquetes ? 'animate-spin' : ''}`} />
             <span>Actualiser</span>
           </button>
         </div>
@@ -176,18 +164,18 @@ const EnqueteExporter = () => {
         </div>
       )}
 
-      {/* Tableau des archives */}
+      {/* Tableau des enquêtes validées */}
       <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
-        {loadingArchives ? (
+        {loadingEnquetes ? (
           <div className="flex justify-center items-center p-12">
-            <RefreshCw className="w-8 h-8 animate-spin text-purple-500 mr-3" />
-            <span className="text-gray-600">Chargement des archives...</span>
+            <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mr-3" />
+            <span className="text-gray-600">Chargement des enquêtes validées...</span>
           </div>
-        ) : archives.length === 0 ? (
+        ) : enquetesValidees.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-gray-500">
-            <Archive className="w-16 h-16 mb-4 text-gray-300" />
-            <p className="text-lg font-medium">Aucune archive disponible</p>
-            <p className="text-sm mt-2">Les fichiers exportés apparaîtront ici</p>
+            <CheckCircle className="w-16 h-16 mb-4 text-gray-300" />
+            <p className="text-lg font-medium">Aucune enquête validée en attente d'export</p>
+            <p className="text-sm mt-2">Les enquêtes validées depuis l'onglet "Données" apparaîtront ici</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -204,67 +192,53 @@ const EnqueteExporter = () => {
                     Prénom
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nom du fichier
+                    Type Demande
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date d'export
+                    Enquêteur
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Utilisateur
+                    Code Résultat
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date Validation
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {archives.map((archive) => (
-                  <tr key={archive.id} className="hover:bg-gray-50 transition-colors">
+                {enquetesValidees.map((enquete) => (
+                  <tr key={enquete.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {archive.numeroDossier}
+                      {enquete.numeroDossier}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {archive.nom}
+                      {enquete.nom}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {archive.prenom}
+                      {enquete.prenom}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                        {archive.nom_fichier}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {enquete.typeDemande}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {enquete.enqueteurNom}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        enquete.code_resultat === 'P' ? 'bg-green-100 text-green-800' :
+                        enquete.code_resultat === 'N' ? 'bg-red-100 text-red-800' :
+                        enquete.code_resultat === 'H' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {enquete.code_resultat}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {archive.date_export ? new Date(archive.date_export).toLocaleDateString('fr-FR', {
+                      {enquete.updated_at ? new Date(enquete.updated_at).toLocaleDateString('fr-FR', {
                         year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        month: 'short',
+                        day: 'numeric'
                       }) : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {archive.utilisateur || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleDownloadArchive(archive.id, archive.nom_fichier)}
-                        disabled={downloadingArchiveId === archive.id}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                        title="Télécharger le fichier"
-                      >
-                        {downloadingArchiveId === archive.id ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Téléchargement...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-4 h-4" />
-                            <span>Télécharger</span>
-                          </>
-                        )}
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -281,11 +255,12 @@ const EnqueteExporter = () => {
           <div>
             <h3 className="font-medium text-blue-800 mb-1">Comment ça marche ?</h3>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Cliquez sur <strong>"Créer un nouvel export"</strong> pour générer un fichier Word avec toutes les enquêtes validées non archivées</li>
-              <li>• Les enquêtes exportées sont automatiquement archivées et apparaissent dans le tableau ci-dessus</li>
+              <li>• Les enquêtes validées depuis l'onglet <strong>"Données"</strong> apparaissent dans ce tableau</li>
+              <li>• Cliquez sur <strong>"Créer un nouvel export"</strong> pour générer un fichier Word (.docx) avec toutes les enquêtes validées</li>
+              <li>• Les enquêtes exportées sont automatiquement <strong>archivées</strong> et disparaissent de ce tableau</li>
               <li>• Chaque enquête est présentée sur une page séparée avec un design professionnel</li>
-              <li>• Vous pouvez re-télécharger n'importe quel fichier archivé à tout moment</li>
-              <li>• Total des archives : <strong>{archives.length}</strong></li>
+              <li>• Les fichiers exportés sont accessibles dans l'onglet <strong>"Archives"</strong> pour re-téléchargement</li>
+              <li>• Enquêtes en attente d'export : <strong>{enquetesValidees.length}</strong></li>
             </ul>
           </div>
         </div>

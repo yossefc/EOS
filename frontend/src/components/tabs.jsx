@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { BarChart2, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign, CheckSquare } from 'lucide-react';
+import { BarChart2, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign, CheckSquare, Archive } from 'lucide-react';
 
 // Lazy loading of components
 const StatsViewer = lazy(() => import('./StatsViewer'));
@@ -9,8 +9,8 @@ const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
-
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
+const ArchivesViewer = lazy(() => import('./ArchivesViewer'));
 // const AdminDashboard = lazy(() => import('./AdminDashboard')); // Supprimé - validation intégrée dans DataViewer
 
 // Non-lazy loaded components
@@ -68,6 +68,12 @@ const Tabs = () => {
       label: 'Export des résultats',
       icon: <FileDown className="w-4 h-4" />,
       component: <EnqueteExporter />
+    },
+    {
+      id: 'archives',
+      label: 'Archives',
+      icon: <Archive className="w-4 h-4" />,
+      component: <ArchivesViewer />
     },
     {
       id: 'enqueteurs',

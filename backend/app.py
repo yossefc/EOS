@@ -45,6 +45,10 @@ def create_app(config_class=Config):
         instance_path = os.path.join(os.path.dirname(__file__), 'instance')
         os.makedirs(instance_path, exist_ok=True)
         
+        # Importer tous les modèles pour s'assurer qu'ils sont enregistrés
+        from models.enquete_archive_file import EnqueteArchiveFile
+        from models.export_batch import ExportBatch
+        
         db.create_all()
         logger.info("Base de données initialisée")
     
@@ -71,6 +75,7 @@ def register_blueprints(app):
     from routes.validation import register_validation_routes
     from routes.validation_v2 import register_validation_v2_routes
     from routes.maintenance import maintenance_bp
+    from routes.archives import register_archives_routes
     
     # Enregistrer les blueprints
     register_enqueteurs_routes(app)
@@ -83,6 +88,7 @@ def register_blueprints(app):
     register_enquetes_routes(app)
     register_validation_routes(app)
     register_validation_v2_routes(app)
+    register_archives_routes(app)
     app.register_blueprint(maintenance_bp)
     
     # Enregistrer le blueprint donnees (s'il n'est pas déjà enregistré ailleurs)
@@ -438,7 +444,8 @@ def register_legacy_routes(app):
                 
                 # Ajouter les indicateurs pour la validation
                 donnee_dict['has_response'] = has_response
-                donnee_dict['can_validate'] = has_response and donnee.statut_validation == 'en_attente'
+                # Les enquêtes avec statut 'confirmee' peuvent être validées par l'admin
+                donnee_dict['can_validate'] = has_response and donnee.statut_validation == 'confirmee'
                 
                 # Ajouter les informations de l'enquêteur assigné
                 if donnee.enqueteurId:

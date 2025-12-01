@@ -89,10 +89,12 @@ def get_completed_enquetes():
 
 @enquetes_bp.route('/api/enquetes/enqueteur/<int:enqueteur_id>', methods=['GET'])
 def get_enquetes_by_enqueteur(enqueteur_id):
-    """Récupère les enquêtes assignées à un enquêteur"""
+    """Récupère les enquêtes assignées à un enquêteur (exclut les archivées)"""
     try:
-        # Récupérer les enquêtes assignées à l'enquêteur spécifié
-        enquetes = Donnee.query.filter_by(enqueteurId=enqueteur_id).all()
+        # Récupérer les enquêtes assignées à l'enquêteur spécifié (exclure les archivées)
+        enquetes = Donnee.query.filter_by(enqueteurId=enqueteur_id).filter(
+            Donnee.statut_validation != 'archive'
+        ).all()
         
         # Formater les données
         result = []
@@ -127,13 +129,14 @@ def get_enquetes_by_enqueteur(enqueteur_id):
 
 @enquetes_bp.route('/api/enquetes/enqueteur/<int:enqueteur_id>/completed', methods=['GET'])
 def get_completed_enquetes_by_enqueteur(enqueteur_id):
-    """Récupère les enquêtes complétées par un enquêteur"""
+    """Récupère les enquêtes complétées par un enquêteur (exclut les archivées)"""
     try:
-        # Récupérer les enquêtes assignées à l'enquêteur spécifié avec un code_resultat renseigné
+        # Récupérer les enquêtes assignées à l'enquêteur spécifié avec un code_resultat renseigné (exclure les archivées)
         enquetes = (db.session.query(Donnee, DonneeEnqueteur)
                    .join(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id)
                    .filter(Donnee.enqueteurId == enqueteur_id)
                    .filter(DonneeEnqueteur.code_resultat.isnot(None))
+                   .filter(Donnee.statut_validation != 'archive')
                    .all())
         
         # Formater les données

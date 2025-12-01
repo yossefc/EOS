@@ -745,11 +745,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       );
   
       if (response.data.success) {
-        // Après avoir enregistré les données enquêteur, mettre le statut à "en_attente"
+        // Après avoir enregistré les données enquêteur, mettre le statut à "confirmee"
+        // Cela indique que l'enquêteur a terminé et confirmé son travail
         try {
           await axios.put(
             `${API_URL}/api/donnees/${data.id}/statut`,
-            { statut_validation: 'en_attente' },
+            { statut_validation: 'confirmee' },
             {
               headers: {
                 'Content-Type': 'application/json'
@@ -761,7 +762,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           // Ne pas bloquer le processus si la mise à jour du statut échoue
         }
         
-        setSuccess("Données enregistrées avec succès - En attente de validation");
+        setSuccess("Données enregistrées avec succès - Enquête confirmée et prête pour validation par l'administrateur");
         setDonneesSauvegardees(response.data.data);
         // Attendre un peu avant de fermer pour montrer le message de succès
         setTimeout(() => {

@@ -16,8 +16,10 @@ validation_v2_bp = Blueprint('validation_v2', __name__)
 @validation_v2_bp.route('/api/enquetes/<int:enquete_id>/valider', methods=['PUT'])
 def valider_enquete(enquete_id):
     """
-    Valide une enquête et la marque comme archivée
-    L'enquête disparaîtra du tableau Données et apparaîtra dans Export des résultats
+    Valide une enquête depuis l'onglet Données
+    L'enquête doit avoir le statut 'confirmee' (enquêteur a terminé)
+    Elle passera au statut 'validee' et apparaîtra dans Export des résultats
+    Elle ne sera archivée que lors de la création d'un export groupé
     """
     try:
         # Vérifier que l'enquête existe
@@ -36,43 +38,34 @@ def valider_enquete(enquete_id):
                 'error': 'Cette enquête n\'a pas de réponse d\'enquêteur'
             }), 400
         
-        # Vérifier que l'enquête n'est pas déjà validée
-        if donnee.statut_validation == 'archive':
+        # Vérifier que l'enquête est confirmée par l'enquêteur
+        if donnee.statut_validation != 'confirmee':
             return jsonify({
                 'success': False,
-                'error': 'Cette enquête est déjà validée et archivée'
+                'error': f'Cette enquête doit être confirmée par l\'enquêteur avant validation (statut actuel: {donnee.statut_validation})'
             }), 400
         
         # Récupérer le nom de l'utilisateur depuis la requête
         data = request.json or {}
         utilisateur = data.get('utilisateur', 'Administrateur')
         
-        # Mettre à jour le statut
-        donnee.statut_validation = 'archive'
+        # Mettre à jour le statut à 'validee' (pas encore archivée)
+        donnee.statut_validation = 'validee'
         
         # Ajouter à l'historique
         donnee.add_to_history(
             'validation',
-            f'Enquête validée et archivée par {utilisateur}',
+            f'Enquête validée par {utilisateur}. Prête pour export.',
             utilisateur
         )
         
-        # Créer une entrée dans les archives pour l'export
-        archive = EnqueteArchive(
-            enquete_id=enquete_id,
-            date_export=datetime.now(),
-            utilisateur=utilisateur,
-            nom_fichier=None  # Sera rempli lors de l'export réel
-        )
-        db.session.add(archive)
-        
         db.session.commit()
         
-        logger.info(f"Enquête {enquete_id} validée et archivée par {utilisateur}")
+        logger.info(f"Enquête {enquete_id} validée par {utilisateur}")
         
         return jsonify({
             'success': True,
-            'message': 'Enquête validée avec succès',
+            'message': 'Enquête validée avec succès. Elle apparaîtra dans l\'onglet Export des résultats.',
             'data': {
                 'id': donnee.id,
                 'numeroDossier': donnee.numeroDossier,
