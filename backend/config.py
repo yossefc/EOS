@@ -11,6 +11,16 @@ class Config:
         'sqlite:///' + os.path.join(BASE_DIR, 'instance', 'eos.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    # Configuration SQLite pour éviter les erreurs "database is locked"
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'connect_args': {
+            'timeout': 30,  # Timeout de 30 secondes au lieu de 5 par défaut
+            'check_same_thread': False  # Permet l'utilisation multi-thread
+        },
+        'pool_pre_ping': True,  # Vérifie la connexion avant utilisation
+        'pool_recycle': 3600  # Recycle les connexions après 1 heure
+    }
+    
     # Configuration des fichiers
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max file size
     

@@ -12,6 +12,90 @@ from models.enqueteur import Enqueteur
 from models.export_batch import ExportBatch
 from extensions import db
 
+# Configuration pour l'export EOS
+CODE_PRESTATAIRE = os.getenv('CODE_PRESTATAIRE', 'XXX')  # 3 lettres
+
+
+# ========== FONCTIONS DE FORMATAGE POUR EXPORT EOS ==========
+
+def clean_special_chars(text):
+    """Nettoie les caractères spéciaux pour l'encodage cp1252"""
+    if text is None:
+        return ''
+    
+    # Remplacements pour les caractères problématiques
+    replacements = {
+        'œ': 'oe', 'Œ': 'OE',
+        'æ': 'ae', 'Æ': 'AE',
+        '€': 'EUR',
+        '—': '-', '–': '-',
+        ''': "'", ''': "'",
+        '"': '"', '"': '"',
+        '…': '...',
+    }
+    
+    text = str(text)
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    
+    # Encoder en cp1252 avec remplacement des caractères non supportés
+    try:
+        text.encode('cp1252')
+        return text
+    except UnicodeEncodeError:
+        # Remplacer les caractères non encodables par '?'
+        return text.encode('cp1252', errors='replace').decode('cp1252')
+
+
+def format_alphanum_eos(value, length):
+    """Formate un champ alphanumérique : padding à droite avec des espaces"""
+    if value is None:
+        value = ''
+    value_str = clean_special_chars(str(value).strip())
+    if len(value_str) > length:
+        value_str = value_str[:length]
+    return value_str.ljust(length)
+
+
+def format_numeric_eos(value, length):
+    """Formate un champ numérique : padding à gauche avec des zéros"""
+    if value is None:
+        value = 0
+    value_str = str(int(value))
+    if len(value_str) > length:
+        value_str = value_str[:length]
+    return value_str.rjust(length, '0')
+
+
+def format_date_eos(date_value):
+    """Formate une date au format JJ/MM/AAAA (10 caractères)"""
+    if date_value is None:
+        return ' ' * 10
+    
+    if isinstance(date_value, str):
+        try:
+            date_value = datetime.datetime.strptime(date_value, '%Y-%m-%d').date()
+        except:
+            return ' ' * 10
+    
+    if isinstance(date_value, datetime.datetime):
+        date_value = date_value.date()
+    
+    if isinstance(date_value, datetime.date):
+        return date_value.strftime('%d/%m/%Y')
+    
+    return ' ' * 10
+
+
+def format_montant_eos(montant):
+    """Formate un montant au format 99999,99 (8 caractères)"""
+    if montant is None:
+        montant = 0.0
+    montant_float = float(montant)
+    montant_str = f"{montant_float:.2f}".replace('.', ',')
+    return montant_str.rjust(8, '0')
+
+
 try:
     from docx import Document
     from docx.shared import Pt, RGBColor, Inches
@@ -720,23 +804,154 @@ def get_enquetes_validees_pour_export():
         }), 500
 
 
+def generate_eos_export_line(donnee, donnee_enqueteur, enqueteur):
+    """
+    Génère une ligne d'export au format EOS pour une enquête
+    Format: longueur fixe avec CR+LF en fin de ligne
+    """
+    fields = []
+    
+    # 1. N° DOSSIER (10)
+    fields.append(format_numeric_eos(donnee.numeroDossier or donnee.id, 10))
+    
+    # 2. RÉFÉRENCE DOSSIER (15)
+    fields.append(format_alphanum_eos(donnee.referenceDossier or '', 15))
+    
+    # 3. NUMÉRO INTERLOCUTEUR (12)
+    fields.append(format_alphanum_eos(f'D-{donnee.id}', 12))
+    
+    # 4. GUID INTERLOCUTEUR (36)
+    fields.append(format_alphanum_eos(donnee.guidInterlocuteur or '', 36))
+    
+    # 5. TYPE DE DEMANDE (3)
+    fields.append(format_alphanum_eos('ENQ', 3))
+    
+    # 6. NUMÉRO DE DEMANDE (11)
+    fields.append(format_numeric_eos(donnee.id, 11))
+    
+    # 7-8. NUMÉRO DEMANDE CONTESTÉE/INITIALE (11 + 11) - vides
+    fields.append(format_alphanum_eos('', 11))
+    fields.append(format_alphanum_eos('', 11))
+    
+    # 9. FORFAIT DE DEMANDE (16)
+    fields.append(format_alphanum_eos(donnee.forfaitDemande or 'AT2', 16))
+    
+    # 10. DATE DE RETOUR ESPÉRÉ (10)
+    fields.append(format_date_eos(donnee.date_butoir))
+    
+    # 11. QUALITÉ / CIVILITÉ (10)
+    fields.append(format_alphanum_eos(donnee.qualite or '', 10))
+    
+    # 12-13. NOM, PRÉNOM (30 + 20)
+    fields.append(format_alphanum_eos(donnee.nom or '', 30))
+    fields.append(format_alphanum_eos(donnee.prenom or '', 20))
+    
+    # 14-17. DATE/LIEU/CP/PAYS NAISSANCE (10 + 50 + 10 + 32)
+    fields.append(format_date_eos(donnee.dateNaissance))
+    fields.append(format_alphanum_eos(donnee.lieuNaissance or '', 50))
+    fields.append(format_alphanum_eos(donnee.codePostalNaissance or '', 10))
+    fields.append(format_alphanum_eos(donnee.paysNaissance or '', 32))
+    
+    # 18. NOM PATRONYMIQUE (30)
+    fields.append(format_alphanum_eos(donnee.nomPatronymique or '', 30))
+    
+    # 19. DATE DE RETOUR (10) - Date du jour
+    fields.append(format_date_eos(datetime.date.today()))
+    
+    # 20-21. CODE RÉSULTAT, ÉLÉMENTS RETROUVÉS (1 + 10)
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_resultat or '', 1))
+    fields.append(format_alphanum_eos(donnee_enqueteur.elements_retrouves or '', 10))
+    
+    # 22. FLAG ÉTAT CIVIL ERRONÉ (1)
+    fields.append(format_alphanum_eos(donnee_enqueteur.flag_etat_civil_errone or '', 1))
+    
+    # 23-29. FACTURATION (9 + 10 + 8*5) - tous vides ou 0
+    fields.append(format_alphanum_eos('', 9))  # Numéro facture
+    fields.append(format_alphanum_eos('', 10))  # Date facture
+    fields.append(format_montant_eos(0.0))  # Montant facturé
+    fields.append(format_montant_eos(0.0))  # Tarif appliqué
+    fields.append(format_montant_eos(0.0))  # Cumul montants précédents
+    fields.append(format_montant_eos(0.0))  # Reprise facturation
+    fields.append(format_montant_eos(0.0))  # Remise éventuelle
+    
+    # 30-34. DÉCÈS (10 + 10 + 5 + 10 + 32)
+    fields.append(format_date_eos(donnee_enqueteur.date_deces))
+    fields.append(format_alphanum_eos(donnee_enqueteur.numero_acte_deces or '', 10))
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_insee_deces or '', 5))
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_postal_deces or '', 10))
+    fields.append(format_alphanum_eos(donnee_enqueteur.localite_deces or '', 32))
+    
+    # 35-38. ADRESSE (32*4 + 10 + 32 + 32)
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse1 or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse2 or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse3 or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse4 or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_postal or '', 10))
+    fields.append(format_alphanum_eos(donnee_enqueteur.ville or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.pays_residence or '', 32))
+    
+    # 39-40. TÉLÉPHONES (15 + 15)
+    fields.append(format_alphanum_eos(donnee_enqueteur.telephone_personnel or '', 15))
+    fields.append(format_alphanum_eos(donnee_enqueteur.telephone_chez_employeur or '', 15))
+    
+    # 41-47. EMPLOYEUR (32 + 15 + 15 + 32*4 + 10 + 32 + 32)
+    fields.append(format_alphanum_eos(donnee_enqueteur.nom_employeur or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.telephone_employeur or '', 15))
+    fields.append(format_alphanum_eos(donnee_enqueteur.telecopie_employeur or '', 15))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse1_employeur or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse2_employeur or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse3_employeur or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.adresse4_employeur or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_postal_employeur or '', 10))
+    fields.append(format_alphanum_eos(donnee_enqueteur.ville_employeur or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.pays_employeur or '', 32))
+    
+    # 48-54. BANQUE (32 + 30 + 32 + 5 + 5 + 11 + 2)
+    fields.append(format_alphanum_eos(donnee_enqueteur.banque_domiciliation or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.libelle_guichet or '', 30))
+    fields.append(format_alphanum_eos(donnee_enqueteur.titulaire_compte or '', 32))
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_banque or '', 5))
+    fields.append(format_alphanum_eos(donnee_enqueteur.code_guichet or '', 5))
+    fields.append(format_alphanum_eos('', 11))  # Numéro compte - TOUJOURS VIDE
+    fields.append(format_alphanum_eos('', 2))   # RIB - TOUJOURS VIDE
+    
+    # 55. DATE D'ENVOI (10) - Date du jour
+    fields.append(format_date_eos(datetime.date.today()))
+    
+    # 56-57. ÉLÉMENTS DEMANDÉS/OBLIGATOIRES (10 + 10)
+    fields.append(format_alphanum_eos(donnee.elementDemandes or 'AT', 10))
+    fields.append(format_alphanum_eos(donnee.elementObligatoires or 'A', 10))
+    
+    # 58-61. CONTESTATION (10 + 16 + 64 + 8) - vides pour enquête normale
+    fields.append(format_alphanum_eos('', 10))  # Éléments contestés
+    fields.append(format_alphanum_eos('', 16))  # Code motif
+    fields.append(format_alphanum_eos('', 64))  # Motif contestation
+    fields.append(format_montant_eos(0.0))      # Cumul montants facturés
+    
+    # 62-63. CODE SOCIÉTÉ, URGENCE (2 + 1)
+    fields.append(format_numeric_eos(donnee.codesociete or 1, 2))
+    fields.append(format_numeric_eos(donnee.urgence or 0, 1))
+    
+    # 64. COMMENTAIRES (1000)
+    fields.append(format_alphanum_eos(donnee.commentaire or '', 1000))
+    
+    # Joindre tous les champs et ajouter CR+LF (Windows)
+    line = ''.join(fields) + '\r\n'
+    
+    return line
+
+
 @export_bp.route('/api/exports/create-batch', methods=['POST'])
 def create_export_batch():
     """
-    Crée un export groupé de toutes les enquêtes validées
-    - Génère un fichier Word (.docx) avec toutes les enquêtes validées
+    Crée un export groupé de toutes les enquêtes validées au format EOS
+    - Génère un fichier texte (.txt) à longueur fixe selon le cahier des charges EOS
     - Sauvegarde le fichier sur disque
     - Marque les enquêtes comme 'archivee'
     - Crée une entrée ExportBatch pour tracker l'export
     - Retourne le fichier pour téléchargement
     """
     try:
-        if not DOCX_AVAILABLE:
-            return jsonify({
-                'success': False,
-                'error': 'python-docx n\'est pas installé'
-            }), 500
-        
         # Récupérer les paramètres
         data = request.json or {}
         utilisateur = data.get('utilisateur', 'Administrateur')
@@ -750,23 +965,46 @@ def create_export_batch():
                 'error': 'Aucune enquête validée à exporter'
             }), 404
         
-        logger.info(f"Création d'un export batch de {len(donnees)} enquêtes par {utilisateur}")
-        
-        # Générer le document Word
-        doc = generate_word_document(donnees)
+        logger.info(f"Création d'un export EOS de {len(donnees)} enquêtes par {utilisateur}")
         
         # Créer le dossier exports/batches s'il n'existe pas
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         batches_dir = os.path.join(base_dir, 'exports', 'batches')
         os.makedirs(batches_dir, exist_ok=True)
         
-        # Créer un nom de fichier unique
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"Export_Batch_{timestamp}_{len(donnees)}_enquetes.docx"
+        # Créer un nom de fichier selon le format EOS : XXXExp_AAAAMMJJ.txt
+        date_str = datetime.date.today().strftime('%Y%m%d')
+        filename = f"{CODE_PRESTATAIRE}Exp_{date_str}.txt"
         filepath_full = os.path.join(batches_dir, filename)
         
-        # Sauvegarder le document sur disque
-        doc.save(filepath_full)
+        # Générer le contenu du fichier au format EOS
+        lines = []
+        for donnee in donnees:
+            # Récupérer les données enquêteur
+            donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
+            if not donnee_enqueteur:
+                logger.warning(f"Pas de données enquêteur pour l'enquête {donnee.id}, ignorée")
+                continue
+            
+            # Récupérer l'enquêteur
+            enqueteur = None
+            if donnee.enqueteurId:
+                enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
+            
+            # Générer la ligne au format EOS
+            line = generate_eos_export_line(donnee, donnee_enqueteur, enqueteur)
+            lines.append(line)
+        
+        if not lines:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune enquête avec données enquêteur à exporter'
+            }), 404
+        
+        # Écrire le fichier avec encodage Windows (CP1252) et fin de ligne CR+LF
+        # Utiliser errors='replace' pour gérer les caractères non supportés
+        with open(filepath_full, 'w', encoding='cp1252', newline='', errors='replace') as f:
+            f.writelines(lines)
         
         # Calculer la taille du fichier
         file_size = os.path.getsize(filepath_full)
@@ -775,41 +1013,44 @@ def create_export_batch():
         filepath_relative = os.path.join('batches', filename)
         
         # Créer l'entrée ExportBatch
-        enquete_ids = [d.id for d in donnees]
+        enquete_ids = [d.id for d in donnees if DonneeEnqueteur.query.filter_by(donnee_id=d.id).first()]
         export_batch = ExportBatch(
             filename=filename,
             filepath=filepath_relative,
             file_size=file_size,
-            enquete_count=len(donnees),
+            enquete_count=len(lines),
             utilisateur=utilisateur
         )
         export_batch.set_enquete_ids_list(enquete_ids)
         db.session.add(export_batch)
         
-        # Marquer toutes les enquêtes comme archivées
+        # Marquer toutes les enquêtes exportées comme archivées
         for donnee in donnees:
-            donnee.statut_validation = 'archivee'
-            donnee.add_to_history(
-                'archivage',
-                f'Enquête archivée dans le batch #{export_batch.id} par {utilisateur}',
-                utilisateur
-            )
+            if DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first():
+                donnee.statut_validation = 'archivee'
+                donnee.add_to_history(
+                    'archivage',
+                    f'Enquête exportée au format EOS dans {filename} par {utilisateur}',
+                    utilisateur
+                )
         
         db.session.commit()
         
-        logger.info(f"Export batch créé avec succès: {filename} ({len(donnees)} enquêtes)")
+        logger.info(f"Export EOS créé avec succès: {filename} ({len(lines)} lignes, {file_size} octets)")
         
         # Retourner le fichier pour téléchargement
         return send_file(
             filepath_full,
             as_attachment=True,
             download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            mimetype='text/plain; charset=cp1252'
         )
         
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Erreur lors de la création de l'export batch: {str(e)}")
+        logger.error(f"Erreur lors de la création de l'export EOS: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': f"Erreur lors de la création de l'export: {str(e)}"

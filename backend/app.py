@@ -418,12 +418,13 @@ def register_legacy_routes(app):
     def get_donnees_complete():
         """Récupère les données complètes avec jointure"""
         try:
-            # Filtrer pour exclure les enquêtes archivées (validées)
-            # Elles apparaîtront dans l'onglet Export des résultats
+            # Filtrer pour exclure les enquêtes validées et archivées
+            # Les validées apparaissent dans l'onglet Export des résultats
+            # Les archivées apparaissent dans l'onglet Archives
             donnees = db.session.query(Donnee).options(
                 db.joinedload(Donnee.donnee_enqueteur)
             ).filter(
-                Donnee.statut_validation != 'archive'
+                Donnee.statut_validation.notin_(['validee', 'archivee'])
             ).all()
             
             result = []
@@ -511,9 +512,8 @@ def register_legacy_routes(app):
             
             # Mise à jour de la date de modification
             donnee_enqueteur.updated_at = datetime.now()
-            db.session.commit()
             
-            # Si le code résultat est positif, calculer la facturation
+            # Si le code résultat est positif, préparer la facturation
             if donnee_enqueteur.code_resultat in ['P', 'H']:
                 try:
                     from services.tarification_service import TarificationService
@@ -524,17 +524,18 @@ def register_legacy_routes(app):
                         existing.paye = False
                         if not existing.resultat_enqueteur_montant or existing.resultat_enqueteur_montant <= 0:
                             existing.resultat_enqueteur_montant = 10.0
-                        db.session.commit()
                         logger.info(f"Facturation existante mise à jour: {existing.id}")
                     else:
                         facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
                         if facturation:
                             if not facturation.resultat_enqueteur_montant or facturation.resultat_enqueteur_montant <= 0:
                                 facturation.resultat_enqueteur_montant = 10.0
-                                db.session.commit()
                             logger.info(f"Facturation créée: {facturation.id}")
                 except Exception as e:
                     logger.error(f"Erreur lors du calcul de la facturation: {str(e)}")
+            
+            # UN SEUL COMMIT à la fin pour éviter les conflits
+            db.session.commit()
                                     
             return jsonify({
                 'success': True, 

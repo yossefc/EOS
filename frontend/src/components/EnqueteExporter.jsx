@@ -80,7 +80,7 @@ const EnqueteExporter = () => {
       
       // Extraire le nom du fichier depuis les headers si disponible
       const contentDisposition = response.headers['content-disposition'];
-      let filename = `Export_Batch_${new Date().toISOString().split('T')[0]}.docx`;
+      let filename = `XXXExp_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.txt`;
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
         if (filenameMatch) {
@@ -256,9 +256,9 @@ const EnqueteExporter = () => {
             <h3 className="font-medium text-blue-800 mb-1">Comment ça marche ?</h3>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Les enquêtes validées depuis l'onglet <strong>"Données"</strong> apparaissent dans ce tableau</li>
-              <li>• Cliquez sur <strong>"Créer un nouvel export"</strong> pour générer un fichier Word (.docx) avec toutes les enquêtes validées</li>
+              <li>• Cliquez sur <strong>"Créer un nouvel export"</strong> pour générer un fichier texte (.txt) au format EOS avec toutes les enquêtes validées</li>
               <li>• Les enquêtes exportées sont automatiquement <strong>archivées</strong> et disparaissent de ce tableau</li>
-              <li>• Chaque enquête est présentée sur une page séparée avec un design professionnel</li>
+              <li>• Le fichier généré est au format longueur fixe conforme au cahier des charges EOS FRANCE</li>
               <li>• Les fichiers exportés sont accessibles dans l'onglet <strong>"Archives"</strong> pour re-téléchargement</li>
               <li>• Enquêtes en attente d'export : <strong>{enquetesValidees.length}</strong></li>
             </ul>
