@@ -421,6 +421,7 @@ def register_legacy_routes(app):
             # Filtrer pour exclure les enquêtes validées et archivées
             # Les validées apparaissent dans l'onglet Export des résultats
             # Les archivées apparaissent dans l'onglet Archives
+            # Les enquêtes exportées en Word restent visibles mais avec un indicateur
             donnees = db.session.query(Donnee).options(
                 db.joinedload(Donnee.donnee_enqueteur)
             ).filter(

@@ -12,6 +12,9 @@ from models.enqueteur import Enqueteur
 from models.export_batch import ExportBatch
 from extensions import db
 
+# Configuration du logging
+logger = logging.getLogger(__name__)
+
 # Configuration pour l'export EOS
 CODE_PRESTATAIRE = os.getenv('CODE_PRESTATAIRE', 'XXX')  # 3 lettres
 
@@ -105,58 +108,59 @@ except ImportError:
     DOCX_AVAILABLE = False
     logger.warning("python-docx n'est pas installé. L'export Word ne sera pas disponible.")
 
-# Configuration du logging
-logger = logging.getLogger(__name__)
-
 export_bp = Blueprint('export', __name__)
 
 @export_bp.route('/api/export-enquetes', methods=['POST'])
 def export_enquetes():
     """
-    Génère un fichier texte avec les résultats d'enquête au format EOS
-    Format: fichier texte à longueur fixe selon le cahier des charges
+    Génère un fichier Word (.docx) avec les résultats d'enquête
+    Une page par enquête avec un design professionnel
     
-    Si aucune enquête n'est spécifiée, exporte toutes les enquêtes archivées (validées)
+    Utilisé depuis l'onglet "Données" pour exporter des enquêtes individuelles
     """
     try:
+        if not DOCX_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'python-docx n\'est pas installé'
+            }), 500
+        
         data = request.json or {}
         
         enquetes = data.get('enquetes', [])
         enquetes_ids = [e.get('id') for e in enquetes if e.get('id')] if enquetes else []
         
-        # Si aucune enquête spécifiée, récupérer toutes les enquêtes archivées
         if not enquetes_ids:
-            donnees = Donnee.query.filter(
-                Donnee.statut_validation == 'archive'
-            ).all()
+            return jsonify({"error": "Aucune enquête à exporter"}), 404
             
-            if not donnees:
-                return jsonify({"error": "Aucune enquête archivée à exporter"}), 404
-        else:
-            # Récupérer les données complètes des enquêtes spécifiées
-            donnees = Donnee.query.filter(Donnee.id.in_(enquetes_ids)).all()
-            
-            if not donnees:
-                return jsonify({"error": "Aucune donnée trouvée pour les enquêtes spécifiées"}), 404
-            
-        # Générer le contenu du fichier texte
-        content = generate_export_content(donnees)
+        # Récupérer les données complètes des enquêtes spécifiées
+        donnees = Donnee.query.filter(Donnee.id.in_(enquetes_ids)).all()
+        
+        if not donnees:
+            return jsonify({"error": "Aucune donnée trouvée pour les enquêtes spécifiées"}), 404
+        
+        logger.info(f"Génération d'un export Word pour {len(donnees)} enquête(s)")
+        
+        # Générer le document Word
+        doc = generate_word_document(donnees)
         
         # Créer un fichier temporaire
-        temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.txt', encoding='utf-8')
-        temp_file.write(content)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+        doc.save(temp_file.name)
         temp_file.close()
         
         # Envoyer le fichier au client
         return send_file(
             temp_file.name,
             as_attachment=True,
-            download_name=f"EOSExp_{datetime.datetime.now().strftime('%Y%m%d')}.txt",
-            mimetype='text/plain'
+            download_name=f"Export_Enquetes_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
         
     except Exception as e:
-        logger.error(f"Erreur lors de l'export des enquêtes: {str(e)}")
+        logger.error(f"Erreur lors de l'export Word des enquêtes: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": f"Erreur lors de l'export: {str(e)}"}), 500
 
 def generate_export_content(donnees):
@@ -364,6 +368,11 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur=None):
     line_list = list(line)
     for field, start, length in fields:
         value = values.get(field, "")
+        # S'assurer que value est une chaîne de caractères
+        if value is None:
+            value = ""
+        else:
+            value = str(value)
         # Tronquer si la valeur est trop longue
         if len(value) > length:
             value = value[:length]
@@ -375,15 +384,57 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur=None):
     # Reconvertir la liste en chaîne
     return "".join(line_list)
 
+
 def generate_word_document(donnees):
     """
     Génère un document Word (.docx) contenant les enquêtes.
-    Chaque enquête est sur une nouvelle page avec un design professionnel.
+    Chaque enquête est sur une nouvelle page avec TOUTES les données de la table.
     """
     if not DOCX_AVAILABLE:
         raise ImportError("python-docx n'est pas installé")
     
     doc = Document()
+    
+    def add_table_section(doc, title, fields):
+        """Ajoute une section avec un tableau de données"""
+        doc.add_heading(title, level=2)
+        table = doc.add_table(rows=1, cols=2)
+        table.style = 'Light Grid Accent 1'
+        
+        # En-tête
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Champ'
+        hdr[1].text = 'Valeur'
+        for cell in hdr:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+        
+        # Données
+        has_data = False
+        for field_name, field_value in fields:
+            if field_value not in [None, '', []]:
+                has_data = True
+                row = table.add_row().cells
+                row[0].text = str(field_name)
+                row[1].text = str(field_value)
+                # Style
+                for paragraph in row[0].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.bold = True
+                        run.font.size = Pt(10)
+                for paragraph in row[1].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(10)
+        
+        if not has_data:
+            row = table.add_row().cells
+            row[0].text = ''
+            row[1].text = 'Aucune donnée'
+        
+        doc.add_paragraph()  # Espacement
+        return has_data
     
     for i, donnee in enumerate(donnees):
         # Ajouter un saut de page entre les enquêtes (sauf pour la première)
@@ -398,224 +449,248 @@ def generate_word_document(donnees):
         if donnee.enqueteurId:
             enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
         
-        # Titre principal (Heading 1)
-        titre = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or ''} {donnee.prenom or ''}", level=1)
+        # Titre principal
+        titre = doc.add_heading(f"ENQUÊTE N° {donnee.id}", level=1)
         titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in titre.runs:
             run.font.size = Pt(18)
             run.font.bold = True
         
-        # Sous-titre (Heading 2)
-        date_str = donnee.updated_at.strftime('%d/%m/%Y') if donnee.updated_at else 'N/A'
+        # Sous-titre
+        date_str = donnee.updated_at.strftime('%d/%m/%Y %H:%M') if donnee.updated_at else 'N/A'
         enqueteur_str = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
         statut_str = donnee.statut_validation or "En attente"
         
-        sous_titre = doc.add_paragraph(f"Date : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
-        sous_titre.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        sous_titre = doc.add_paragraph(f"Dernière mise à jour : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
+        sous_titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in sous_titre.runs:
-            run.font.size = Pt(12)
+            run.font.size = Pt(11)
             run.font.color.rgb = RGBColor(64, 64, 64)
         
-        doc.add_paragraph()  # Espacement
+        doc.add_paragraph()
         
-        # Tableau des données
-        table = doc.add_table(rows=1, cols=2)
-        table.style = 'Light Grid Accent 1'
-        
-        # En-tête du tableau
-        hdr_cells = table.rows[0].cells
-        hdr_cells[0].text = 'Champ'
-        hdr_cells[1].text = 'Valeur'
-        for cell in hdr_cells:
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    run.font.bold = True
-                    run.font.size = Pt(11)
-        
-        # Données de base
-        fields_data = [
+        # ========== SECTION 1: IDENTIFICATION DU DOSSIER ==========
+        add_table_section(doc, '1. Identification du Dossier', [
             ('N° Dossier', donnee.numeroDossier),
             ('Référence Dossier', donnee.referenceDossier),
+            ('N° Interlocuteur', donnee.numeroInterlocuteur),
+            ('GUID Interlocuteur', donnee.guidInterlocuteur),
             ('Type de Demande', donnee.typeDemande),
+            ('N° Demande', donnee.numeroDemande),
+            ('N° Demande Contestée', donnee.numeroDemandeContestee),
+            ('N° Demande Initiale', donnee.numeroDemandeInitiale),
+            ('Forfait Demande', donnee.forfaitDemande),
+            ('Date d\'Envoi', donnee.datedenvoie.strftime('%d/%m/%Y') if donnee.datedenvoie else None),
+            ('Date Retour Espéré', donnee.dateRetourEspere.strftime('%d/%m/%Y') if donnee.dateRetourEspere else None),
+            ('Date Butoir', donnee.date_butoir.strftime('%d/%m/%Y') if donnee.date_butoir else None),
+            ('Code Société', donnee.codesociete),
+            ('Urgence', donnee.urgence),
+        ])
+        
+        # ========== SECTION 2: ÉTAT CIVIL ==========
+        add_table_section(doc, '2. État Civil', [
             ('Qualité', donnee.qualite),
             ('Nom', donnee.nom),
             ('Prénom', donnee.prenom),
-            ('Date de Naissance', donnee.dateNaissance),
-            ('Lieu de Naissance', donnee.lieuNaissance),
             ('Nom Patronymique', donnee.nomPatronymique),
+            ('Date de Naissance', donnee.dateNaissance.strftime('%d/%m/%Y') if donnee.dateNaissance else None),
+            ('Lieu de Naissance', donnee.lieuNaissance),
+            ('Code Postal Naissance', donnee.codePostalNaissance),
+            ('Pays de Naissance', donnee.paysNaissance),
+        ])
+        
+        # ========== SECTION 3: ADRESSE PERSONNELLE ==========
+        add_table_section(doc, '3. Adresse Personnelle', [
             ('Adresse 1', donnee.adresse1),
             ('Adresse 2', donnee.adresse2),
-            ('Ville', donnee.ville),
+            ('Adresse 3', donnee.adresse3),
+            ('Adresse 4', donnee.adresse4),
             ('Code Postal', donnee.codePostal),
+            ('Ville', donnee.ville),
             ('Pays de Résidence', donnee.paysResidence),
             ('Téléphone Personnel', donnee.telephonePersonnel),
-            ('Nom Employeur', donnee.nomEmployeur),
-        ]
+        ])
         
-        # Ajouter les données enquêteur si disponibles
+        # ========== SECTION 4: INFORMATIONS EMPLOYEUR (DONNÉES INITIALES) ==========
+        add_table_section(doc, '4. Informations Employeur (Données Initiales)', [
+            ('Nom Employeur', donnee.nomEmployeur),
+            ('Téléphone Employeur', donnee.telephoneEmployeur),
+            ('Télécopie Employeur', donnee.telecopieEmployeur),
+        ])
+        
+        # ========== SECTION 5: INFORMATIONS BANCAIRES (DONNÉES INITIALES) ==========
+        add_table_section(doc, '5. Informations Bancaires (Données Initiales)', [
+            ('Banque de Domiciliation', donnee.banqueDomiciliation),
+            ('Libellé Guichet', donnee.libelleGuichet),
+            ('Titulaire du Compte', donnee.titulaireCompte),
+            ('Code Banque', donnee.codeBanque),
+            ('Code Guichet', donnee.codeGuichet),
+            ('N° Compte', donnee.numeroCompte),
+            ('Clé RIB', donnee.ribCompte),
+        ])
+        
+        # ========== SECTION 6: ÉLÉMENTS DEMANDÉS ET CONTESTATION ==========
+        add_table_section(doc, '6. Éléments Demandés et Contestation', [
+            ('Éléments Demandés', donnee.elementDemandes),
+            ('Éléments Obligatoires', donnee.elementObligatoires),
+            ('Éléments Contestés', donnee.elementContestes),
+            ('Code Motif', donnee.codeMotif),
+            ('Motif de Contestation', donnee.motifDeContestation),
+            ('Est une Contestation', 'Oui' if donnee.est_contestation else 'Non'),
+            ('Date Contestation', donnee.date_contestation.strftime('%d/%m/%Y') if donnee.date_contestation else None),
+            ('Code Motif Contestation', donnee.motif_contestation_code),
+            ('Détail Motif Contestation', donnee.motif_contestation_detail),
+        ])
+        
+        # ========== SECTION 7: INFORMATIONS FINANCIÈRES ==========
+        add_table_section(doc, '7. Informations Financières', [
+            ('Cumul Montants Précédents', f"{donnee.cumulMontantsPrecedents:.2f} €" if donnee.cumulMontantsPrecedents else None),
+        ])
+        
+        # ========== SECTION 8: COMMENTAIRE INITIAL ==========
+        if donnee.commentaire:
+            doc.add_heading('8. Commentaire Initial', level=2)
+            para = doc.add_paragraph(donnee.commentaire)
+            for run in para.runs:
+                run.font.size = Pt(10)
+            doc.add_paragraph()
+        
+        # ========== SECTIONS ENQUÊTEUR (SI DONNÉES DISPONIBLES) ==========
         if donnee_enqueteur:
-            fields_data.extend([
+            # Section 9: Résultat de l'enquête
+            add_table_section(doc, '9. Résultat de l\'Enquête', [
                 ('Code Résultat', donnee_enqueteur.code_resultat),
                 ('Éléments Retrouvés', donnee_enqueteur.elements_retrouves),
                 ('Date de Retour', donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else None),
+                ('Flag État Civil Erroné', donnee_enqueteur.flag_etat_civil_errone),
             ])
-        
-        # Remplir le tableau
-        for field_name, field_value in fields_data:
-            if field_value:  # N'afficher que les champs non vides
-                row_cells = table.add_row().cells
-                row_cells[0].text = str(field_name)
-                row_cells[1].text = str(field_value)
-                
-                # Style pour la colonne "Champ"
-                for paragraph in row_cells[0].paragraphs:
-                    for run in paragraph.runs:
-                        run.font.bold = True
-                        run.font.size = Pt(10)
-                
-                # Style pour la colonne "Valeur"
-                for paragraph in row_cells[1].paragraphs:
-                    for run in paragraph.runs:
-                        run.font.size = Pt(10)
-        
-        doc.add_paragraph()  # Espacement
-        
-        # Section Notes / Commentaires
-        doc.add_heading('Notes / Commentaires', level=2)
-        notes = donnee.commentaire or "Aucune note"
-        if donnee_enqueteur and donnee_enqueteur.notes_personnelles:
-            notes += f"\n\nNotes de l'enquêteur:\n{donnee_enqueteur.notes_personnelles}"
-        
-        notes_para = doc.add_paragraph(notes)
-        for run in notes_para.runs:
-            run.font.size = Pt(10)
-            run.font.color.rgb = RGBColor(64, 64, 64)
-    
-    return doc
-
-# Route obsolète - remplacée par /api/exports/validated
-# @export_bp.route('/api/enquetes/validees', methods=['GET'])
-# def get_enquetes_validees():
-#     """Récupère toutes les enquêtes validées (archivées) prêtes pour l'export"""
-#     # Cette route n'est plus utilisée avec le nouveau système
-#     # Les enquêtes validées sont maintenant récupérées via /api/exports/validated
-#     pass
-
-def generate_word_document(donnees):
-    """
-    Génère un document Word (.docx) contenant les enquêtes.
-    Chaque enquête est sur une nouvelle page avec un design professionnel.
-    """
-    if not DOCX_AVAILABLE:
-        raise ImportError("python-docx n'est pas installé")
-    
-    doc = Document()
-    
-    for i, donnee in enumerate(donnees):
-        # Ajouter un saut de page entre les enquêtes (sauf pour la première)
-        if i > 0:
-            doc.add_page_break()
-        
-        # Récupérer les données enquêteur
-        donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
-        
-        # Récupérer l'enquêteur
-        enqueteur = None
-        if donnee.enqueteurId:
-            enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
-        
-        # Titre principal (Heading 1)
-        titre = doc.add_heading(f"Enquête n°{donnee.id} – {donnee.nom or ''} {donnee.prenom or ''}", level=1)
-        titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for run in titre.runs:
-            run.font.size = Pt(18)
-            run.font.bold = True
-        
-        # Sous-titre (Heading 2)
-        date_str = donnee.updated_at.strftime('%d/%m/%Y') if donnee.updated_at else 'N/A'
-        enqueteur_str = f"{enqueteur.nom} {enqueteur.prenom}" if enqueteur else "Non assigné"
-        statut_str = donnee.statut_validation or "En attente"
-        
-        sous_titre = doc.add_paragraph(f"Date : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
-        sous_titre.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        for run in sous_titre.runs:
-            run.font.size = Pt(12)
-            run.font.color.rgb = RGBColor(64, 64, 64)
-        
-        doc.add_paragraph()  # Espacement
-        
-        # Tableau des données
-        table = doc.add_table(rows=1, cols=2)
-        table.style = 'Light Grid Accent 1'
-        
-        # En-tête du tableau
-        hdr_cells = table.rows[0].cells
-        hdr_cells[0].text = 'Champ'
-        hdr_cells[1].text = 'Valeur'
-        for cell in hdr_cells:
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    run.font.bold = True
-                    run.font.size = Pt(11)
-        
-        # Données de base
-        fields_data = [
-            ('N° Dossier', donnee.numeroDossier),
-            ('Référence Dossier', donnee.referenceDossier),
-            ('Type de Demande', donnee.typeDemande),
-            ('Qualité', donnee.qualite),
-            ('Nom', donnee.nom),
-            ('Prénom', donnee.prenom),
-            ('Date de Naissance', donnee.dateNaissance),
-            ('Lieu de Naissance', donnee.lieuNaissance),
-            ('Nom Patronymique', donnee.nomPatronymique),
-            ('Adresse 1', donnee.adresse1),
-            ('Adresse 2', donnee.adresse2),
-            ('Ville', donnee.ville),
-            ('Code Postal', donnee.codePostal),
-            ('Pays de Résidence', donnee.paysResidence),
-            ('Téléphone Personnel', donnee.telephonePersonnel),
-            ('Nom Employeur', donnee.nomEmployeur),
-        ]
-        
-        # Ajouter les données enquêteur si disponibles
-        if donnee_enqueteur:
-            fields_data.extend([
-                ('Code Résultat', donnee_enqueteur.code_resultat),
-                ('Éléments Retrouvés', donnee_enqueteur.elements_retrouves),
-                ('Date de Retour', donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else None),
+            
+            # Section 10: État civil corrigé
+            if donnee_enqueteur.flag_etat_civil_errone:
+                add_table_section(doc, '10. État Civil Corrigé', [
+                    ('Qualité Corrigée', donnee_enqueteur.qualite_corrigee),
+                    ('Nom Corrigé', donnee_enqueteur.nom_corrige),
+                    ('Prénom Corrigé', donnee_enqueteur.prenom_corrige),
+                    ('Nom Patronymique Corrigé', donnee_enqueteur.nom_patronymique_corrige),
+                    ('Date Naissance Corrigée', donnee_enqueteur.date_naissance_corrigee.strftime('%d/%m/%Y') if donnee_enqueteur.date_naissance_corrigee else None),
+                    ('Lieu Naissance Corrigé', donnee_enqueteur.lieu_naissance_corrige),
+                    ('CP Naissance Corrigé', donnee_enqueteur.code_postal_naissance_corrige),
+                    ('Pays Naissance Corrigé', donnee_enqueteur.pays_naissance_corrige),
+                    ('Type de Divergence', donnee_enqueteur.type_divergence),
+                ])
+            
+            # Section 11: Adresse trouvée par l'enquêteur
+            add_table_section(doc, '11. Adresse Trouvée', [
+                ('Adresse 1', donnee_enqueteur.adresse1),
+                ('Adresse 2', donnee_enqueteur.adresse2),
+                ('Adresse 3', donnee_enqueteur.adresse3),
+                ('Adresse 4', donnee_enqueteur.adresse4),
+                ('Code Postal', donnee_enqueteur.code_postal),
+                ('Ville', donnee_enqueteur.ville),
+                ('Pays', donnee_enqueteur.pays_residence),
+                ('Téléphone Personnel', donnee_enqueteur.telephone_personnel),
+                ('Téléphone chez Employeur', donnee_enqueteur.telephone_chez_employeur),
             ])
+            
+            # Section 12: Employeur (données enquêteur)
+            add_table_section(doc, '12. Informations Employeur Trouvées', [
+                ('Nom Employeur', donnee_enqueteur.nom_employeur),
+                ('Téléphone', donnee_enqueteur.telephone_employeur),
+                ('Télécopie', donnee_enqueteur.telecopie_employeur),
+                ('Adresse 1', donnee_enqueteur.adresse1_employeur),
+                ('Adresse 2', donnee_enqueteur.adresse2_employeur),
+                ('Adresse 3', donnee_enqueteur.adresse3_employeur),
+                ('Adresse 4', donnee_enqueteur.adresse4_employeur),
+                ('Code Postal', donnee_enqueteur.code_postal_employeur),
+                ('Ville', donnee_enqueteur.ville_employeur),
+                ('Pays', donnee_enqueteur.pays_employeur),
+            ])
+            
+            # Section 13: Informations bancaires trouvées
+            add_table_section(doc, '13. Informations Bancaires Trouvées', [
+                ('Banque de Domiciliation', donnee_enqueteur.banque_domiciliation),
+                ('Libellé Guichet', donnee_enqueteur.libelle_guichet),
+                ('Titulaire du Compte', donnee_enqueteur.titulaire_compte),
+                ('Code Banque', donnee_enqueteur.code_banque),
+                ('Code Guichet', donnee_enqueteur.code_guichet),
+            ])
+            
+            # Section 14: Informations de décès
+            if donnee_enqueteur.date_deces:
+                add_table_section(doc, '14. Informations de Décès', [
+                    ('Date de Décès', donnee_enqueteur.date_deces.strftime('%d/%m/%Y')),
+                    ('N° Acte de Décès', donnee_enqueteur.numero_acte_deces),
+                    ('Code INSEE Décès', donnee_enqueteur.code_insee_deces),
+                    ('Code Postal Décès', donnee_enqueteur.code_postal_deces),
+                    ('Localité Décès', donnee_enqueteur.localite_deces),
+                ])
+            
+            # Section 15: Informations revenus
+            add_table_section(doc, '15. Informations sur les Revenus', [
+                ('Commentaires Revenus', donnee_enqueteur.commentaires_revenus),
+                ('Montant Salaire', f"{donnee_enqueteur.montant_salaire:.2f} €" if donnee_enqueteur.montant_salaire else None),
+                ('Période Versement Salaire', donnee_enqueteur.periode_versement_salaire),
+                ('Fréquence Versement Salaire', donnee_enqueteur.frequence_versement_salaire),
+            ])
+            
+            # Section 16: Autres revenus
+            revenus_data = []
+            if donnee_enqueteur.nature_revenu1:
+                revenus_data.extend([
+                    ('Nature Revenu 1', donnee_enqueteur.nature_revenu1),
+                    ('Montant Revenu 1', f"{donnee_enqueteur.montant_revenu1:.2f} €" if donnee_enqueteur.montant_revenu1 else None),
+                    ('Période Versement 1', donnee_enqueteur.periode_versement_revenu1),
+                    ('Fréquence Versement 1', donnee_enqueteur.frequence_versement_revenu1),
+                ])
+            if donnee_enqueteur.nature_revenu2:
+                revenus_data.extend([
+                    ('Nature Revenu 2', donnee_enqueteur.nature_revenu2),
+                    ('Montant Revenu 2', f"{donnee_enqueteur.montant_revenu2:.2f} €" if donnee_enqueteur.montant_revenu2 else None),
+                    ('Période Versement 2', donnee_enqueteur.periode_versement_revenu2),
+                    ('Fréquence Versement 2', donnee_enqueteur.frequence_versement_revenu2),
+                ])
+            if donnee_enqueteur.nature_revenu3:
+                revenus_data.extend([
+                    ('Nature Revenu 3', donnee_enqueteur.nature_revenu3),
+                    ('Montant Revenu 3', f"{donnee_enqueteur.montant_revenu3:.2f} €" if donnee_enqueteur.montant_revenu3 else None),
+                    ('Période Versement 3', donnee_enqueteur.periode_versement_revenu3),
+                    ('Fréquence Versement 3', donnee_enqueteur.frequence_versement_revenu3),
+                ])
+            
+            if revenus_data:
+                add_table_section(doc, '16. Autres Revenus', revenus_data)
+            
+            # Section 17: Facturation
+            add_table_section(doc, '17. Informations de Facturation', [
+                ('N° Facture', donnee_enqueteur.numero_facture),
+                ('Date Facture', donnee_enqueteur.date_facture.strftime('%d/%m/%Y') if donnee_enqueteur.date_facture else None),
+                ('Montant Facture', f"{donnee_enqueteur.montant_facture:.2f} €" if donnee_enqueteur.montant_facture else None),
+                ('Tarif Appliqué', f"{donnee_enqueteur.tarif_applique:.2f} €" if donnee_enqueteur.tarif_applique else None),
+                ('Cumul Montants Précédents', f"{donnee_enqueteur.cumul_montants_precedents:.2f} €" if donnee_enqueteur.cumul_montants_precedents else None),
+                ('Reprise Facturation', f"{donnee_enqueteur.reprise_facturation:.2f} €" if donnee_enqueteur.reprise_facturation else None),
+                ('Remise Éventuelle', f"{donnee_enqueteur.remise_eventuelle:.2f} €" if donnee_enqueteur.remise_eventuelle else None),
+            ])
+            
+            # Section 18: Mémos
+            memos_data = []
+            for i in range(1, 6):
+                memo_attr = f'memo{i}'
+                if hasattr(donnee_enqueteur, memo_attr):
+                    memo_value = getattr(donnee_enqueteur, memo_attr)
+                    if memo_value:
+                        memos_data.append((f'Mémo {i}', memo_value))
+            
+            if memos_data:
+                add_table_section(doc, '18. Mémos et Notes', memos_data)
         
-        # Remplir le tableau
-        for field_name, field_value in fields_data:
-            if field_value:  # N'afficher que les champs non vides
-                row_cells = table.add_row().cells
-                row_cells[0].text = str(field_name)
-                row_cells[1].text = str(field_value)
-                
-                # Style pour la colonne "Champ"
-                for paragraph in row_cells[0].paragraphs:
-                    for run in paragraph.runs:
-                        run.font.bold = True
-                        run.font.size = Pt(10)
-                
-                # Style pour la colonne "Valeur"
-                for paragraph in row_cells[1].paragraphs:
-                    for run in paragraph.runs:
-                        run.font.size = Pt(10)
-        
-        doc.add_paragraph()  # Espacement
-        
-        # Section Notes / Commentaires
-        doc.add_heading('Notes / Commentaires', level=2)
-        notes = donnee.commentaire or "Aucune note"
-        if donnee_enqueteur and donnee_enqueteur.notes_personnelles:
-            notes += f"\n\nNotes de l'enquêteur:\n{donnee_enqueteur.notes_personnelles}"
-        
-        notes_para = doc.add_paragraph(notes)
-        for run in notes_para.runs:
-            run.font.size = Pt(10)
-            run.font.color.rgb = RGBColor(64, 64, 64)
+        # Footer
+        doc.add_paragraph()
+        footer_para = doc.add_paragraph(f"Document généré le {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}")
+        footer_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        for run in footer_para.runs:
+            run.font.size = Pt(8)
+            run.font.color.rgb = RGBColor(128, 128, 128)
+            run.font.italic = True
     
     return doc
 
