@@ -23,8 +23,14 @@ logger = logging.getLogger(__name__)
 
 def create_app(config_class=Config):
     """Factory pour créer l'application Flask"""
+    # Valider que PostgreSQL est configuré
+    config_class.validate_database_url()
+    
     app = Flask(__name__)
     app.config.from_object(config_class)
+    
+    # Mettre à jour l'URI avec la valeur validée
+    app.config['SQLALCHEMY_DATABASE_URI'] = config_class.validate_database_url()
     
     # Initialiser les extensions
     init_extensions(app)
@@ -39,9 +45,9 @@ def create_app(config_class=Config):
         }
     })
     
-    # Créer les tables de la base de données
+    # Créer les tables de la base de données via migrations
     with app.app_context():
-        # Créer le dossier instance s'il n'existe pas
+        # Créer le dossier instance s'il n'existe pas (pour SQLite en dev)
         instance_path = os.path.join(os.path.dirname(__file__), 'instance')
         os.makedirs(instance_path, exist_ok=True)
         
@@ -49,7 +55,9 @@ def create_app(config_class=Config):
         from models.enquete_archive_file import EnqueteArchiveFile
         from models.export_batch import ExportBatch
         
-        db.create_all()
+        # Note: db.create_all() temporairement réactivé pour migration PostgreSQL
+        # Après migration, utiliser: flask db upgrade pour les futures modifications
+        db.create_all()  # Temporairement réactivé
         logger.info("Base de données initialisée")
     
     # Enregistrer les blueprints
@@ -493,18 +501,108 @@ def register_legacy_routes(app):
     
     @app.route('/api/donnees-complete', methods=['GET'])
     def get_donnees_complete():
-        """Récupère les données complètes avec jointure"""
+        """Récupère les données complètes avec jointure, pagination et filtres"""
         try:
-            # Filtrer pour exclure les enquêtes validées et archivées
-            # Les validées apparaissent dans l'onglet Export des résultats
-            # Les archivées apparaissent dans l'onglet Archives
-            # Les enquêtes exportées en Word restent visibles mais avec un indicateur
-            donnees = db.session.query(Donnee).options(
+            # Paramètres de pagination
+            page = request.args.get('page', 1, type=int)
+            per_page = request.args.get('per_page', 500, type=int)
+            # Limiter per_page à 1000 max pour éviter les surcharges
+            per_page = min(per_page, 1000)
+            
+            # Construire la requête de base
+            query = db.session.query(Donnee).options(
                 db.joinedload(Donnee.donnee_enqueteur)
             ).filter(
                 Donnee.statut_validation.notin_(['validee', 'archivee'])
-            ).all()
+            )
             
+            # === FILTRES CÔTÉ SERVEUR ===
+            
+            # Filtre par statut de validation
+            statut = request.args.get('statut_validation')
+            if statut:
+                query = query.filter(Donnee.statut_validation == statut)
+            
+            # Filtre par type de demande
+            type_demande = request.args.get('typeDemande')
+            if type_demande:
+                query = query.filter(Donnee.typeDemande == type_demande)
+            
+            # Filtre par enquêteur assigné
+            enqueteur_id = request.args.get('enqueteurId')
+            if enqueteur_id:
+                if enqueteur_id == 'unassigned':
+                    query = query.filter(Donnee.enqueteurId.is_(None))
+                else:
+                    query = query.filter(Donnee.enqueteurId == int(enqueteur_id))
+            
+            # Filtre par code résultat
+            code_resultat = request.args.get('code_resultat')
+            if code_resultat:
+                query = query.join(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id, isouter=True)\
+                             .filter(DonneeEnqueteur.code_resultat == code_resultat)
+            
+            # Filtre par date butoir (range)
+            date_butoir_start = request.args.get('date_butoir_start')
+            date_butoir_end = request.args.get('date_butoir_end')
+            if date_butoir_start:
+                from datetime import datetime
+                start_date = datetime.strptime(date_butoir_start, '%Y-%m-%d').date()
+                query = query.filter(Donnee.date_butoir >= start_date)
+            if date_butoir_end:
+                from datetime import datetime
+                end_date = datetime.strptime(date_butoir_end, '%Y-%m-%d').date()
+                query = query.filter(Donnee.date_butoir <= end_date)
+            
+            # Filtre par date de réception (range)
+            date_reception_start = request.args.get('date_reception_start')
+            date_reception_end = request.args.get('date_reception_end')
+            if date_reception_start:
+                from datetime import datetime
+                start_date = datetime.strptime(date_reception_start, '%Y-%m-%d')
+                query = query.filter(Donnee.created_at >= start_date)
+            if date_reception_end:
+                from datetime import datetime
+                end_date = datetime.strptime(date_reception_end, '%Y-%m-%d')
+                query = query.filter(Donnee.created_at <= end_date)
+            
+            # Filtre par recherche textuelle (numeroDossier, nom, prenom, referenceDossier)
+            search = request.args.get('search')
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(
+                    db.or_(
+                        Donnee.numeroDossier.ilike(search_pattern),
+                        Donnee.nom.ilike(search_pattern),
+                        Donnee.prenom.ilike(search_pattern),
+                        Donnee.referenceDossier.ilike(search_pattern)
+                    )
+                )
+            
+            # Filtre enquêtes exportées/non exportées
+            exported = request.args.get('exported')
+            if exported:
+                query = query.filter(Donnee.exported == (exported.lower() == 'true'))
+            
+            # Tri (par défaut : date de création décroissante)
+            sort_by = request.args.get('sort_by', 'created_at')
+            sort_order = request.args.get('sort_order', 'desc')
+            
+            if hasattr(Donnee, sort_by):
+                sort_column = getattr(Donnee, sort_by)
+                if sort_order == 'asc':
+                    query = query.order_by(sort_column.asc())
+                else:
+                    query = query.order_by(sort_column.desc())
+            else:
+                # Par défaut
+                query = query.order_by(Donnee.created_at.desc())
+            
+            # === PAGINATION ===
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+            donnees = pagination.items
+            
+            # Construire les résultats avec données enrichies
             result = []
             for donnee in donnees:
                 donnee_dict = donnee.to_dict()
@@ -540,10 +638,21 @@ def register_legacy_routes(app):
                     donnee_dict['enqueteur_prenom'] = None
                 
                 result.append(donnee_dict)
-                
-            return jsonify({"success": True, "data": result})
+            
+            # Réponse paginée
+            return jsonify({
+                "success": True,
+                "data": result,
+                "page": page,
+                "per_page": per_page,
+                "total": pagination.total,
+                "pages": pagination.pages
+            })
+            
         except Exception as e:
             logger.error(f"Erreur dans get_donnees_complete: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return jsonify({"success": False, "error": str(e)}), 500
 
     @app.route('/api/donnees-enqueteur/<int:donnee_id>', methods=['POST'])

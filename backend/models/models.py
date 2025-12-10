@@ -21,11 +21,19 @@ class Donnee(db.Model):
     """Modèle pour les données"""
     __tablename__ = 'donnees'
     __table_args__ = (
-    db.Index('idx_donnee_fichier_id', 'fichier_id'),
-    db.Index('idx_donnee_numeroDossier', 'numeroDossier'),
-    db.Index('idx_donnee_nom', 'nom'),
-    db.Index('idx_donnee_enqueteurId', 'enqueteurId'),
-)
+        db.Index('idx_donnee_fichier_id', 'fichier_id'),
+        db.Index('idx_donnee_numeroDossier', 'numeroDossier'),
+        db.Index('idx_donnee_nom', 'nom'),
+        db.Index('idx_donnee_enqueteurId', 'enqueteurId'),
+        # Index pour scalabilité PostgreSQL (20 000+ enquêtes)
+        db.Index('idx_donnee_statut_validation', 'statut_validation'),
+        db.Index('idx_donnee_date_butoir', 'date_butoir'),
+        db.Index('idx_donnee_typeDemande', 'typeDemande'),
+        db.Index('idx_donnee_created_at', 'created_at'),
+        # Index composites pour requêtes fréquentes
+        db.Index('idx_donnee_statut_enqueteur', 'statut_validation', 'enqueteurId'),
+        db.Index('idx_donnee_statut_date', 'statut_validation', 'date_butoir'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     fichier_id = db.Column(db.Integer, db.ForeignKey('fichiers.id'), nullable=False)
     enqueteurId = db.Column(db.Integer, db.ForeignKey('enqueteurs.id'), nullable=True)

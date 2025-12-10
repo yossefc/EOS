@@ -902,43 +902,90 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         {/* En-tête */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 sm:p-6 rounded-t-xl sticky top-0 z-10">
-          <div className="flex justify-between items-start">
-            <div className="text-white space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold">Dossier n° {data?.numeroDossier}</h2>
-              <p className="text-sm sm:text-base">{data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'}</p>
+  <div className="flex items-start gap-4">
+    {/* CONTENU PRINCIPAL */}
+    <div className="flex-1 text-white">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-start">
+        {/* Colonne 1 : Dossier */}
+        <div className="space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-extrabold">
+            Dossier n° {data?.numeroDossier}
+          </h2>
+          <p className="inline-flex items-center px-3 py-1 rounded-full bg-black/15 text-sm sm:text-base font-semibold">
+            {data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'}
+          </p>
+        </div>
 
-              {/* Éléments demandés */}
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Éléments demandés :</p>
-                <div className="flex flex-wrap gap-2">
-                  {elementsDemandes.map(code => (
-                    <span key={code} className="bg-blue-500/20 px-2 py-1 rounded text-xs sm:text-sm">
-                      {TYPE_RECHERCHE[code] || code}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Éléments obligatoires */}
-              {elementsObligatoires.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Éléments obligatoires :</p>
-                  <div className="flex flex-wrap gap-2">
-                    {elementsObligatoires.map(code => (
-                      <span key={code} className="bg-red-500/20 px-2 py-1 rounded text-xs sm:text-sm flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                        {TYPE_RECHERCHE[code] || code}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <button onClick={() => onClose(false)} className="text-white/70 hover:text-white">
-              <X className="w-6 h-6" />
-            </button>
+        {/* Colonne 2 : Éléments demandés */}
+        <div className="space-y-2">
+          <p className="text-sm sm:text-base font-semibold">
+            Éléments demandés
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {elementsDemandes.map(code => (
+              <span
+                key={code}
+                className="px-3 py-1 rounded-full text-sm sm:text-base bg-white/15 border border-white/30 shadow-sm"
+              >
+                {TYPE_RECHERCHE[code] || code}
+              </span>
+            ))}
           </div>
         </div>
+
+        {/* Colonne 3 : Éléments obligatoires */}
+        {elementsObligatoires.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm sm:text-base font-semibold">
+              Éléments obligatoires
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {elementsObligatoires.map(code => (
+                <span
+                  key={code}
+                  className="px-3 py-1 rounded-full text-sm sm:text-base flex items-center gap-1 bg-red-500/30 border border-red-200/70 shadow-sm"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  {TYPE_RECHERCHE[code] || code}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Colonne 4 : Assignation Enquêteur */}
+        <div className="space-y-2">
+          <p className="text-sm sm:text-base font-semibold">
+            👨‍💼 Enquêteur assigné
+          </p>
+          <select
+            name="enqueteurId"
+            value={formData.enqueteurId || ''}
+            onChange={(e) => handleEnqueteurChange(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-white/90 text-gray-800 font-medium text-sm border border-white/30 shadow-sm focus:ring-2 focus:ring-white focus:outline-none"
+          >
+            <option value="">Non assigné</option>
+            {enqueteurs.map((enq) => (
+              <option key={enq.id} value={enq.id}>
+                {enq.nom} {enq.prenom}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* BOUTON FERMETURE */}
+    <button
+      onClick={() => onClose(false)}
+      className="text-white/70 hover:text-white ml-2 mt-1"
+    >
+      <X className="w-6 h-6" />
+    </button>
+  </div>
+</div>
+
+
 
         {/* Messages d'erreur ou de succès */}
         {error && (
@@ -1028,54 +1075,172 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     )}
   </div>
 )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <p className="text-sm text-gray-500">Numéro de dossier</p>
-                      <p className="font-medium">{data.numeroDossier}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Référence</p>
-                      <p className="font-medium">{data.referenceDossier || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Nom</p>
-                      <p className="font-medium">{data.nom}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Prénom</p>
-                      <p className="font-medium">{data.prenom || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Date de naissance</p>
-                      <p className="font-medium">{data.dateNaissance || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Lieu de naissance</p>
-                      <p className="font-medium">{data.lieuNaissance || '-'}</p>
-                    </div>
-                  </div>
+                  {/* Informations personnelles organisées par catégorie */}
+                  <div className="space-y-4">
+                    
+                    {/* Dossier */}
+                    {(data.numeroDossier || data.referenceDossier || data.codesociete) && (
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <h4 className="font-semibold text-blue-800 mb-2 text-sm">📁 DOSSIER</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                          {data.numeroDossier && (
+                            <div><span className="text-gray-600">N° Dossier:</span> <span className="font-medium">{data.numeroDossier}</span></div>
+                          )}
+                          {data.referenceDossier && (
+                            <div><span className="text-gray-600">Référence:</span> <span className="font-medium">{data.referenceDossier}</span></div>
+                          )}
+                          {data.codesociete && (
+                            <div><span className="text-gray-600">Code société:</span> <span className="font-medium">{data.codesociete}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                  <div className="border-t pt-4 mb-4">
-                    <h4 className="font-medium mb-3">Assignation de l&apos;enquêteur</h4>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">Enquêteur assigné</label>
-                      <select
-                        name="enqueteurId"
-                        value={formData.enqueteurId || ''}
-                        onChange={(e) => handleEnqueteurChange(e.target.value)}
-                        className="w-full p-2 border rounded focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">Non assigné</option>
-                        {enqueteurs.map((enq) => (
-                          <option key={enq.id} value={enq.id}>
-                            {enq.prenom} {enq.nom}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-green-600 mt-1 font-medium">
-                        ✓ Sauvegarde automatique au changement
-                      </p>
-                    </div>
+                    {/* Identité */}
+                    {(data.nom || data.prenom) && (
+                      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                        <h4 className="font-semibold text-purple-800 mb-2 text-sm">👤 IDENTITÉ</h4>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                          {data.nom && (
+                            <div><span className="text-gray-600">Nom:</span> <span className="font-medium">{data.nom}</span></div>
+                          )}
+                          {data.prenom && (
+                            <div><span className="text-gray-600">Prénom:</span> <span className="font-medium">{data.prenom}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Naissance */}
+                    {(data.dateNaissance || data.lieuNaissance || data.paysNaissance || data.codePostalNaissance) && (
+                      <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                        <h4 className="font-semibold text-green-800 mb-2 text-sm">🎂 NAISSANCE</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
+                          {data.dateNaissance && (
+                            <div><span className="text-gray-600">Date:</span> <span className="font-medium">{data.dateNaissance}</span></div>
+                          )}
+                          {data.lieuNaissance && (
+                            <div><span className="text-gray-600">Lieu:</span> <span className="font-medium">{data.lieuNaissance}</span></div>
+                          )}
+                          {data.codePostalNaissance && (
+                            <div><span className="text-gray-600">Code postal:</span> <span className="font-medium">{data.codePostalNaissance}</span></div>
+                          )}
+                          {data.paysNaissance && (
+                            <div><span className="text-gray-600">Pays:</span> <span className="font-medium">{data.paysNaissance}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Adresse */}
+                    {(data.adresse1 || data.adresse2 || data.adresse3 || data.adresse4 || data.ville || data.codePostal || data.paysResidence) && (
+                      <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                        <h4 className="font-semibold text-orange-800 mb-2 text-sm">🏠 ADRESSE</h4>
+                        <div className="text-sm space-y-1">
+                          {(data.adresse1 || data.adresse2 || data.adresse3 || data.adresse4) && (
+                            <div className="font-medium">
+                              {data.adresse1 && <div>{data.adresse1}</div>}
+                              {data.adresse2 && <div>{data.adresse2}</div>}
+                              {data.adresse3 && <div>{data.adresse3}</div>}
+                              {data.adresse4 && <div>{data.adresse4}</div>}
+                            </div>
+                          )}
+                          <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+                            {data.codePostal && (
+                              <div><span className="text-gray-600">CP:</span> <span className="font-medium">{data.codePostal}</span></div>
+                            )}
+                            {data.ville && (
+                              <div><span className="text-gray-600">Ville:</span> <span className="font-medium">{data.ville}</span></div>
+                            )}
+                            {data.paysResidence && (
+                              <div><span className="text-gray-600">Pays:</span> <span className="font-medium">{data.paysResidence}</span></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Téléphones */}
+                    {(data.telephonePersonnel || data.telephoneEmployeur || data.telecopieEmployeur) && (
+                      <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                        <h4 className="font-semibold text-teal-800 mb-2 text-sm">📞 TÉLÉPHONES</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                          {data.telephonePersonnel && (
+                            <div><span className="text-gray-600">Personnel:</span> <span className="font-medium">{data.telephonePersonnel}</span></div>
+                          )}
+                          {data.telephoneEmployeur && (
+                            <div><span className="text-gray-600">Employeur:</span> <span className="font-medium">{data.telephoneEmployeur}</span></div>
+                          )}
+                          {data.telecopieEmployeur && (
+                            <div><span className="text-gray-600">Télécopie:</span> <span className="font-medium">{data.telecopieEmployeur}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Employeur */}
+                    {data.nomEmployeur && (
+                      <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+                        <h4 className="font-semibold text-indigo-800 mb-2 text-sm">💼 EMPLOYEUR</h4>
+                        <div className="text-sm">
+                          <span className="font-medium">{data.nomEmployeur}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Banque */}
+                    {(data.banqueDomiciliation || data.titulaireCompte || data.codeBanque || data.codeGuichet || data.numeroCompte || data.ribCompte || data.libelleGuichet) && (
+                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                        <h4 className="font-semibold text-yellow-800 mb-2 text-sm">🏦 BANQUE</h4>
+                        <div className="space-y-1 text-sm">
+                          {data.banqueDomiciliation && (
+                            <div><span className="text-gray-600">Banque:</span> <span className="font-medium">{data.banqueDomiciliation}</span></div>
+                          )}
+                          {data.libelleGuichet && (
+                            <div><span className="text-gray-600">Guichet:</span> <span className="font-medium">{data.libelleGuichet}</span></div>
+                          )}
+                          {data.titulaireCompte && (
+                            <div><span className="text-gray-600">Titulaire:</span> <span className="font-medium">{data.titulaireCompte}</span></div>
+                          )}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
+                            {data.codeBanque && (
+                              <div><span className="text-gray-600">Code banque:</span> <span className="font-medium">{data.codeBanque}</span></div>
+                            )}
+                            {data.codeGuichet && (
+                              <div><span className="text-gray-600">Code guichet:</span> <span className="font-medium">{data.codeGuichet}</span></div>
+                            )}
+                            {data.numeroCompte && (
+                              <div><span className="text-gray-600">N° compte:</span> <span className="font-medium">{data.numeroCompte}</span></div>
+                            )}
+                            {data.ribCompte && (
+                              <div><span className="text-gray-600">Clé RIB:</span> <span className="font-medium">{data.ribCompte}</span></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Informations complémentaires */}
+                    {(data.datedenvoie || data.cumulMontantsPrecedents || data.commentaire) && (
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <h4 className="font-semibold text-gray-800 mb-2 text-sm">📋 AUTRES INFORMATIONS</h4>
+                        <div className="space-y-1 text-sm">
+                          {data.datedenvoie && (
+                            <div><span className="text-gray-600">Date d&apos;envoi:</span> <span className="font-medium">{data.datedenvoie}</span></div>
+                          )}
+                          {data.cumulMontantsPrecedents && (
+                            <div><span className="text-gray-600">Cumul montants précédents:</span> <span className="font-medium">{data.cumulMontantsPrecedents} €</span></div>
+                          )}
+                          {data.commentaire && (
+                            <div>
+                              <span className="text-gray-600">Commentaire:</span>
+                              <div className="font-medium italic mt-1 bg-white p-2 rounded border">{data.commentaire}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                   
                   <div className="border-t pt-4">

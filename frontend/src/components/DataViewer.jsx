@@ -56,19 +56,33 @@ const DataViewer = () => {
   // State for enqueteurs
   const [enqueteurs, setEnqueteurs] = useState([]);
   
-  // Fetch data with pagination
+  // Fetch data with pagination and server-side filters
   const fetchData = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await axios.get(`${API_URL}/api/donnees-complete?page=${page}&per_page=${itemsPerPage}`);
+      // Construire les paramètres de requête avec filtres
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: itemsPerPage.toString()
+      });
+      
+      // Ajouter les filtres à la requête
+      if (searchTerm) params.append('search', searchTerm);
+      if (filters.typeDemande) params.append('typeDemande', filters.typeDemande);
+      if (filters.code_resultat) params.append('code_resultat', filters.code_resultat);
+      if (filters.dateStart) params.append('date_reception_start', filters.dateStart);
+      if (filters.dateEnd) params.append('date_reception_end', filters.dateEnd);
+      if (filters.showOnlyUnassigned) params.append('enqueteurId', 'unassigned');
+      
+      const response = await axios.get(`${API_URL}/api/donnees-complete?${params.toString()}`);
       
       if (response.data.success) {
         setDonnees(response.data.data);
-        setFilteredDonnees(response.data.data);
-        setTotalItems(response.data.total || response.data.data.length);
-        setTotalPages(response.data.pages || Math.ceil(response.data.data.length / itemsPerPage));
+        setFilteredDonnees(response.data.data); // Pas de filtrage côté client, les données sont déjà filtrées
+        setTotalItems(response.data.total || 0);
+        setTotalPages(response.data.pages || 1);
       } else {
         throw new Error(response.data.error || "Erreur lors du chargement des données");
       }
@@ -78,7 +92,7 @@ const DataViewer = () => {
     } finally {
       setLoading(false);
     }
-  }, [itemsPerPage]);
+  }, [itemsPerPage, searchTerm, filters]);
   
   // Récupérer le nombre d'enquêtes non exportées
   const fetchNonExporteesCount = async () => {
@@ -106,68 +120,25 @@ const DataViewer = () => {
     }
   };
   
+  // Charger les données initiales
   useEffect(() => {
-    fetchData(currentPage);
     fetchNonExporteesCount();
     fetchEnqueteurs();
+  }, []);
+  
+  // Recharger les données quand la page ou les filtres changent
+  useEffect(() => {
+    fetchData(currentPage);
   }, [currentPage, fetchData]);
   
-  // Apply filters and search
+  // Retourner à la page 1 quand les filtres ou la recherche changent
   useEffect(() => {
-    if (!donnees.length) return;
-    
-    let results = [...donnees];
-    
-    // Apply search term
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      results = results.filter(
-        donnee => 
-          donnee.numeroDossier?.toLowerCase().includes(lowerSearch) ||
-          donnee.nom?.toLowerCase().includes(lowerSearch) ||
-          donnee.prenom?.toLowerCase().includes(lowerSearch) ||
-          donnee.referenceDossier?.toLowerCase().includes(lowerSearch)
-      );
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    } else {
+      fetchData(1);
     }
-    
-    // Apply filters
-    if (filters.typeDemande) {
-      results = results.filter(donnee => donnee.typeDemande === filters.typeDemande);
-    }
-    
-    if (filters.code_resultat) {
-      results = results.filter(donnee => donnee.code_resultat === filters.code_resultat);
-    }
-    
-    if (filters.elements_retrouves) {
-      results = results.filter(donnee => 
-        donnee.elements_retrouves?.includes(filters.elements_retrouves)
-      );
-    }
-    
-    if (filters.dateStart) {
-      const startDate = new Date(filters.dateStart);
-      results = results.filter(donnee => {
-        if (!donnee.created_at) return false;
-        return new Date(donnee.created_at) >= startDate;
-      });
-    }
-    
-    if (filters.dateEnd) {
-      const endDate = new Date(filters.dateEnd);
-      endDate.setHours(23, 59, 59);
-      results = results.filter(donnee => {
-        if (!donnee.created_at) return false;
-        return new Date(donnee.created_at) <= endDate;
-      });
-    }
-    
-    if (filters.showOnlyUnassigned) {
-      results = results.filter(donnee => !donnee.enqueteurId);
-    }
-    
-    setFilteredDonnees(results);
-  }, [searchTerm, filters, donnees]);
+  }, [searchTerm, filters]);
   
   // Handle opening update modal
   const handleOpenUpdateModal = (donnee) => {
@@ -615,7 +586,7 @@ const DataViewer = () => {
           <div>
             <h3 className="font-medium">Liste des dossiers</h3>
             <p className="text-sm text-gray-500 mt-1">
-              {filteredDonnees.length} dossiers affichés sur {totalItems} au total
+              Page {currentPage} sur {totalPages} ({totalItems} dossiers au total)
             </p>
           </div>
           <div>

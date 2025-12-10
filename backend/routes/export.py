@@ -121,6 +121,8 @@ def export_enquetes():
     - Marque les enquêtes comme exportées après génération
     
     Utilisé depuis l'onglet "Données" pour exporter des enquêtes
+    
+    LIMITE : Maximum 1000 enquêtes par export pour éviter les surcharges
     """
     try:
         if not DOCX_AVAILABLE:
@@ -129,7 +131,26 @@ def export_enquetes():
                 'error': 'python-docx n\'est pas installé'
             }), 500
         
-        # Récupérer TOUTES les enquêtes non exportées de l'onglet Données
+        # Limite maximale pour un seul export (performance et mémoire)
+        MAX_EXPORT_LIMIT = 1000
+        
+        # Compter d'abord le nombre total d'enquêtes à exporter
+        total_count = Donnee.query.filter(
+            Donnee.statut_validation.notin_(['validee', 'archivee']),
+            Donnee.exported == False
+        ).count()
+        
+        if total_count == 0:
+            return jsonify({
+                "success": False,
+                "message": "Aucune nouvelle enquête à exporter. Toutes les enquêtes ont déjà été exportées."
+            }), 200
+        
+        # Avertir si dépassement de la limite
+        if total_count > MAX_EXPORT_LIMIT:
+            logger.warning(f"Export limité : {total_count} enquêtes disponibles, mais limite fixée à {MAX_EXPORT_LIMIT}")
+        
+        # Récupérer les enquêtes non exportées de l'onglet Données (AVEC LIMITE)
         # (statut en_attente ou confirmee, non validees ni archivees)
         # Charger aussi la relation avec fichier pour extraire la date du nom du fichier
         donnees = Donnee.query.options(
@@ -137,7 +158,7 @@ def export_enquetes():
         ).filter(
             Donnee.statut_validation.notin_(['validee', 'archivee']),
             Donnee.exported == False
-        ).order_by(Donnee.created_at.asc()).all()
+        ).order_by(Donnee.created_at.asc()).limit(MAX_EXPORT_LIMIT).all()
         
         if not donnees:
             return jsonify({
@@ -145,7 +166,14 @@ def export_enquetes():
                 "message": "Aucune nouvelle enquête à exporter. Toutes les enquêtes ont déjà été exportées."
             }), 200
         
-        logger.info(f"Génération d'un export Word pour {len(donnees)} enquête(s) non exportée(s)")
+        logger.info(f"Génération d'un export Word pour {len(donnees)} enquête(s) sur {total_count} non exportée(s)")
+        
+        # Message si export partiel
+        export_info = {
+            'exported': len(donnees),
+            'remaining': total_count - len(donnees),
+            'total': total_count
+        }
         
         # Extraire la date du NOM DU FICHIER (ex: LDMExp_20251120.txt -> 20/11/2025)
         date_reception = None
@@ -1341,8 +1369,26 @@ def create_export_batch():
         data = request.json or {}
         utilisateur = data.get('utilisateur', 'Administrateur')
         
-        # Récupérer toutes les enquêtes validées (pas encore archivées)
-        donnees = Donnee.query.filter_by(statut_validation='validee').all()
+        # Limite maximale pour un seul export EOS (performance)
+        MAX_EXPORT_EOS_LIMIT = 5000
+        
+        # Compter le nombre total d'enquêtes validées
+        total_count = Donnee.query.filter_by(statut_validation='validee').count()
+        
+        if total_count == 0:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune enquête validée à exporter'
+            }), 404
+        
+        # Avertir si dépassement de la limite
+        if total_count > MAX_EXPORT_EOS_LIMIT:
+            logger.warning(f"Export EOS limité : {total_count} enquêtes disponibles, mais limite fixée à {MAX_EXPORT_EOS_LIMIT}")
+        
+        # Récupérer les enquêtes validées (avec limite)
+        donnees = Donnee.query.filter_by(statut_validation='validee')\
+                              .order_by(Donnee.created_at.asc())\
+                              .limit(MAX_EXPORT_EOS_LIMIT).all()
         
         if not donnees:
             return jsonify({
@@ -1350,7 +1396,7 @@ def create_export_batch():
                 'error': 'Aucune enquête validée à exporter'
             }), 404
         
-        logger.info(f"Création d'un export EOS de {len(donnees)} enquêtes par {utilisateur}")
+        logger.info(f"Création d'un export EOS de {len(donnees)} enquêtes sur {total_count} validée(s) par {utilisateur}")
         
         # Créer le dossier exports/batches s'il n'existe pas
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
