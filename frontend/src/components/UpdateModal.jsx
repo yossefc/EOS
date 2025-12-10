@@ -1132,44 +1132,44 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       </div>
                     )}
 
-                    {/* Adresse */}
-                    {(data.adresse1 || data.adresse2 || data.adresse3 || data.adresse4 || data.ville || data.codePostal || data.paysResidence) && (
+                    {/* Adresse (du fichier importé) */}
+                    {(data.adresse1_origine || data.adresse2_origine || data.adresse3_origine || data.adresse4_origine || data.ville_origine || data.codePostal_origine || data.paysResidence_origine) && (
                       <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-                        <h4 className="font-semibold text-orange-800 mb-2 text-sm">🏠 ADRESSE</h4>
+                        <h4 className="font-semibold text-orange-800 mb-2 text-sm">🏠 ADRESSE (fichier importé)</h4>
                         <div className="text-sm space-y-1">
-                          {(data.adresse1 || data.adresse2 || data.adresse3 || data.adresse4) && (
+                          {(data.adresse1_origine || data.adresse2_origine || data.adresse3_origine || data.adresse4_origine) && (
                             <div className="font-medium">
-                              {data.adresse1 && <div>{data.adresse1}</div>}
-                              {data.adresse2 && <div>{data.adresse2}</div>}
-                              {data.adresse3 && <div>{data.adresse3}</div>}
-                              {data.adresse4 && <div>{data.adresse4}</div>}
+                              {data.adresse1_origine && <div>{data.adresse1_origine}</div>}
+                              {data.adresse2_origine && <div>{data.adresse2_origine}</div>}
+                              {data.adresse3_origine && <div>{data.adresse3_origine}</div>}
+                              {data.adresse4_origine && <div>{data.adresse4_origine}</div>}
                             </div>
                           )}
                           <div className="grid grid-cols-3 gap-x-4 gap-y-1">
-                            {data.codePostal && (
-                              <div><span className="text-gray-600">CP:</span> <span className="font-medium">{data.codePostal}</span></div>
+                            {data.codePostal_origine && (
+                              <div><span className="text-gray-600">CP:</span> <span className="font-medium">{data.codePostal_origine}</span></div>
                             )}
-                            {data.ville && (
-                              <div><span className="text-gray-600">Ville:</span> <span className="font-medium">{data.ville}</span></div>
+                            {data.ville_origine && (
+                              <div><span className="text-gray-600">Ville:</span> <span className="font-medium">{data.ville_origine}</span></div>
                             )}
-                            {data.paysResidence && (
-                              <div><span className="text-gray-600">Pays:</span> <span className="font-medium">{data.paysResidence}</span></div>
+                            {data.paysResidence_origine && (
+                              <div><span className="text-gray-600">Pays:</span> <span className="font-medium">{data.paysResidence_origine}</span></div>
                             )}
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Téléphones */}
-                    {(data.telephonePersonnel || data.telephoneEmployeur || data.telecopieEmployeur) && (
+                    {/* Téléphones (du fichier importé) */}
+                    {(data.telephonePersonnel_origine || data.telephoneEmployeur_origine || data.telecopieEmployeur) && (
                       <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
-                        <h4 className="font-semibold text-teal-800 mb-2 text-sm">📞 TÉLÉPHONES</h4>
+                        <h4 className="font-semibold text-teal-800 mb-2 text-sm">📞 TÉLÉPHONES (fichier importé)</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
-                          {data.telephonePersonnel && (
-                            <div><span className="text-gray-600">Personnel:</span> <span className="font-medium">{data.telephonePersonnel}</span></div>
+                          {data.telephonePersonnel_origine && (
+                            <div><span className="text-gray-600">Personnel:</span> <span className="font-medium">{data.telephonePersonnel_origine}</span></div>
                           )}
-                          {data.telephoneEmployeur && (
-                            <div><span className="text-gray-600">Employeur:</span> <span className="font-medium">{data.telephoneEmployeur}</span></div>
+                          {data.telephoneEmployeur_origine && (
+                            <div><span className="text-gray-600">Employeur:</span> <span className="font-medium">{data.telephoneEmployeur_origine}</span></div>
                           )}
                           {data.telecopieEmployeur && (
                             <div><span className="text-gray-600">Télécopie:</span> <span className="font-medium">{data.telecopieEmployeur}</span></div>
@@ -1178,42 +1178,42 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       </div>
                     )}
 
-                    {/* Employeur */}
-                    {data.nomEmployeur && (
+                    {/* Employeur (du fichier importé) */}
+                    {data.nomEmployeur_origine && (
                       <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
-                        <h4 className="font-semibold text-indigo-800 mb-2 text-sm">💼 EMPLOYEUR</h4>
+                        <h4 className="font-semibold text-indigo-800 mb-2 text-sm">💼 EMPLOYEUR (fichier importé)</h4>
                         <div className="text-sm">
-                          <span className="font-medium">{data.nomEmployeur}</span>
+                          <span className="font-medium">{data.nomEmployeur_origine}</span>
                         </div>
                       </div>
                     )}
 
-                    {/* Banque */}
-                    {(data.banqueDomiciliation || data.titulaireCompte || data.codeBanque || data.codeGuichet || data.numeroCompte || data.ribCompte || data.libelleGuichet) && (
+                    {/* Banque (du fichier importé) */}
+                    {(data.banqueDomiciliation_origine || data.titulaireCompte_origine || data.codeBanque_origine || data.codeGuichet_origine || data.numeroCompte_origine || data.ribCompte_origine || data.libelleGuichet_origine) && (
                       <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                        <h4 className="font-semibold text-yellow-800 mb-2 text-sm">🏦 BANQUE</h4>
+                        <h4 className="font-semibold text-yellow-800 mb-2 text-sm">🏦 BANQUE (fichier importé)</h4>
                         <div className="space-y-1 text-sm">
-                          {data.banqueDomiciliation && (
-                            <div><span className="text-gray-600">Banque:</span> <span className="font-medium">{data.banqueDomiciliation}</span></div>
+                          {data.banqueDomiciliation_origine && (
+                            <div><span className="text-gray-600">Banque:</span> <span className="font-medium">{data.banqueDomiciliation_origine}</span></div>
                           )}
-                          {data.libelleGuichet && (
-                            <div><span className="text-gray-600">Guichet:</span> <span className="font-medium">{data.libelleGuichet}</span></div>
+                          {data.libelleGuichet_origine && (
+                            <div><span className="text-gray-600">Guichet:</span> <span className="font-medium">{data.libelleGuichet_origine}</span></div>
                           )}
-                          {data.titulaireCompte && (
-                            <div><span className="text-gray-600">Titulaire:</span> <span className="font-medium">{data.titulaireCompte}</span></div>
+                          {data.titulaireCompte_origine && (
+                            <div><span className="text-gray-600">Titulaire:</span> <span className="font-medium">{data.titulaireCompte_origine}</span></div>
                           )}
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
-                            {data.codeBanque && (
-                              <div><span className="text-gray-600">Code banque:</span> <span className="font-medium">{data.codeBanque}</span></div>
+                            {data.codeBanque_origine && (
+                              <div><span className="text-gray-600">Code banque:</span> <span className="font-medium">{data.codeBanque_origine}</span></div>
                             )}
-                            {data.codeGuichet && (
-                              <div><span className="text-gray-600">Code guichet:</span> <span className="font-medium">{data.codeGuichet}</span></div>
+                            {data.codeGuichet_origine && (
+                              <div><span className="text-gray-600">Code guichet:</span> <span className="font-medium">{data.codeGuichet_origine}</span></div>
                             )}
-                            {data.numeroCompte && (
-                              <div><span className="text-gray-600">N° compte:</span> <span className="font-medium">{data.numeroCompte}</span></div>
+                            {data.numeroCompte_origine && (
+                              <div><span className="text-gray-600">N° compte:</span> <span className="font-medium">{data.numeroCompte_origine}</span></div>
                             )}
-                            {data.ribCompte && (
-                              <div><span className="text-gray-600">Clé RIB:</span> <span className="font-medium">{data.ribCompte}</span></div>
+                            {data.ribCompte_origine && (
+                              <div><span className="text-gray-600">Clé RIB:</span> <span className="font-medium">{data.ribCompte_origine}</span></div>
                             )}
                           </div>
                         </div>

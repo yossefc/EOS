@@ -56,6 +56,34 @@ const DataViewer = () => {
   // State for enqueteurs
   const [enqueteurs, setEnqueteurs] = useState([]);
   
+  // MULTI-CLIENT: État pour les clients
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState(null);
+  const [loadingClients, setLoadingClients] = useState(true);
+  
+  // MULTI-CLIENT: Récupérer la liste des clients
+  const fetchClients = useCallback(async () => {
+    try {
+      setLoadingClients(true);
+      const response = await axios.get(`${API_URL}/api/clients`);
+      if (response.data.success) {
+        setClients(response.data.clients);
+        // Sélectionner EOS par défaut
+        const eosClient = response.data.clients.find(c => c.code === 'EOS');
+        if (eosClient) {
+          setSelectedClientId(eosClient.id);
+        } else if (response.data.clients.length > 0) {
+          setSelectedClientId(response.data.clients[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération des clients:", error);
+      // Continuer sans clients, le backend utilisera EOS par défaut
+    } finally {
+      setLoadingClients(false);
+    }
+  }, []);
+  
   // Fetch data with pagination and server-side filters
   const fetchData = useCallback(async (page = 1) => {
     try {
@@ -67,6 +95,11 @@ const DataViewer = () => {
         page: page.toString(),
         per_page: itemsPerPage.toString()
       });
+      
+      // MULTI-CLIENT: Ajouter le client_id si sélectionné
+      if (selectedClientId) {
+        params.append('client_id', selectedClientId.toString());
+      }
       
       // Ajouter les filtres à la requête
       if (searchTerm) params.append('search', searchTerm);
@@ -122,14 +155,17 @@ const DataViewer = () => {
   
   // Charger les données initiales
   useEffect(() => {
+    fetchClients(); // MULTI-CLIENT
     fetchNonExporteesCount();
     fetchEnqueteurs();
-  }, []);
+  }, [fetchClients]);
   
-  // Recharger les données quand la page ou les filtres changent
+  // Recharger les données quand la page, les filtres ou le client changent
   useEffect(() => {
-    fetchData(currentPage);
-  }, [currentPage, fetchData]);
+    if (selectedClientId !== null) {  // MULTI-CLIENT: Attendre que le client soit sélectionné
+      fetchData(currentPage);
+    }
+  }, [currentPage, fetchData, selectedClientId]);
   
   // Retourner à la page 1 quand les filtres ou la recherche changent
   useEffect(() => {
@@ -383,10 +419,30 @@ const DataViewer = () => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Database className="w-6 h-6 text-blue-500" />
-          Exploration des Données
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Database className="w-6 h-6 text-blue-500" />
+            Exploration des Données
+          </h2>
+          
+          {/* MULTI-CLIENT: Sélecteur de client (masqué si un seul client) */}
+          {!loadingClients && clients.length > 1 && (
+            <select
+              value={selectedClientId || ''}
+              onChange={(e) => {
+                setSelectedClientId(parseInt(e.target.value));
+                setCurrentPage(1); // Retour à la page 1 lors du changement de client
+              }}
+              className="px-3 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>
+                  {client.nom}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         
         <div className="flex gap-2">
           <button

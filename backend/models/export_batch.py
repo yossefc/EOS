@@ -11,8 +11,12 @@ class ExportBatch(db.Model):
     Chaque batch correspond à un fichier Word généré contenant plusieurs enquêtes
     """
     __tablename__ = 'export_batches'
+    __table_args__ = (
+        db.Index('idx_export_batch_client_id', 'client_id'),  # MULTI-CLIENT
+    )
     
     id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)  # MULTI-CLIENT
     filename = db.Column(db.String(255), nullable=False)
     filepath = db.Column(db.String(500), nullable=False)  # Chemin relatif depuis exports/
     file_size = db.Column(db.Integer, nullable=True)  # Taille en octets

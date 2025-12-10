@@ -5,6 +5,7 @@ class Fichier(db.Model):
     __tablename__ = 'fichiers'
     
     id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)  # MULTI-CLIENT
     nom = db.Column(db.String(255), nullable=False)
     chemin = db.Column(db.String(500), nullable=True)
     date_upload = db.Column(db.DateTime, default=datetime.now)
@@ -21,6 +22,7 @@ class Donnee(db.Model):
     """Modèle pour les données"""
     __tablename__ = 'donnees'
     __table_args__ = (
+        db.Index('idx_donnee_client_id', 'client_id'),  # MULTI-CLIENT: index pour filtrage par client
         db.Index('idx_donnee_fichier_id', 'fichier_id'),
         db.Index('idx_donnee_numeroDossier', 'numeroDossier'),
         db.Index('idx_donnee_nom', 'nom'),
@@ -33,8 +35,10 @@ class Donnee(db.Model):
         # Index composites pour requêtes fréquentes
         db.Index('idx_donnee_statut_enqueteur', 'statut_validation', 'enqueteurId'),
         db.Index('idx_donnee_statut_date', 'statut_validation', 'date_butoir'),
+        db.Index('idx_donnee_client_statut', 'client_id', 'statut_validation'),  # MULTI-CLIENT: index composite
     )
     id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)  # MULTI-CLIENT
     fichier_id = db.Column(db.Integer, db.ForeignKey('fichiers.id'), nullable=False)
     enqueteurId = db.Column(db.Integer, db.ForeignKey('enqueteurs.id'), nullable=True)
     

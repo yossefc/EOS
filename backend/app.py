@@ -110,6 +110,24 @@ def register_legacy_routes(app):
     Ces routes devraient être progressivement déplacées vers des blueprints appropriés
     """
     from flask import request, jsonify, render_template_string
+    
+    # ===========================
+    # MULTI-CLIENT: Route pour récupérer les clients actifs
+    # ===========================
+    @app.route('/api/clients', methods=['GET'])
+    def get_clients():
+        """Récupère la liste des clients actifs"""
+        try:
+            from client_utils import get_all_active_clients
+            
+            clients = get_all_active_clients()
+            return jsonify({
+                "success": True,
+                "clients": [client.to_dict() for client in clients]
+            })
+        except Exception as e:
+            logger.error(f"Erreur dans get_clients: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
     from models.models import Donnee, Fichier
     from models.models_enqueteur import DonneeEnqueteur
     from models.enqueteur import Enqueteur
@@ -269,12 +287,25 @@ def register_legacy_routes(app):
 
     @app.route('/api/donnees', methods=['GET'])
     def get_donnees():
-        """Récupère la liste des données avec pagination"""
+        """Récupère la liste des données avec pagination (multi-client)"""
         try:
+            # MULTI-CLIENT: Récupérer le client
+            from client_utils import get_client_or_default
+            
+            client_id_param = request.args.get('client_id', type=int)
+            client_code_param = request.args.get('client_code', type=str)
+            
+            client = get_client_or_default(client_id=client_id_param, client_code=client_code_param)
+            if not client:
+                return jsonify({"success": False, "error": "Client introuvable"}), 404
+            
             page = request.args.get('page', 1, type=int)
             per_page = request.args.get('per_page', 500, type=int)
             
-            pagination = Donnee.query.paginate(page=page, per_page=per_page, error_out=False)
+            # Filtre par client
+            pagination = Donnee.query.filter_by(client_id=client.id).paginate(
+                page=page, per_page=per_page, error_out=False
+            )
             donnees = pagination.items
             
             return jsonify({
@@ -282,7 +313,8 @@ def register_legacy_routes(app):
                 "data": [donnee.to_dict() for donnee in donnees],
                 "total": pagination.total,
                 "pages": pagination.pages,
-                "current_page": page
+                "current_page": page,
+                "client_code": client.code  # Indiquer le client
             })
         except Exception as e:
             logger.error(f"Erreur dans get_donnees: {str(e)}")
@@ -362,10 +394,22 @@ def register_legacy_routes(app):
 
     @app.route('/api/donnees', methods=['POST'])
     def add_donnee():
-        """Ajoute une nouvelle donnée avec assignation d'enquêteur"""
+        """Ajoute une nouvelle donnée avec assignation d'enquêteur (multi-client)"""
         try:
             data = request.json
+            
+            # MULTI-CLIENT: Récupérer le client
+            from client_utils import get_client_or_default
+            
+            client_id = data.get('client_id')
+            client_code = data.get('client_code')
+            
+            client = get_client_or_default(client_id=client_id, client_code=client_code)
+            if not client:
+                return jsonify({"success": False, "error": "Client introuvable"}), 404
+            
             nouvelle_donnee = Donnee(
+                client_id=client.id,  # MULTI-CLIENT
                 numeroDossier=data.get('numeroDossier'),
                 referenceDossier=data.get('referenceDossier'),
                 typeDemande=data.get('typeDemande'),
@@ -388,7 +432,10 @@ def register_legacy_routes(app):
             db.session.commit()
             
             # Créer automatiquement une entrée dans DonneeEnqueteur
-            new_donnee_enqueteur = DonneeEnqueteur(donnee_id=nouvelle_donnee.id)
+            new_donnee_enqueteur = DonneeEnqueteur(
+                donnee_id=nouvelle_donnee.id,
+                client_id=client.id  # MULTI-CLIENT
+            )
             db.session.add(new_donnee_enqueteur)
             db.session.commit()
             
@@ -501,18 +548,32 @@ def register_legacy_routes(app):
     
     @app.route('/api/donnees-complete', methods=['GET'])
     def get_donnees_complete():
-        """Récupère les données complètes avec jointure, pagination et filtres"""
+        """Récupère les données complètes avec jointure, pagination et filtres (multi-client)"""
         try:
+            # MULTI-CLIENT: Récupérer le client (par défaut EOS)
+            from client_utils import get_client_or_default
+            
+            client_id_param = request.args.get('client_id', type=int)
+            client_code_param = request.args.get('client_code', type=str)
+            
+            # Si aucun client spécifié, utiliser EOS par défaut
+            client = get_client_or_default(client_id=client_id_param, client_code=client_code_param)
+            if not client:
+                return jsonify({"success": False, "error": "Client introuvable"}), 404
+            
+            logger.info(f"Liste des données pour client: {client.code} (ID: {client.id})")
+            
             # Paramètres de pagination
             page = request.args.get('page', 1, type=int)
             per_page = request.args.get('per_page', 500, type=int)
             # Limiter per_page à 1000 max pour éviter les surcharges
             per_page = min(per_page, 1000)
             
-            # Construire la requête de base
+            # Construire la requête de base AVEC FILTRAGE CLIENT
             query = db.session.query(Donnee).options(
                 db.joinedload(Donnee.donnee_enqueteur)
             ).filter(
+                Donnee.client_id == client.id,  # MULTI-CLIENT: Filtre par client
                 Donnee.statut_validation.notin_(['validee', 'archivee'])
             )
             
@@ -607,17 +668,41 @@ def register_legacy_routes(app):
             for donnee in donnees:
                 donnee_dict = donnee.to_dict()
                 
+                # PRÉSERVER les adresses originales du fichier importé
+                adresses_originales = {
+                    'adresse1_origine': donnee_dict.get('adresse1'),
+                    'adresse2_origine': donnee_dict.get('adresse2'),
+                    'adresse3_origine': donnee_dict.get('adresse3'),
+                    'adresse4_origine': donnee_dict.get('adresse4'),
+                    'ville_origine': donnee_dict.get('ville'),
+                    'codePostal_origine': donnee_dict.get('codePostal'),
+                    'paysResidence_origine': donnee_dict.get('paysResidence'),
+                    'telephonePersonnel_origine': donnee_dict.get('telephonePersonnel'),
+                    'telephoneEmployeur_origine': donnee_dict.get('telephoneEmployeur'),
+                    'nomEmployeur_origine': donnee_dict.get('nomEmployeur'),
+                    'banqueDomiciliation_origine': donnee_dict.get('banqueDomiciliation'),
+                    'libelleGuichet_origine': donnee_dict.get('libelleGuichet'),
+                    'titulaireCompte_origine': donnee_dict.get('titulaireCompte'),
+                    'codeBanque_origine': donnee_dict.get('codeBanque'),
+                    'codeGuichet_origine': donnee_dict.get('codeGuichet'),
+                    'numeroCompte_origine': donnee_dict.get('numeroCompte'),
+                    'ribCompte_origine': donnee_dict.get('ribCompte'),
+                }
+                
                 # Indicateur si l'enquête a une réponse d'enquêteur
                 has_response = False
                 if donnee.donnee_enqueteur:
                     for k, v in donnee.donnee_enqueteur.to_dict().items():
                         if k not in ['id', 'donnee_id']:
                             donnee_dict[k] = v
-                    # Vérifier si l'enquête a une réponse complète
-                    has_response = (
-                        donnee.donnee_enqueteur.code_resultat is not None and
-                        donnee.donnee_enqueteur.code_resultat != ''
-                    )
+                
+                # Ajouter les données originales (ne seront pas écrasées)
+                donnee_dict.update(adresses_originales)
+                # Vérifier si l'enquête a une réponse complète
+                has_response = (
+                    donnee.donnee_enqueteur.code_resultat is not None and
+                    donnee.donnee_enqueteur.code_resultat != ''
+                )
                 
                 # Ajouter les indicateurs pour la validation
                 donnee_dict['has_response'] = has_response
@@ -835,7 +920,7 @@ def register_legacy_routes(app):
 
     @app.route('/parse', methods=['POST'])
     def parse_file():
-        """Parse et importe un fichier de données"""
+        """Parse et importe un fichier de données (multi-client)"""
         logger.info("Début du traitement de la requête d'import")
         try:
             if 'file' not in request.files:
@@ -845,16 +930,35 @@ def register_legacy_routes(app):
             if not file.filename:
                 return jsonify({"error": "Nom de fichier invalide"}), 400
 
-            # Vérifier si le fichier existe déjà
-            existing_file = Fichier.query.filter_by(nom=file.filename).first()
+            # MULTI-CLIENT: Récupérer le client (par défaut EOS)
+            from client_utils import get_client_or_default, get_import_profile_for_client
+            
+            client_id = request.form.get('client_id', type=int)
+            client_code = request.form.get('client_code', type=str)
+            
+            client = get_client_or_default(client_id=client_id, client_code=client_code)
+            if not client:
+                return jsonify({"error": "Client introuvable"}), 404
+            
+            logger.info(f"Import pour le client: {client.code} (ID: {client.id})")
+
+            # Vérifier si le fichier existe déjà pour ce client
+            existing_file = Fichier.query.filter_by(
+                nom=file.filename,
+                client_id=client.id
+            ).first()
+            
             if existing_file:
                 return jsonify({
                     "status": "file_exists",
-                    "message": "Ce fichier existe déjà. Voulez-vous le remplacer ?",
+                    "message": "Ce fichier existe déjà pour ce client. Voulez-vous le remplacer ?",
                     "existing_file_info": {
                         "nom": existing_file.nom,
                         "date_upload": existing_file.date_upload.strftime('%Y-%m-%d %H:%M:%S'),
-                        "nombre_donnees": Donnee.query.filter_by(fichier_id=existing_file.id).count()
+                        "nombre_donnees": Donnee.query.filter_by(
+                            fichier_id=existing_file.id,
+                            client_id=client.id
+                        ).count()
                     }
                 }), 409
 
@@ -868,29 +972,85 @@ def register_legacy_routes(app):
                 except ValueError:
                     logger.warning(f"Format de date butoir invalide: {date_butoir_str}")
 
+            # Lire le contenu du fichier
             content = file.read()
             if not content:
                 return jsonify({"error": "Fichier vide"}), 400
 
+            # Déterminer le type de fichier
+            file_extension = file.filename.lower().split('.')[-1]
+            file_type = 'EXCEL' if file_extension in ['xlsx', 'xls'] else 'TXT_FIXED'
+            
+            # Récupérer le profil d'import pour ce client
+            import_profile = get_import_profile_for_client(client.id, file_type)
+            if not import_profile:
+                logger.error(f"Aucun profil d'import {file_type} trouvé pour le client {client.code}")
+                return jsonify({
+                    "error": f"Aucun profil d'import configuré pour ce type de fichier ({file_type})"
+                }), 400
+
             try:
-                nouveau_fichier = Fichier(nom=file.filename)
+                # Créer le fichier en base
+                nouveau_fichier = Fichier(
+                    nom=file.filename,
+                    client_id=client.id
+                )
                 db.session.add(nouveau_fichier)
                 db.session.commit()
-                logger.info(f"Fichier créé avec ID: {nouveau_fichier.id}")
+                logger.info(f"Fichier créé avec ID: {nouveau_fichier.id} pour client {client.code}")
 
-                from utils import process_file_content
-                processed_records = process_file_content(content, nouveau_fichier.id, date_butoir)
+                # Utiliser le moteur d'import générique
+                from import_engine import ImportEngine
                 
-                if processed_records:
-                    return jsonify({
-                        "message": "Fichier traité avec succès",
-                        "file_id": nouveau_fichier.id,
-                        "records_processed": len(processed_records)
-                    })
-                else:
+                engine = ImportEngine(import_profile)
+                parsed_records = engine.parse_content(content)
+                
+                if not parsed_records:
                     db.session.delete(nouveau_fichier)
                     db.session.commit()
                     return jsonify({"error": "Aucun enregistrement valide trouvé"}), 400
+                
+                # Créer les instances Donnee
+                created_count = 0
+                for record in parsed_records:
+                    try:
+                        nouvelle_donnee = engine.create_donnee_from_record(
+                            record,
+                            fichier_id=nouveau_fichier.id,
+                            client_id=client.id,
+                            date_butoir=date_butoir
+                        )
+                        db.session.add(nouvelle_donnee)
+                        db.session.flush()
+                        
+                        # Créer DonneeEnqueteur si contestation
+                        if record.get('typeDemande') == 'CON':
+                            donnee_enqueteur = DonneeEnqueteur.query.filter_by(
+                                donnee_id=nouvelle_donnee.id
+                            ).first()
+                            
+                            if not donnee_enqueteur:
+                                donnee_enqueteur = DonneeEnqueteur(
+                                    donnee_id=nouvelle_donnee.id,
+                                    client_id=client.id
+                                )
+                                db.session.add(donnee_enqueteur)
+                        
+                        created_count += 1
+                        
+                    except Exception as e:
+                        logger.error(f"Erreur création donnée: {e}")
+                        continue
+                
+                db.session.commit()
+                logger.info(f"{created_count} enregistrements créés avec succès")
+                
+                return jsonify({
+                    "message": "Fichier traité avec succès",
+                    "file_id": nouveau_fichier.id,
+                    "client_code": client.code,
+                    "records_processed": created_count
+                })
 
             except Exception as e:
                 if 'nouveau_fichier' in locals():
@@ -900,16 +1060,16 @@ def register_legacy_routes(app):
                     except:
                         db.session.rollback()
                 
-                logger.error(f"Erreur lors du traitement du contenu: {str(e)}")
+                logger.error(f"Erreur lors du traitement du contenu: {str(e)}", exc_info=True)
                 return jsonify({"error": str(e)}), 400
 
         except Exception as e:
-            logger.error(f"Erreur lors du traitement: {str(e)}")
+            logger.error(f"Erreur lors du traitement: {str(e)}", exc_info=True)
             return jsonify({"error": str(e)}), 500
 
     @app.route('/replace-file', methods=['POST'])
     def replace_file():
-        """Remplace un fichier existant"""
+        """Remplace un fichier existant (multi-client)"""
         try:
             if 'file' not in request.files:
                 return jsonify({"error": "Aucun fichier fourni"}), 400
@@ -917,6 +1077,16 @@ def register_legacy_routes(app):
             file = request.files['file']
             if not file.filename:
                 return jsonify({"error": "Nom de fichier invalide"}), 400
+
+            # MULTI-CLIENT: Récupérer le client
+            from client_utils import get_client_or_default
+            
+            client_id = request.form.get('client_id', type=int)
+            client_code = request.form.get('client_code', type=str)
+            
+            client = get_client_or_default(client_id=client_id, client_code=client_code)
+            if not client:
+                return jsonify({"error": "Client introuvable"}), 404
 
             # Récupérer la date butoir si fournie
             date_butoir_str = request.form.get('date_butoir')
@@ -928,24 +1098,94 @@ def register_legacy_routes(app):
                 except ValueError:
                     logger.warning(f"Format de date butoir invalide: {date_butoir_str}")
 
-            existing_file = Fichier.query.filter_by(nom=file.filename).first()
+            existing_file = Fichier.query.filter_by(
+                nom=file.filename,
+                client_id=client.id
+            ).first()
+            
             if existing_file:
-                Donnee.query.filter_by(fichier_id=existing_file.id).delete()
+                Donnee.query.filter_by(
+                    fichier_id=existing_file.id,
+                    client_id=client.id
+                ).delete()
                 db.session.delete(existing_file)
                 db.session.commit()
 
-            nouveau_fichier = Fichier(nom=file.filename)
+            # Lire le contenu
+            content = file.read()
+            if not content:
+                return jsonify({"error": "Fichier vide"}), 400
+
+            # Déterminer le type de fichier
+            file_extension = file.filename.lower().split('.')[-1]
+            file_type = 'EXCEL' if file_extension in ['xlsx', 'xls'] else 'TXT_FIXED'
+            
+            # Récupérer le profil d'import
+            from client_utils import get_import_profile_for_client
+            import_profile = get_import_profile_for_client(client.id, file_type)
+            if not import_profile:
+                return jsonify({
+                    "error": f"Aucun profil d'import configuré pour ce type de fichier ({file_type})"
+                }), 400
+
+            # Créer le nouveau fichier
+            nouveau_fichier = Fichier(
+                nom=file.filename,
+                client_id=client.id
+            )
             db.session.add(nouveau_fichier)
             db.session.commit()
             
-            content = file.read()
-            from utils import process_file_content
-            processed_records = process_file_content(content, nouveau_fichier.id, date_butoir)
+            # Utiliser le moteur d'import
+            from import_engine import ImportEngine
+            
+            engine = ImportEngine(import_profile)
+            parsed_records = engine.parse_content(content)
+            
+            if not parsed_records:
+                db.session.delete(nouveau_fichier)
+                db.session.commit()
+                return jsonify({"error": "Aucun enregistrement valide trouvé"}), 400
+            
+            # Créer les instances Donnee
+            created_count = 0
+            for record in parsed_records:
+                try:
+                    nouvelle_donnee = engine.create_donnee_from_record(
+                        record,
+                        fichier_id=nouveau_fichier.id,
+                        client_id=client.id,
+                        date_butoir=date_butoir
+                    )
+                    db.session.add(nouvelle_donnee)
+                    db.session.flush()
+                    
+                    # Créer DonneeEnqueteur si contestation
+                    if record.get('typeDemande') == 'CON':
+                        donnee_enqueteur = DonneeEnqueteur.query.filter_by(
+                            donnee_id=nouvelle_donnee.id
+                        ).first()
+                        
+                        if not donnee_enqueteur:
+                            donnee_enqueteur = DonneeEnqueteur(
+                                donnee_id=nouvelle_donnee.id,
+                                client_id=client.id
+                            )
+                            db.session.add(donnee_enqueteur)
+                    
+                    created_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Erreur création donnée: {e}")
+                    continue
+            
+            db.session.commit()
 
             return jsonify({
                 "message": "Fichier remplacé avec succès",
                 "file_id": nouveau_fichier.id,
-                "records_processed": len(processed_records)
+                "client_code": client.code,
+                "records_processed": created_count
             })
 
         except Exception as e:

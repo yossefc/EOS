@@ -1,24 +1,165 @@
+# EOS Application - Fichiers à ignorer par Git
+
+# ============================================================
+# Python
+# ============================================================
+*.py[cod]
+*$py.class
+*.so
+.Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Backend specific
+backend/venv/
+backend/instance/
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# ============================================================
+# Node.js / Frontend
+# ============================================================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ============================================================
+# Database
+# ============================================================
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.backup
+
+# PostgreSQL dumps
+*.dump
+eos_backup.dump
+eos_backup.sql
+
+# ============================================================
+# Environment & Configuration
+# ============================================================
+.env
+.env.local
+.env.*.local
+*.local
+
+# ============================================================
+# OS
+# ============================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ============================================================
+# Logs
+# ============================================================
+*.log
+logs/
+backend/logs/
+frontend/logs/
+
+# ============================================================
+# Temporary files
+# ============================================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+
+# ============================================================
+# Build & Distribution
+# ============================================================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ============================================================
+# Archives (ne pas versionner les archives de transfert)
+# ============================================================
+EOS_Transfer_*.zip
+EOS_temp_archive/
+
+# ============================================================
+# Tests
+# ============================================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ============================================================
+# Documentation builds
+# ============================================================
+docs/_build/
+
+# ============================================================
+# Specific to this project
+# ============================================================
+# Export files générés
+backend/exports/
+frontend/public/exports/
+
+# Fichiers VPN générés
+backend/vpn_configs/
+*.ovpn.generated
+
+# Fichiers temporaires de l'application
+*.bak
+*.backup

@@ -11,8 +11,12 @@ class EnqueteArchiveFile(db.Model):
     Permet de conserver les fichiers sur disque et de les re-télécharger
     """
     __tablename__ = 'enquete_archive_files'
+    __table_args__ = (
+        db.Index('idx_archive_file_client_id', 'client_id'),  # MULTI-CLIENT
+    )
     
     id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)  # MULTI-CLIENT
     enquete_id = db.Column(db.Integer, db.ForeignKey('donnees.id'), nullable=False, unique=True)
     filename = db.Column(db.String(255), nullable=False)
     filepath = db.Column(db.String(500), nullable=False)  # Chemin relatif depuis le dossier exports/

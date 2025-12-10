@@ -4,8 +4,12 @@ from datetime import datetime
 class DonneeEnqueteur(db.Model):
     """Modèle pour les informations collectées par les enquêteurs"""
     __tablename__ = 'donnees_enqueteur'
+    __table_args__ = (
+        db.Index('idx_donnee_enqueteur_client_id', 'client_id'),  # MULTI-CLIENT
+    )
 
     id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)  # MULTI-CLIENT
     donnee_id = db.Column(db.Integer, db.ForeignKey('donnees.id'), nullable=False)
     
     # Informations de base

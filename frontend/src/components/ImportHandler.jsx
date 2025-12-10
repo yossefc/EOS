@@ -23,10 +23,40 @@ const ImportHandler = ({ onImportComplete }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Charger les statistiques au montage
+  // MULTI-CLIENT: États pour les clients
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState(null);
+  const [loadingClients, setLoadingClients] = useState(true);
+  
+  // Charger les statistiques et clients au montage
   useEffect(() => {
     fetchStats();
+    fetchClients();
   }, []);
+  
+  // MULTI-CLIENT: Récupérer la liste des clients actifs
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      const response = await axios.get(`${API_URL}/api/clients`);
+      if (response.data.success) {
+        setClients(response.data.clients);
+        // Sélectionner automatiquement le client EOS par défaut
+        const eosClient = response.data.clients.find(c => c.code === 'EOS');
+        if (eosClient) {
+          setSelectedClientId(eosClient.id);
+        } else if (response.data.clients.length > 0) {
+          setSelectedClientId(response.data.clients[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération des clients:", error);
+      // Ne pas afficher d'erreur si les clients ne sont pas disponibles
+      // L'application fonctionnera avec EOS par défaut côté backend
+    } finally {
+      setLoadingClients(false);
+    }
+  };
   
   // Récupérer les statistiques depuis le serveur
   const fetchStats = async () => {
@@ -69,6 +99,11 @@ const ImportHandler = ({ onImportComplete }) => {
       // Ajouter la date butoir si elle est définie
       if (dateButoir) {
         formData.append("date_butoir", dateButoir);
+      }
+      
+      // MULTI-CLIENT: Ajouter le client_id si sélectionné
+      if (selectedClientId) {
+        formData.append("client_id", selectedClientId);
       }
       
       // Utiliser l'URL appropriée selon que l'on remplace ou non un fichier existant
@@ -201,6 +236,29 @@ const ImportHandler = ({ onImportComplete }) => {
               )}
             </div>
           </div>
+          
+          {/* MULTI-CLIENT: Sélecteur de client (masqué si un seul client) */}
+          {!loadingClients && clients.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Client
+              </label>
+              <select
+                value={selectedClientId || ''}
+                onChange={(e) => setSelectedClientId(parseInt(e.target.value))}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.nom} ({client.code})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Sélectionnez le client pour lequel importer les données
+              </p>
+            </div>
+          )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
