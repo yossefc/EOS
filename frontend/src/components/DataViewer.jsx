@@ -47,10 +47,14 @@ const DataViewer = () => {
   
   // State for export
   const [exportingData, setExportingData] = useState(false);
+  const [nonExporteesCount, setNonExporteesCount] = useState(0);
   
   // State for validation
   const [validating, setValidating] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
+  
+  // State for enqueteurs
+  const [enqueteurs, setEnqueteurs] = useState([]);
   
   // Fetch data with pagination
   const fetchData = useCallback(async (page = 1) => {
@@ -76,9 +80,38 @@ const DataViewer = () => {
     }
   }, [itemsPerPage]);
   
+  // Récupérer le nombre d'enquêtes non exportées
+  const fetchNonExporteesCount = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/donnees/non-exportees/count`);
+      if (response.data.success) {
+        setNonExporteesCount(response.data.count);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération du compteur:", error);
+      setNonExporteesCount(0);
+    }
+  };
+  
+  // Récupérer la liste des enquêteurs
+  const fetchEnqueteurs = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/enqueteurs`);
+      if (response.data.success) {
+        setEnqueteurs(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération des enquêteurs:", error);
+      setEnqueteurs([]);
+    }
+  };
+  
   useEffect(() => {
     fetchData(currentPage);
+    fetchNonExporteesCount();
+    fetchEnqueteurs();
   }, [currentPage, fetchData]);
+  
   // Apply filters and search
   useEffect(() => {
     if (!donnees.length) return;
@@ -319,73 +352,58 @@ const DataViewer = () => {
   };
   
   // Handle export to Word
+  // Handle enquêteur change
+  const handleEnqueteurChange = async (donneeId, enqueteurId) => {
+    try {
+      const response = await axios.put(`${API_URL}/api/donnees/${donneeId}`, {
+        enqueteurId: enqueteurId || null
+      });
+      
+      if (response.data.success) {
+        // Rafraîchir les données
+        await fetchData(currentPage);
+      } else {
+        alert(response.data.error || "Erreur lors de l'assignation");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'assignation de l'enquêteur:", error);
+      alert(error.response?.data?.error || "Erreur lors de l'assignation de l'enquêteur");
+    }
+  };
+  
+  // Handle export to Word
   const handleExportWord = async () => {
     try {
       setExportingData(true);
       
-      const enquetesToExport = filteredDonnees.map(donnee => ({ id: donnee.id }));
-      
-      if (enquetesToExport.length === 0) {
-        alert("Aucune enquête à exporter");
-        return;
-      }
-      
-      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
-        enquetes: enquetesToExport
-      }, {
+      const response = await axios.post(`${API_URL}/api/export-enquetes`, {}, {
         responseType: 'blob'
       });
+      
+      // Vérifier si c'est un message JSON (aucune enquête à exporter)
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        alert(json.message || "Aucune nouvelle enquête à exporter");
+        return;
+      }
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+      link.setAttribute('download', `Export_Nouvelles_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      
+      // Rafraîchir le compteur après export
+      await fetchNonExporteesCount();
+      await fetchData(currentPage);
       
     } catch (error) {
       console.error("Erreur lors de l'export:", error);
       alert(error.response?.data?.error || "Erreur lors de l'export");
-    } finally {
-      setExportingData(false);
-    }
-  };
-  
-  // Handle export of visible enquetes to Word
-  const handleExportVisible = async () => {
-    try {
-      setExportingData(true);
-      
-      // Préparer les données à exporter (enquêtes visibles après filtrage)
-      const enquetesToExport = filteredDonnees.map(donnee => ({ id: donnee.id }));
-      
-      if (enquetesToExport.length === 0) {
-        alert("Aucune enquête à exporter");
-        return;
-      }
-      
-      // Envoyer la requête d'export
-      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
-        enquetes: enquetesToExport
-      }, {
-        responseType: 'blob' // Important pour recevoir un fichier Word
-      });
-      
-      // Créer un lien de téléchargement
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Export_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-    } catch (error) {
-      console.error("Erreur lors de l'export:", error);
-      alert(error.response?.data?.error || "Erreur lors de l'export des enquêtes");
     } finally {
       setExportingData(false);
     }
@@ -402,16 +420,16 @@ const DataViewer = () => {
         <div className="flex gap-2">
           <button
             onClick={handleExportWord}
-            disabled={exportingData || filteredDonnees.length === 0}
+            disabled={exportingData || nonExporteesCount === 0}
             className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Exporter en Word"
+            title={`Exporter les ${nonExporteesCount} nouvelles enquêtes non encore exportées`}
           >
             {exportingData ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
               <Download className="w-4 h-4" />
             )}
-            <span>Export Word ({filteredDonnees.length})</span>
+            <span>Export Word ({nonExporteesCount} nouvelles)</span>
           </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -699,13 +717,18 @@ const DataViewer = () => {
                       {donnee.elements_retrouves || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {donnee.enqueteur_nom && donnee.enqueteur_prenom ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                          {donnee.enqueteur_prenom} {donnee.enqueteur_nom}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 italic">Non assigné</span>
-                      )}
+                      <select
+                        value={donnee.enqueteurId || ''}
+                        onChange={(e) => handleEnqueteurChange(donnee.id, e.target.value)}
+                        className="block w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="">Non assigné</option>
+                        {enqueteurs.map((enq) => (
+                          <option key={enq.id} value={enq.id}>
+                            {enq.prenom} {enq.nom}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
@@ -716,7 +739,7 @@ const DataViewer = () => {
                               onClick={() => handleValiderEnquete(donnee.id)}
                               disabled={validating}
                               className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                              title="Valider et archiver"
+                              title="Valider"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>

@@ -121,3 +121,4 @@ except Exception as e:
         print(f"💡 Une sauvegarde a été créée: {BACKUP_PATH}")
         print("   Vous pouvez la restaurer en cas de problème")
     exit(1)
+

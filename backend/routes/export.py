@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, send_file
 import os
 import datetime
 import logging
+import re
 from io import StringIO, BytesIO
 import tempfile
 from models.models import Donnee, Fichier
@@ -114,9 +115,12 @@ export_bp = Blueprint('export', __name__)
 def export_enquetes():
     """
     Génère un fichier Word (.docx) avec les résultats d'enquête
-    Une page par enquête avec un design professionnel
+    - Page récapitulative au début (date réception + nombre de dossiers)
+    - Une page par enquête avec toutes les données
+    - Exporte UNIQUEMENT les enquêtes non encore exportées (exported=False)
+    - Marque les enquêtes comme exportées après génération
     
-    Utilisé depuis l'onglet "Données" pour exporter des enquêtes individuelles
+    Utilisé depuis l'onglet "Données" pour exporter des enquêtes
     """
     try:
         if not DOCX_AVAILABLE:
@@ -125,24 +129,58 @@ def export_enquetes():
                 'error': 'python-docx n\'est pas installé'
             }), 500
         
-        data = request.json or {}
-        
-        enquetes = data.get('enquetes', [])
-        enquetes_ids = [e.get('id') for e in enquetes if e.get('id')] if enquetes else []
-        
-        if not enquetes_ids:
-            return jsonify({"error": "Aucune enquête à exporter"}), 404
-            
-        # Récupérer les données complètes des enquêtes spécifiées
-        donnees = Donnee.query.filter(Donnee.id.in_(enquetes_ids)).all()
+        # Récupérer TOUTES les enquêtes non exportées de l'onglet Données
+        # (statut en_attente ou confirmee, non validees ni archivees)
+        # Charger aussi la relation avec fichier pour extraire la date du nom du fichier
+        donnees = Donnee.query.options(
+            db.joinedload(Donnee.fichier)
+        ).filter(
+            Donnee.statut_validation.notin_(['validee', 'archivee']),
+            Donnee.exported == False
+        ).order_by(Donnee.created_at.asc()).all()
         
         if not donnees:
-            return jsonify({"error": "Aucune donnée trouvée pour les enquêtes spécifiées"}), 404
+            return jsonify({
+                "success": False,
+                "message": "Aucune nouvelle enquête à exporter. Toutes les enquêtes ont déjà été exportées."
+            }), 200
         
-        logger.info(f"Génération d'un export Word pour {len(donnees)} enquête(s)")
+        logger.info(f"Génération d'un export Word pour {len(donnees)} enquête(s) non exportée(s)")
         
-        # Générer le document Word
-        doc = generate_word_document(donnees)
+        # Extraire la date du NOM DU FICHIER (ex: LDMExp_20251120.txt -> 20/11/2025)
+        date_reception = None
+        if donnees and donnees[0].fichier:
+            nom_fichier = donnees[0].fichier.nom
+            # Format attendu: LDMExp_AAAAMMJJ.txt
+            match = re.search(r'_(\d{8})', nom_fichier)
+            if match:
+                date_str = match.group(1)  # ex: 20251120
+                try:
+                    date_reception = datetime.datetime.strptime(date_str, '%Y%m%d')
+                    logger.info(f"Date extraite du nom du fichier '{nom_fichier}': {date_reception.strftime('%d/%m/%Y')}")
+                except:
+                    logger.warning(f"Impossible de parser la date '{date_str}' du fichier '{nom_fichier}'")
+                    date_reception = donnees[0].created_at
+            else:
+                logger.warning(f"Format de date non trouvé dans le nom du fichier '{nom_fichier}'")
+                date_reception = donnees[0].created_at
+        else:
+            date_reception = donnees[0].created_at if donnees else datetime.datetime.now()
+        
+        nombre_dossiers = len(donnees)
+        
+        # Générer le document Word avec page récapitulative
+        doc = generate_word_document_with_summary(donnees, date_reception, nombre_dossiers)
+        
+        # Marquer les enquêtes comme exportées
+        now = datetime.datetime.now()
+        for donnee in donnees:
+            donnee.exported = True
+            donnee.exported_at = now
+        
+        # Sauvegarder les modifications
+        db.session.commit()
+        logger.info(f"{len(donnees)} enquête(s) marquée(s) comme exportées")
         
         # Créer un fichier temporaire
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
@@ -153,11 +191,12 @@ def export_enquetes():
         return send_file(
             temp_file.name,
             as_attachment=True,
-            download_name=f"Export_Enquetes_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
+            download_name=f"Export_Nouvelles_Enquetes_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Erreur lors de l'export Word des enquêtes: {str(e)}")
         import traceback
         traceback.print_exc()
@@ -383,6 +422,277 @@ def format_export_line(donnee, donnee_enqueteur, enqueteur=None):
     
     # Reconvertir la liste en chaîne
     return "".join(line_list)
+
+
+def generate_word_document_with_summary(donnees, date_reception, nombre_dossiers):
+    """
+    Génère un document Word : UNE PAGE PAR ENQUÊTE
+    Date de réception et nombre de dossiers affichés sur chaque page
+    
+    Args:
+        donnees: Liste des enquêtes à exporter
+        date_reception: Date de réception des dossiers  
+        nombre_dossiers: Nombre total de dossiers exportés
+    """
+    if not DOCX_AVAILABLE:
+        raise ImportError("python-docx n'est pas installé")
+    
+    doc = Document()
+    
+    # ========== UNE PAGE PAR ENQUÊTE ==========
+    for i, donnee in enumerate(donnees):
+        if i > 0:
+            doc.add_page_break()
+        
+        generate_enquete_page(doc, donnee, i + 1, len(donnees), date_reception, nombre_dossiers)
+    
+    return doc
+
+
+def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_reception, nombre_dossiers):
+    """
+    Génère une page pour une seule enquête dans le document Word
+    UNE ENQUÊTE = UNE PAGE avec date réception et nombre de dossiers en haut
+    
+    Args:
+        doc: Document Word
+        donnee: Enquête à afficher
+        numero_enquete: Numéro de l'enquête dans le lot (pour affichage)
+        total_enquetes: Total d'enquêtes dans le lot
+        date_reception: Date de réception des dossiers
+        nombre_dossiers: Nombre total de dossiers exportés
+    """
+    # Récupérer les données enquêteur
+    donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
+    
+    # Titre principal - COMPACT
+    titre = doc.add_heading(f"ENQUÊTE {numero_enquete}/{total_enquetes} - N°{donnee.id}", level=1)
+    titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    titre.paragraph_format.space_after = Pt(4)  # Espacement réduit
+    for run in titre.runs:
+        run.font.size = Pt(12)  # Plus petit
+        run.font.bold = True
+    
+    # Informations récapitulatives EN HAUT DE CHAQUE PAGE - COMPACT
+    recap_para = doc.add_paragraph()
+    recap_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    recap_para.paragraph_format.space_after = Pt(4)  # Espacement réduit
+    run1 = recap_para.add_run(f"Date: {date_reception.strftime('%d/%m/%Y') if date_reception else 'N/A'}")
+    run1.font.size = Pt(9)  # Plus petit
+    run1.font.bold = True
+    recap_para.add_run(" | ")
+    run2 = recap_para.add_run(f"Dossiers: {nombre_dossiers}")
+    run2.font.size = Pt(9)  # Plus petit
+    run2.font.bold = True
+    run2.font.color.rgb = RGBColor(0, 102, 204)
+    
+    # Fonction helper pour ajouter des sections (FORMAT COMPACT POUR 1 PAGE)
+    def add_table_section(doc, title, fields):
+        """Ajoute une section avec un tableau de données - Format compact"""
+        doc.add_heading(title, level=2)
+        for run in doc.paragraphs[-1].runs:
+            run.font.size = Pt(10)  # Titre plus petit
+        
+        table = doc.add_table(rows=1, cols=2)
+        table.style = 'Light Grid Accent 1'
+        
+        # En-tête
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Champ'
+        hdr[1].text = 'Valeur'
+        for cell in hdr:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(8)  # Police plus petite
+        
+        # Données
+        has_data = False
+        for field_name, field_value in fields:
+            if field_value not in [None, '', []]:
+                has_data = True
+                row = table.add_row().cells
+                row[0].text = str(field_name)
+                row[1].text = str(field_value)
+                # Style
+                for paragraph in row[0].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.bold = True
+                        run.font.size = Pt(10)
+                for paragraph in row[1].paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(10)
+        
+        if not has_data:
+            row = table.add_row().cells
+            row[0].text = ''
+            row[1].text = 'Aucune donnée'
+        
+        doc.add_paragraph()  # Espacement
+        return has_data
+    
+    # ========== FORMAT COMPACT : UNE ENQUÊTE = UNE PAGE ==========
+    
+    # Tableau unique avec les informations essentielles
+    doc.add_heading('Informations de l\'enquête', level=2)
+    
+    # Style compact avec taille de police réduite
+    table = doc.add_table(rows=1, cols=2)
+    table.style = 'Light Grid Accent 1'
+    
+    # En-tête
+    hdr = table.rows[0].cells
+    hdr[0].text = 'Champ'
+    hdr[1].text = 'Valeur'
+    for cell in hdr:
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.font.bold = True
+                run.font.size = Pt(9)
+    
+    # Fonction pour ajouter une ligne
+    def add_row(label, value):
+        if value not in [None, '', 'None']:
+            row = table.add_row().cells
+            row[0].text = str(label)
+            row[1].text = str(value)
+            for paragraph in row[0].paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(8)
+            for paragraph in row[1].paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(8)
+    
+    # TOUTES LES DONNÉES DU FICHIER (Format compact pour 1 page)
+    
+    # 1. Identification complète
+    add_row('N° Dossier', donnee.numeroDossier)
+    add_row('Référence', donnee.referenceDossier)
+    add_row('N° Interlocuteur', donnee.numeroInterlocuteur)
+    add_row('GUID', donnee.guidInterlocuteur)
+    add_row('Type Demande', donnee.typeDemande)
+    add_row('N° Demande', donnee.numeroDemande)
+    add_row('N° Demande Contestée', donnee.numeroDemandeContestee)
+    add_row('N° Demande Initiale', donnee.numeroDemandeInitiale)
+    add_row('Forfait', donnee.forfaitDemande)
+    add_row('Date Envoi', donnee.datedenvoie.strftime('%d/%m/%Y') if donnee.datedenvoie else None)
+    add_row('Date Retour Espéré', donnee.dateRetourEspere.strftime('%d/%m/%Y') if donnee.dateRetourEspere else None)
+    add_row('Date Butoir', donnee.date_butoir.strftime('%d/%m/%Y') if donnee.date_butoir else None)
+    add_row('Code Société', donnee.codesociete)
+    add_row('Urgence', donnee.urgence)
+    
+    # 2. État Civil complet
+    add_row('Qualité', donnee.qualite)
+    add_row('Nom', donnee.nom)
+    add_row('Prénom', donnee.prenom)
+    add_row('Nom Patronymique', donnee.nomPatronymique)
+    add_row('Date Naissance', donnee.dateNaissance.strftime('%d/%m/%Y') if donnee.dateNaissance else None)
+    add_row('Lieu Naissance', donnee.lieuNaissance)
+    add_row('CP Naissance', donnee.codePostalNaissance)
+    add_row('Pays Naissance', donnee.paysNaissance)
+    
+    # 3. Adresse complète
+    add_row('Adresse 1', donnee.adresse1)
+    add_row('Adresse 2', donnee.adresse2)
+    add_row('Adresse 3', donnee.adresse3)
+    add_row('Adresse 4', donnee.adresse4)
+    add_row('Code Postal', donnee.codePostal)
+    add_row('Ville', donnee.ville)
+    add_row('Pays', donnee.paysResidence)
+    add_row('Tél Personnel', donnee.telephonePersonnel)
+    
+    # 4. Employeur initial complet
+    add_row('Employeur', donnee.nomEmployeur)
+    add_row('Tél Employeur', donnee.telephoneEmployeur)
+    add_row('Fax Employeur', donnee.telecopieEmployeur)
+    
+    # 5. Banque initiale complète
+    add_row('Banque', donnee.banqueDomiciliation)
+    add_row('Libellé Guichet', donnee.libelleGuichet)
+    add_row('Titulaire Compte', donnee.titulaireCompte)
+    add_row('Code Banque', donnee.codeBanque)
+    add_row('Code Guichet', donnee.codeGuichet)
+    add_row('N° Compte', donnee.numeroCompte)
+    add_row('Clé RIB', donnee.ribCompte)
+    
+    # 6. Éléments demandés
+    add_row('Éléments Demandés', donnee.elementDemandes)
+    add_row('Éléments Obligatoires', donnee.elementObligatoires)
+    add_row('Éléments Contestés', donnee.elementContestes)
+    add_row('Code Motif', donnee.codeMotif)
+    add_row('Motif Contestation', donnee.motifDeContestation)
+    add_row('Cumul Montants', f"{donnee.cumulMontantsPrecedents:.2f} €" if donnee.cumulMontantsPrecedents else None)
+    
+    # 7. Commentaire complet
+    if donnee.commentaire:
+        add_row('Commentaire', donnee.commentaire)
+    
+    # === RÉSULTATS ENQUÊTEUR (TOUS) ===
+    if donnee_enqueteur:
+        add_row('━━━━━━━━━━', '━━━━━━━━━━')  # Séparateur
+        add_row('CODE RÉSULTAT', donnee_enqueteur.code_resultat)
+        add_row('Éléments Retrouvés', donnee_enqueteur.elements_retrouves)
+        add_row('Date Retour', donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else None)
+        add_row('État Civil Erroné', donnee_enqueteur.flag_etat_civil_errone)
+        
+        # Adresse trouvée complète
+        add_row('Adr1 Trouvée', donnee_enqueteur.adresse1)
+        add_row('Adr2 Trouvée', donnee_enqueteur.adresse2)
+        add_row('Adr3 Trouvée', donnee_enqueteur.adresse3)
+        add_row('Adr4 Trouvée', donnee_enqueteur.adresse4)
+        add_row('CP Trouvé', donnee_enqueteur.code_postal)
+        add_row('Ville Trouvée', donnee_enqueteur.ville)
+        add_row('Pays Trouvé', donnee_enqueteur.pays_residence)
+        add_row('Tél Trouvé', donnee_enqueteur.telephone_personnel)
+        add_row('Tél Employeur Trouvé', donnee_enqueteur.telephone_chez_employeur)
+        
+        # Décès
+        add_row('Date Décès', donnee_enqueteur.date_deces.strftime('%d/%m/%Y') if donnee_enqueteur.date_deces else None)
+        add_row('N° Acte Décès', donnee_enqueteur.numero_acte_deces)
+        add_row('Code INSEE Décès', donnee_enqueteur.code_insee_deces)
+        add_row('Localité Décès', donnee_enqueteur.localite_deces)
+        
+        # Employeur trouvé complet
+        add_row('Employeur Trouvé', donnee_enqueteur.nom_employeur)
+        add_row('Tél Employeur T.', donnee_enqueteur.telephone_employeur)
+        add_row('Fax Employeur T.', donnee_enqueteur.telecopie_employeur)
+        add_row('Adr1 Employeur', donnee_enqueteur.adresse1_employeur)
+        add_row('Adr2 Employeur', donnee_enqueteur.adresse2_employeur)
+        add_row('Adr3 Employeur', donnee_enqueteur.adresse3_employeur)
+        add_row('Adr4 Employeur', donnee_enqueteur.adresse4_employeur)
+        add_row('CP Employeur', donnee_enqueteur.code_postal_employeur)
+        add_row('Ville Employeur', donnee_enqueteur.ville_employeur)
+        
+        # Banque trouvée complète
+        add_row('Banque Trouvée', donnee_enqueteur.banque_domiciliation)
+        add_row('Libellé Guichet T.', donnee_enqueteur.libelle_guichet)
+        add_row('Titulaire Compte T.', donnee_enqueteur.titulaire_compte)
+        add_row('Code Banque T.', donnee_enqueteur.code_banque)
+        add_row('Code Guichet T.', donnee_enqueteur.code_guichet)
+        
+        # Revenus (tous les 3)
+        add_row('Montant Revenu 1', f"{donnee_enqueteur.montant_revenu1:.2f} €" if donnee_enqueteur.montant_revenu1 else None)
+        add_row('Période Revenu 1', donnee_enqueteur.periode_versement_revenu1)
+        add_row('Fréquence Revenu 1', donnee_enqueteur.frequence_versement_revenu1)
+        add_row('Montant Revenu 2', f"{donnee_enqueteur.montant_revenu2:.2f} €" if donnee_enqueteur.montant_revenu2 else None)
+        add_row('Période Revenu 2', donnee_enqueteur.periode_versement_revenu2)
+        add_row('Fréquence Revenu 2', donnee_enqueteur.frequence_versement_revenu2)
+        add_row('Montant Revenu 3', f"{donnee_enqueteur.montant_revenu3:.2f} €" if donnee_enqueteur.montant_revenu3 else None)
+        add_row('Période Revenu 3', donnee_enqueteur.periode_versement_revenu3)
+        add_row('Fréquence Revenu 3', donnee_enqueteur.frequence_versement_revenu3)
+        
+        # Mémos (TOUS les 5)
+        for i in range(1, 6):
+            memo_attr = f'memo{i}'
+            if hasattr(donnee_enqueteur, memo_attr):
+                memo_value = getattr(donnee_enqueteur, memo_attr)
+                if memo_value:
+                    add_row(f'Mémo {i}', memo_value)
+        
+        # Notes personnelles
+        if hasattr(donnee_enqueteur, 'notes_personnelles') and donnee_enqueteur.notes_personnelles:
+            add_row('Notes', donnee_enqueteur.notes_personnelles)
 
 
 def generate_word_document(donnees):

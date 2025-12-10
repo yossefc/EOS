@@ -259,3 +259,4 @@ Après ce correctif :
 **Date du correctif** : 2025-12-01  
 **Fichier modifié** : `frontend/src/components/UpdateModal.jsx`  
 **Lignes modifiées** : 748-749, 753, 765
+

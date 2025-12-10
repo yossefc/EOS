@@ -354,7 +354,7 @@ def register_legacy_routes(app):
 
     @app.route('/api/donnees', methods=['POST'])
     def add_donnee():
-        """Ajoute une nouvelle donnée"""
+        """Ajoute une nouvelle donnée avec assignation d'enquêteur"""
         try:
             data = request.json
             nouvelle_donnee = Donnee(
@@ -373,6 +373,7 @@ def register_legacy_routes(app):
                 telephonePersonnel=data.get('telephonePersonnel'),
                 elementDemandes=data.get('elementDemandes', 'AT'),
                 elementObligatoires=data.get('elementObligatoires', 'A'),
+                enqueteurId=data.get('enqueteurId'),  # Assignation d'enquêteur
                 fichier_id=data.get('fichier_id', 1)  # Fichier par défaut
             )
             db.session.add(nouvelle_donnee)
@@ -383,6 +384,8 @@ def register_legacy_routes(app):
             db.session.add(new_donnee_enqueteur)
             db.session.commit()
             
+            logger.info(f"Nouvelle enquête créée (ID: {nouvelle_donnee.id}) avec enquêteur ID: {nouvelle_donnee.enqueteurId}")
+            
             return jsonify({
                 'success': True,
                 'message': 'Données ajoutées avec succès',
@@ -391,6 +394,63 @@ def register_legacy_routes(app):
         except Exception as e:
             db.session.rollback()
             logger.error(f"Erreur lors de l'ajout: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    @app.route('/api/donnees/<int:id>', methods=['PUT'])
+    def update_donnee(id):
+        """Met à jour une donnée existante (y compris l'enquêteur assigné)"""
+        try:
+            donnee = Donnee.query.get_or_404(id)
+            data = request.json
+            
+            # Mettre à jour les champs fournis
+            if 'numeroDossier' in data:
+                donnee.numeroDossier = data['numeroDossier']
+            if 'referenceDossier' in data:
+                donnee.referenceDossier = data['referenceDossier']
+            if 'typeDemande' in data:
+                donnee.typeDemande = data['typeDemande']
+            if 'nom' in data:
+                donnee.nom = data['nom']
+            if 'prenom' in data:
+                donnee.prenom = data['prenom']
+            if 'dateNaissance' in data and data['dateNaissance']:
+                donnee.dateNaissance = datetime.strptime(data['dateNaissance'], '%Y-%m-%d').date()
+            if 'lieuNaissance' in data:
+                donnee.lieuNaissance = data['lieuNaissance']
+            if 'codePostal' in data:
+                donnee.codePostal = data['codePostal']
+            if 'ville' in data:
+                donnee.ville = data['ville']
+            if 'adresse1' in data:
+                donnee.adresse1 = data['adresse1']
+            if 'adresse2' in data:
+                donnee.adresse2 = data['adresse2']
+            if 'adresse3' in data:
+                donnee.adresse3 = data['adresse3']
+            if 'telephonePersonnel' in data:
+                donnee.telephonePersonnel = data['telephonePersonnel']
+            if 'elementDemandes' in data:
+                donnee.elementDemandes = data['elementDemandes']
+            if 'elementObligatoires' in data:
+                donnee.elementObligatoires = data['elementObligatoires']
+            
+            # Assignation/Modification d'enquêteur
+            if 'enqueteurId' in data:
+                donnee.enqueteurId = data['enqueteurId']
+                logger.info(f"Enquête {id} : Enquêteur changé -> ID {donnee.enqueteurId}")
+            
+            donnee.updated_at = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Données modifiées avec succès',
+                'data': donnee.to_dict()
+            }), 200
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erreur lors de la modification: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/donnees-enqueteur/<int:donnee_id>', methods=['GET'])
@@ -414,6 +474,23 @@ def register_legacy_routes(app):
             logger.error(f"Erreur lors de la récupération des données enquêteur: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    @app.route('/api/donnees/non-exportees/count', methods=['GET'])
+    def get_non_exportees_count():
+        """Compte le nombre d'enquêtes non encore exportées"""
+        try:
+            count = Donnee.query.filter(
+                Donnee.statut_validation.notin_(['validee', 'archivee']),
+                Donnee.exported == False
+            ).count()
+            
+            return jsonify({
+                "success": True,
+                "count": count
+            })
+        except Exception as e:
+            logger.error(f"Erreur lors du comptage: {str(e)}")
+            return jsonify({"success": False, "error": str(e), "count": 0}), 500
+    
     @app.route('/api/donnees-complete', methods=['GET'])
     def get_donnees_complete():
         """Récupère les données complètes avec jointure"""

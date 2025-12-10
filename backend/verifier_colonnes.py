@@ -22,3 +22,4 @@ with open('resultat_verification.txt', 'w', encoding='utf-8') as f:
 
 conn.close()
 print("Vérification terminée. Voir resultat_verification.txt")
+

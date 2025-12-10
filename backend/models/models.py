@@ -96,6 +96,10 @@ class Donnee(db.Model):
     urgence = db.Column(db.String(1))
     commentaire = db.Column(db.String(1000))
     date_butoir = db.Column(db.Date, nullable=True)  # Date limite pour traiter l'enquête
+    
+    # Champs pour le tracking d'export Word
+    exported = db.Column(db.Boolean, default=False, nullable=False)  # Enquête exportée en Word
+    exported_at = db.Column(db.DateTime, nullable=True)  # Date/heure du dernier export
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -161,6 +165,8 @@ class Donnee(db.Model):
             'commentaire': self.commentaire,
             'date_butoir': self.date_butoir.strftime('%Y-%m-%d') if self.date_butoir else None,
             'statut_validation': self.statut_validation,
+            'exported': self.exported,
+            'exported_at': self.exported_at.strftime('%Y-%m-%d %H:%M:%S') if self.exported_at else None,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }

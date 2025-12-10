@@ -341,3 +341,4 @@ Pour toute question ou problème, consulter :
 **Date de création** : 2025-12-01  
 **Version** : 1.0  
 **Auteur** : Système EOS
+

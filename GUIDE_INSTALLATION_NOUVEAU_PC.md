@@ -284,3 +284,4 @@ En cas de problème :
 2. Vérifiez que les deux serveurs sont bien démarrés
 3. Vérifiez la configuration IP
 4. Redémarrez les serveurs si nécessaire
+

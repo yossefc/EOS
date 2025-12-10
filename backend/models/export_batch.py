@@ -49,3 +49,4 @@ class ExportBatch(db.Model):
         """Définit la liste des IDs d'enquêtes"""
         self.enquete_ids = ','.join(str(id) for id in ids_list)
         self.enquete_count = len(ids_list)
+

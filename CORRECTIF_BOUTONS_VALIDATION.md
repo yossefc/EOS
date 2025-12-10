@@ -297,3 +297,4 @@ Si `can_validate` est `true` mais les boutons ne s'affichent pas, vérifier qu'i
 **Fichier modifié** : `backend/app.py`  
 **Ligne modifiée** : 447-448  
 **Redémarrage requis** : ✅ OUI (Backend)
+

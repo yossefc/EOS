@@ -95,6 +95,9 @@ const tabs = [
 
 const UpdateModal = ({ isOpen, onClose, data }) => {
   const [formData, setFormData] = useState({
+    // Assignation enquêteur
+    enqueteurId: null,
+    
     // Résultat enquête
     code_resultat: 'P',
     elements_retrouves: 'A',
@@ -190,7 +193,51 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [success, setSuccess] = useState(null);
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
   const [showEtatCivilHelp, setShowEtatCivilHelp] = useState(false);
+  const [enqueteurs, setEnqueteurs] = useState([]);
   
+  // Charger les enquêteurs
+  useEffect(() => {
+    const fetchEnqueteurs = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/enqueteurs`);
+        if (response.data.success) {
+          setEnqueteurs(response.data.data || []);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération des enquêteurs:", error);
+      }
+    };
+    
+    if (isOpen) {
+      fetchEnqueteurs();
+    }
+  }, [isOpen]);
+  
+  // Sauvegarde automatique de l'enquêteur
+  const handleEnqueteurChange = async (newEnqueteurId) => {
+    try {
+      await axios.put(
+        `${API_URL}/api/donnees/${data.id}`,
+        { enqueteurId: newEnqueteurId || null },
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      // Mettre à jour le formData local
+      setFormData(prev => ({ ...prev, enqueteurId: newEnqueteurId }));
+      
+      // Afficher un message de succès temporaire
+      setSuccess("Enquêteur assigné avec succès");
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (error) {
+      console.error('Erreur lors de l\'assignation de l\'enquêteur:', error);
+      setError("Erreur lors de l'assignation de l'enquêteur");
+      setTimeout(() => setError(null), 3000);
+    }
+  };
 
   // Initialiser le formulaire avec les données du dossier
   const initializeWithDossierData = useCallback(() => {
@@ -198,6 +245,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   
     setFormData(prev => ({
       ...prev,
+      enqueteurId: data.enqueteurId || null,
       code_resultat: 'P',
       elements_retrouves: data.elementDemandes || 'A',
       flag_etat_civil_errone: '',
@@ -734,6 +782,9 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         };
       }
 
+      // L'enquêteur est déjà sauvegardé automatiquement au changement
+      // On ne le sauvegarde plus ici
+      
       const response = await axios.post(
         `${API_URL}/api/donnees-enqueteur/${data.id}`,
         dataToSend,
@@ -1004,6 +1055,29 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     </div>
                   </div>
 
+                  <div className="border-t pt-4 mb-4">
+                    <h4 className="font-medium mb-3">Assignation de l&apos;enquêteur</h4>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Enquêteur assigné</label>
+                      <select
+                        name="enqueteurId"
+                        value={formData.enqueteurId || ''}
+                        onChange={(e) => handleEnqueteurChange(e.target.value)}
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">Non assigné</option>
+                        {enqueteurs.map((enq) => (
+                          <option key={enq.id} value={enq.id}>
+                            {enq.prenom} {enq.nom}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-green-600 mt-1 font-medium">
+                        ✓ Sauvegarde automatique au changement
+                      </p>
+                    </div>
+                  </div>
+                  
                   <div className="border-t pt-4">
                     <h4 className="font-medium mb-3">Résultat de l&apos;enquête</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
