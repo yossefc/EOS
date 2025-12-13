@@ -7,7 +7,9 @@ Bienvenue dans l'application EOS ! Ce fichier vous guide vers la documentation a
 ## 🎯 Je veux...
 
 ### ✨ Démarrer l'application rapidement
-→ **Double-cliquez sur** : `start_eos.bat`  
+→ **Usage local (un seul PC)** : Double-cliquez sur `start_eos.bat`  
+→ **Mode serveur (plusieurs PC)** : Double-cliquez sur `start_eos_serveur.bat`  
+→ **Mode client (se connecter au serveur)** : Double-cliquez sur `start_eos_client.bat`  
 → **Ou lisez** : [`README_DEMARRAGE_RAPIDE.md`](README_DEMARRAGE_RAPIDE.md)
 
 ### 📦 Installer l'application pour la première fois
@@ -17,9 +19,23 @@ Bienvenue dans l'application EOS ! Ce fichier vous guide vers la documentation a
 → **Méthode automatique** : Exécutez `creer_archive_transfert.ps1`  
 → **Guide complet** : [`TRANSFERT_PROJET.md`](TRANSFERT_PROJET.md)
 
+### 📦 Installer chez un client (acheteur du logiciel)
+→ **Guide d'installation** : [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) ⭐  
+→ **Scripts automatiques** : `01_configurer_postgresql.bat`, `02_installer_backend.bat`, `03_installer_frontend.bat`
+
+### 🔄 Mettre à jour l'application (nouvelles versions)
+→ **Guide de mise à jour** : [`UPGRADE_GUIDE.md`](UPGRADE_GUIDE.md) ⭐  
+→ **Script automatique** : `python backend/scripts/upgrade_app.py`  
+→ **Protection garantie** : Aucune perte de données
+
 ### 🏢 Comprendre le système multi-client
 → **Guide utilisateur** : [`MULTI_CLIENT_GUIDE.md`](MULTI_CLIENT_GUIDE.md)  
-→ **Documentation technique** : [`MULTI_CLIENT_IMPLEMENTATION_SUMMARY.md`](MULTI_CLIENT_IMPLEMENTATION_SUMMARY.md)
+→ **Documentation technique** : [`MULTI_CLIENT_IMPLEMENTATION_SUMMARY.md`](MULTI_CLIENT_IMPLEMENTATION_SUMMARY.md)  
+→ **Implémentation déploiement** : [`MULTI_CLIENT_DEPLOYMENT_IMPLEMENTATION.md`](MULTI_CLIENT_DEPLOYMENT_IMPLEMENTATION.md)
+
+### 🌐 Utiliser l'application sur plusieurs ordinateurs
+→ **Guide complet** : [`CONFIGURATION_MULTI_UTILISATEURS.md`](CONFIGURATION_MULTI_UTILISATEURS.md)  
+→ **Scripts** : `start_eos_serveur.bat` et `start_eos_client.bat`
 
 ---
 
@@ -27,11 +43,22 @@ Bienvenue dans l'application EOS ! Ce fichier vous guide vers la documentation a
 
 | Script | Description | Usage |
 |--------|-------------|-------|
-| `start_eos.bat` | ⭐ Démarre backend + frontend + navigateur | Double-clic |
-| `creer_archive_transfert.ps1` | Crée une archive ZIP pour transfert | Clic-droit → Exécuter avec PowerShell |
-| `backend/start_with_postgresql.py` | Démarre uniquement le backend | `python backend/start_with_postgresql.py` |
-| `backend/fix_missing_columns.py` | Corrige/initialise la base de données | `python backend/fix_missing_columns.py` |
+| **Démarrage** |  |  |
+| `start_eos.bat` | ⭐ Démarre backend + frontend + navigateur (local) | Double-clic |
+| `start_eos_serveur.bat` | 🌐 Démarre en mode SERVEUR (multi-utilisateurs) | Double-clic |
+| `start_eos_client.bat` | 📱 Démarre en mode CLIENT (connexion au serveur) | Double-clic |
+| **Installation** |  |  |
+| `01_configurer_postgresql.bat` | Configure PostgreSQL (user + base) | Double-clic |
+| `02_installer_backend.bat` | Installe le backend (venv + dépendances) | Double-clic |
+| `03_installer_frontend.bat` | Installe le frontend (npm install) | Double-clic |
+| **Mise à jour** |  |  |
+| `backend/scripts/upgrade_app.py` | ⭐ Mise à jour automatique (sauvegarde + migrations) | `python backend/scripts/upgrade_app.py` |
+| `backend/scripts/add_new_client.py` | Ajoute un nouveau client | `python backend/scripts/add_new_client.py --code CLIENT_B ...` |
+| **Maintenance** |  |  |
 | `backend/check_db_state.py` | Vérifie l'état de la base de données | `python backend/check_db_state.py` |
+| `backend/fix_missing_columns.py` | Corrige/initialise la base de données | `python backend/fix_missing_columns.py` |
+| **Transfert** |  |  |
+| `creer_archive_transfert.ps1` | Crée une archive ZIP pour transfert | Clic-droit → Exécuter avec PowerShell |
 
 ---
 
@@ -41,8 +68,14 @@ Bienvenue dans l'application EOS ! Ce fichier vous guide vers la documentation a
 - [`README_DEMARRAGE_RAPIDE.md`](README_DEMARRAGE_RAPIDE.md) - Guide rapide de démarrage
 - [`GUIDE_INSTALLATION.md`](GUIDE_INSTALLATION.md) - Installation complète étape par étape
 
-### 📤 Transfert et déploiement
+### 📤 Déploiement et mise à jour
+- [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) - ⭐ Guide de déploiement complet (pour clients)
+- [`UPGRADE_GUIDE.md`](UPGRADE_GUIDE.md) - ⭐ Guide de mise à jour sans perte de données
+- [`DEPLOYMENT_OVERVIEW.md`](DEPLOYMENT_OVERVIEW.md) - Vue d'ensemble technique (pour développeurs)
 - [`TRANSFERT_PROJET.md`](TRANSFERT_PROJET.md) - Comment transférer le projet
+
+### 🌐 Mode multi-utilisateurs
+- [`CONFIGURATION_MULTI_UTILISATEURS.md`](CONFIGURATION_MULTI_UTILISATEURS.md) - Configuration réseau pour plusieurs utilisateurs
 
 ### 🏢 Système multi-client
 - [`MULTI_CLIENT_GUIDE.md`](MULTI_CLIENT_GUIDE.md) - Guide d'utilisation multi-client
