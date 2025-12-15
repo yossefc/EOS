@@ -695,14 +695,14 @@ def register_legacy_routes(app):
                     for k, v in donnee.donnee_enqueteur.to_dict().items():
                         if k not in ['id', 'donnee_id']:
                             donnee_dict[k] = v
+                    # Vérifier si l'enquête a une réponse complète
+                    has_response = (
+                        donnee.donnee_enqueteur.code_resultat is not None and
+                        donnee.donnee_enqueteur.code_resultat != ''
+                    )
                 
                 # Ajouter les données originales (ne seront pas écrasées)
                 donnee_dict.update(adresses_originales)
-                # Vérifier si l'enquête a une réponse complète
-                has_response = (
-                    donnee.donnee_enqueteur.code_resultat is not None and
-                    donnee.donnee_enqueteur.code_resultat != ''
-                )
                 
                 # Ajouter les indicateurs pour la validation
                 donnee_dict['has_response'] = has_response
@@ -747,10 +747,18 @@ def register_legacy_routes(app):
             data = request.get_json()
             logger.info(f"Données reçues pour mise à jour: {data}")
             
+            # Récupérer la Donnee parent pour obtenir le client_id
+            donnee_parent = Donnee.query.get(donnee_id)
+            if not donnee_parent:
+                return jsonify({'success': False, 'error': 'Enquête introuvable'}), 404
+            
             # Récupérer ou créer l'entrée
             donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee_id).first()
             if not donnee_enqueteur:
-                donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee_id)
+                donnee_enqueteur = DonneeEnqueteur(
+                    donnee_id=donnee_id,
+                    client_id=donnee_parent.client_id  # AJOUT du client_id
+                )
                 db.session.add(donnee_enqueteur)
             
             # Mettre à jour les champs

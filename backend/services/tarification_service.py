@@ -218,7 +218,10 @@ class TarificationService:
         if not original_enquete:
             logger.warning(f"Données enquêteur de l'enquête originale {enquete_originale.id} non trouvées")
             # MODIFICATION: Créer l'objet DonneeEnqueteur s'il n'existe pas
-            original_enquete = DonneeEnqueteur(donnee_id=enquete_originale.id)
+            original_enquete = DonneeEnqueteur(
+                donnee_id=enquete_originale.id,
+                client_id=enquete_originale.client_id  # Hériter du client de l'enquête originale
+            )
             db.session.add(original_enquete)
             db.session.commit()
         

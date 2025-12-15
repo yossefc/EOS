@@ -660,7 +660,10 @@ def create_missing_contestation_facturations():
         for donnee, donnee_enqueteur in contestations_sans_facturation:
             if not donnee_enqueteur:
                 # Créer DonneeEnqueteur s'il n'existe pas
-                donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee.id)
+                donnee_enqueteur = DonneeEnqueteur(
+                    donnee_id=donnee.id,
+                    client_id=donnee.client_id  # AJOUT du client_id
+                )
                 db.session.add(donnee_enqueteur)
                 db.session.commit()
             

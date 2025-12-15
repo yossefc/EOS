@@ -26,8 +26,8 @@ REM Vérifier Python
 where python >nul 2>&1
 if errorlevel 1 (
     echo ❌ ERREUR : Python n'est pas installé ou n'est pas dans le PATH.
-    echo  Installez Python 3.11+ depuis https://www.python.org/ et cochez
-    echo  ^"Add Python to PATH^" pendant l'installation.
+    echo  Installez Python 3.11+ depuis https://www.python.org/
+    echo  et cochez ^"Add Python to PATH^" pendant l'installation.
     echo.
     pause
     exit /b 1
@@ -44,7 +44,7 @@ cd /d "%BACKEND_DIR%"
 if exist "%VENV_DIR%" (
     echo ✅ Environnement virtuel déjà présent : %VENV_DIR%
 ) else (
-    echo 📦 Création de l'environnement virtuel Python (venv) ...
+    echo 📦 Création de l'environnement virtuel Python venv ...
     python -m venv venv
     if errorlevel 1 (
         echo ❌ ERREUR : impossible de créer le venv.
@@ -95,15 +95,16 @@ echo 🔗 DATABASE_URL configurée pour ce système :
 echo    %DATABASE_URL%
 echo.
 
-echo 🗄️ Initialisation / mise à jour de la base (fix_missing_columns.py) ...
-python fix_missing_columns.py
+echo 🗄️ Initialisation / mise à jour de la base (migrations Alembic) ...
+flask db upgrade
 if errorlevel 1 (
-    echo ❌ ERREUR lors de l'exécution de fix_missing_columns.py.
+    echo ❌ ERREUR lors de l'exécution des migrations.
     echo  Vérifiez que PostgreSQL est démarré et que la configuration est correcte.
     echo.
     pause
     exit /b 1
 )
+echo    ✅ Migrations exécutées - base de données initialisée
 
 echo.
 echo ╔════════════════════════════════════════════════════════════════╗

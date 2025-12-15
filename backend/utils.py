@@ -345,6 +345,7 @@ def process_file_content(content, fichier_id, date_butoir=None):
                     if not donnee_enqueteur:
                         donnee_enqueteur = DonneeEnqueteur(
                             donnee_id=nouvelle_donnee.id,
+                            client_id=nouvelle_donnee.client_id,  # AJOUT du client_id
                             # Initialiser avec les données de contestation si présentes
                             code_resultat='',
                             elements_retrouves=''
@@ -354,6 +355,7 @@ def process_file_content(content, fichier_id, date_butoir=None):
                     # Pour les nouvelles enquêtes, toujours créer une entrée DonneeEnqueteur
                     donnee_enqueteur = DonneeEnqueteur(
                         donnee_id=nouvelle_donnee.id,
+                        client_id=nouvelle_donnee.client_id,  # AJOUT du client_id
                         code_resultat='',
                         elements_retrouves=''
                     )
@@ -551,7 +553,10 @@ def generate_export_content(donnees):
         
         # Si pas de données enquêteur, créer un objet vide
         if not donnee_enqueteur:
-            donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee.id)
+            donnee_enqueteur = DonneeEnqueteur(
+                donnee_id=donnee.id,
+                client_id=donnee.client_id  # AJOUT du client_id
+            )
         
         # Créer la ligne formatée
         line = format_export_line(donnee, donnee_enqueteur)

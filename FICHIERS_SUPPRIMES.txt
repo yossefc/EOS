@@ -1,0 +1,82 @@
+╔════════════════════════════════════════════════════════════════╗
+║           FICHIERS INUTILES SUPPRIMÉS                         ║
+╚════════════════════════════════════════════════════════════════╝
+
+Date : 15 décembre 2025
+
+═══════════════════════════════════════════════════════════════════
+📁 SCRIPTS DE DIAGNOSTIC (ne servent plus)
+═══════════════════════════════════════════════════════════════════
+
+backend/diagnostic_et_fix.py
+backend/reinitialiser_mappings.py
+backend/corriger_mappings_final.py
+backend/voir_etat_bdd.py
+backend/debug_parsing.py
+backend/voir_profils.py
+backend/supprimer_mauvais_profil.py
+
+CORRIGER_MAPPINGS_FINAL.bat
+REINITIALISER_MAPPINGS.bat
+VOIR_BASE.bat
+VOIR_TOUS_PROFILS.bat
+VOIR_MAPPINGS.bat
+SUPPRIMER_MAUVAIS_PROFIL.bat
+
+═══════════════════════════════════════════════════════════════════
+📁 FICHIERS DE TRANSFERT TEMPORAIRES
+═══════════════════════════════════════════════════════════════════
+
+PREPARER_TRANSFERT.bat
+excludelist.txt
+
+═══════════════════════════════════════════════════════════════════
+📁 DOCUMENTATION REDONDANTE
+═══════════════════════════════════════════════════════════════════
+
+backend/FIX_CORS.md
+NETTOYAGE_EFFECTUE.txt
+STRUCTURE_PROJET.txt
+TRANSFERT_AUTRE_ORDINATEUR.txt
+
+═══════════════════════════════════════════════════════════════════
+📁 FICHIERS DE CONFIGURATION EN DOUBLE (à la racine)
+═══════════════════════════════════════════════════════════════════
+
+eslint.config.js         → existe déjà dans frontend/
+package.json             → existe déjà dans frontend/
+package-lock.json        → existe déjà dans frontend/
+public/vite.svg          → existe déjà dans frontend/public/
+
+═══════════════════════════════════════════════════════════════════
+✅ FICHIERS CONSERVÉS (essentiels)
+═══════════════════════════════════════════════════════════════════
+
+✓ 01_configurer_postgresql.bat         - Configuration initiale PostgreSQL
+✓ 02_installer_backend.bat             - Installation backend Python
+✓ 03_installer_frontend.bat            - Installation frontend npm
+✓ CORRIGER_BDD.bat                     - Correction base de données
+✓ REINIT_COMPLETE_BDD.bat              - Réinitialisation complète (si besoin)
+✓ DEMARRER_EOS_POSTGRESQL.bat         - Démarrage backend
+✓ DEMARRAGE_RAPIDE.bat                 - Menu principal
+✓ NETTOYER_FICHIERS.bat                - Nettoyage données (si besoin)
+✓ AGRANDIR_COLONNES.bat                - Agrandissement colonnes (si besoin)
+✓ LISEZ-MOI.md                         - Guide principal
+✓ README.md                            - Aperçu du projet
+
+✓ backend/reinit_complete_bdd.py       - Script de réinitialisation
+✓ backend/nettoyer_fichiers.py         - Script de nettoyage
+✓ backend/agrandir_colonnes.py         - Script colonnes
+
+═══════════════════════════════════════════════════════════════════
+📌 RÉSUMÉ
+═══════════════════════════════════════════════════════════════════
+
+Total supprimé : 24 fichiers
+Raison : Scripts de diagnostic temporaires utilisés pendant le développement
+
+Le projet est maintenant plus propre et organisé !
+Tous les fichiers essentiels pour le fonctionnement sont conservés.
+
+═══════════════════════════════════════════════════════════════════
+

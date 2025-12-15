@@ -3,6 +3,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 from models.models_enqueteur import DonneeEnqueteur
+from models.models import Donnee
 from extensions import db
 from datetime import datetime
 
@@ -55,10 +56,18 @@ def register_etat_civil_routes(app):
             data = request.get_json()
             logger.info(f"Données reçues pour mise à jour d'état civil: {data}")
             
+            # Récupérer la Donnee parent pour obtenir le client_id
+            donnee_parent = Donnee.query.get(donnee_id)
+            if not donnee_parent:
+                return jsonify({'success': False, 'error': 'Enquête introuvable'}), 404
+            
             # Récupérer l'entrée existante ou en créer une nouvelle
             donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee_id).first()
             if not donnee_enqueteur:
-                donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee_id)
+                donnee_enqueteur = DonneeEnqueteur(
+                    donnee_id=donnee_id,
+                    client_id=donnee_parent.client_id  # AJOUT du client_id
+                )
                 db.session.add(donnee_enqueteur)
             
             # Mise à jour des champs d'état civil

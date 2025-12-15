@@ -25,8 +25,8 @@ where psql >nul 2>&1
 if errorlevel 1 (
     echo ❌ ERREUR : La commande ^"psql^" n'a pas été trouvée.
     echo  - Vérifiez que PostgreSQL est installé.
-    echo  - Ajoutez le dossier ^"bin^" de PostgreSQL au PATH
-    echo    (ex: ^"C:\Program Files\PostgreSQL\16\bin^").
+    echo  - Exécutez d'abord: .\00_ajouter_postgresql_au_path.ps1
+    echo  - Ou ajoutez manuellement le dossier ^"bin^" de PostgreSQL au PATH.
     echo.
     pause
     exit /b 1

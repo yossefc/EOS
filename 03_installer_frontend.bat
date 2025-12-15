@@ -25,7 +25,7 @@ REM Vérifier npm
 where npm >nul 2>&1
 if errorlevel 1 (
     echo ❌ ERREUR : npm n'est pas installé ou n'est pas dans le PATH.
-    echo  Installez Node.js (version LTS) depuis https://nodejs.org/
+    echo  Installez Node.js version LTS depuis https://nodejs.org/
     echo  puis relancez ce script.
     echo.
     pause
@@ -40,7 +40,7 @@ REM Installation des dépendances npm
 REM ============================================================================
 cd /d "%FRONTEND_DIR%"
 
-echo 📦 Installation des dépendances npm (npm install) ...
+echo 📦 Installation des dépendances npm - npm install ...
 npm install
 if errorlevel 1 (
     echo ❌ ERREUR : npm install a échoué.

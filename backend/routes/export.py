@@ -243,7 +243,10 @@ def generate_export_content(donnees):
         
         # Si pas de données enquêteur, on utilise des valeurs par défaut
         if not donnee_enqueteur:
-            donnee_enqueteur = DonneeEnqueteur(donnee_id=donnee.id)
+            donnee_enqueteur = DonneeEnqueteur(
+                donnee_id=donnee.id,
+                client_id=donnee.client_id  # Hériter du client de la donnée
+            )
         
         # Récupérer l'enquêteur
         enqueteur = None
@@ -1443,9 +1446,13 @@ def create_export_batch():
         # Chemin relatif depuis le dossier exports/
         filepath_relative = os.path.join('batches', filename)
         
+        # Récupérer le client_id (toutes les enquêtes exportées ensemble ont le même client)
+        client_id = donnees[0].client_id if donnees else None
+        
         # Créer l'entrée ExportBatch
         enquete_ids = [d.id for d in donnees if DonneeEnqueteur.query.filter_by(donnee_id=d.id).first()]
         export_batch = ExportBatch(
+            client_id=client_id,  # AJOUT du client_id
             filename=filename,
             filepath=filepath_relative,
             file_size=file_size,
