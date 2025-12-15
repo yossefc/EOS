@@ -156,3 +156,4 @@ def clear_client_cache():
     _eos_profile_cache = None
     logger.info("Cache des clients vidé")
 
+

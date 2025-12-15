@@ -263,3 +263,4 @@ D:\EOS\
 **Fichiers après** : 14 markdown + 3 txt essentiels + 29 archivés  
 **Gain** : Documentation claire et navigable
 
+

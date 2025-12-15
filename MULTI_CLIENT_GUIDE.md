@@ -295,3 +295,4 @@ Voir le fichier `backend/scripts/add_new_client.py` pour un exemple complet de c
 python backend/scripts/add_new_client.py --code CLIENT_B --name "Client B" --format TXT_FIXED
 ```
 
+

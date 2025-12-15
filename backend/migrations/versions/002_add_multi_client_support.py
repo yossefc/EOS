@@ -265,3 +265,4 @@ def downgrade():
     op.drop_index('ix_clients_code', 'clients')
     op.drop_table('clients')
 
+

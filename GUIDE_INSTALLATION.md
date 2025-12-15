@@ -278,3 +278,4 @@ Pour toute question ou problème :
 **Version du guide** : 1.0  
 **Dernière mise à jour** : Décembre 2025
 
+

@@ -410,3 +410,4 @@ L'application EOS est maintenant **prête pour le multi-client** tout en restant
 **Version** : 2.0.0 (Multi-Client)  
 **Statut** : ✅ Prêt pour production
 
+

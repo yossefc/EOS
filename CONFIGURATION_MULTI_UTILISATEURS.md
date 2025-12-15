@@ -559,3 +559,4 @@ CORS(app, resources={
 **Version** : 1.0  
 **Dernière mise à jour** : Décembre 2025
 
+

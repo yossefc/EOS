@@ -127,3 +127,4 @@ class ImportFieldMapping(db.Model):
     def __repr__(self):
         return f'<ImportFieldMapping {self.internal_field} for profile_id={self.import_profile_id}>'
 
+

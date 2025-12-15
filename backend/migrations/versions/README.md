@@ -51,3 +51,4 @@ Si vous démarrez avec une base PostgreSQL vide :
 
 Utilisez le script `migrate_sqlite_to_postgresql.py` fourni pour migrer vos données existantes.
 
+

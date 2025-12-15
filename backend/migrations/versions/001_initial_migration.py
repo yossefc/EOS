@@ -279,3 +279,4 @@ def downgrade():
     op.drop_table('enqueteurs')
     op.drop_table('fichiers')
 
+

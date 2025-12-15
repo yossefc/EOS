@@ -76,3 +76,4 @@ $env:CORS_ORIGINS="http://localhost:5173,http://172.18.240.1:5173,http://VOTRE_I
 
 **✅ Le problème CORS devrait être résolu après redémarrage du serveur !**
 
+

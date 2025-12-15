@@ -250,3 +250,4 @@ flask db upgrade
 
 🚀 **Bon développement !**
 
+
