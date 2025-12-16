@@ -42,6 +42,11 @@ with app.app_context():
         ('codePostalNaissance', 255),
         ('paysNaissance', 255),
         ('nomPatronymique', 255),
+        ('elementDemandes', 255),
+        ('elementObligatoires', 255),
+        ('elementContestes', 255),
+        ('motifDeContestation', 1000),
+        ('commentaire', 2000),
     ]
     
     print("► Agrandissement des colonnes dans la table 'donnees'...\n")
@@ -50,14 +55,14 @@ with app.app_context():
         try:
             sql = f'ALTER TABLE donnees ALTER COLUMN "{colonne}" TYPE VARCHAR({taille});'
             db.session.execute(text(sql))
+            db.session.commit()  # Commit après CHAQUE colonne réussie
             print(f"  ✅ {colonne:30s} → VARCHAR({taille})")
         except Exception as e:
+            db.session.rollback()  # Rollback en cas d'erreur pour continuer
             if "does not exist" in str(e):
                 print(f"  ⚠️  {colonne:30s} → colonne inexistante (ignorée)")
             else:
                 print(f"  ❌ {colonne:30s} → erreur: {e}")
-    
-    db.session.commit()
     
     print("\n╔════════════════════════════════════════════════════════════════╗")
     print("║          ✅ Colonnes agrandies avec succès                    ║")

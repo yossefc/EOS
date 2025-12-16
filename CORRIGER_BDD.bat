@@ -30,7 +30,7 @@ echo.
 
 echo ► Exécution du diagnostic et correction...
 echo.
-python diagnostic_et_fix.py
+python reinit_complete_bdd.py
 
 if errorlevel 1 (
     echo.
