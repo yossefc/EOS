@@ -37,3 +37,4 @@ class Client(db.Model):
         return f'<Client {self.code} - {self.nom}>'
 
 
+

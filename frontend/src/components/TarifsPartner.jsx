@@ -392,3 +392,4 @@ const TarifsPartner = () => {
 
 export default TarifsPartner;
 
+
