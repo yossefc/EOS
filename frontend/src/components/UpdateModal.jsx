@@ -3,11 +3,13 @@ import axios from 'axios';
 import {
   User, MapPin, Calendar, Info,
   MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X, Building, StickyNote, HelpCircle
+  Check, AlertCircle, X, Building, StickyNote, HelpCircle, Baby
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
 import EtatCivilPanel from './EtatCivilPanel';
+import PartnerHeader, { PartnerInstructions } from './PartnerHeader';
+import PartnerNaissanceTab from './PartnerNaissanceTab';
 import PropTypes from 'prop-types';
 
 // Définition des PropTypes en dehors du composant
@@ -80,20 +82,36 @@ const FREQUENCES_VERSEMENT = [
   { code: 'A', libelle: 'Annuelle' }
 ];
 
-// Structure des onglets
-const tabs = [
-  { id: 'infos', label: 'Informations', icon: Info },
-  { id: 'etat-civil', label: 'État civil', icon: User },
-  { id: 'adresse', label: 'Adresse', icon: MapPin },
-  { id: 'deces', label: 'Décès', icon: Calendar },
-  { id: 'employeur', label: 'Employeur', icon: Briefcase },
-  { id: 'banque', label: 'Banque', icon: Building },
-  { id: 'revenus', label: 'Revenus', icon: CircleDollarSign },
-  { id: 'commentaires', label: 'Commentaires', icon: MessageSquare },
-  { id: 'notes', label: 'Notes perso', icon: StickyNote }
-];
+// Structure des onglets (dynamique selon le client)
+const getTabsForClient = (isPartner) => {
+  const baseTabs = [
+    { id: 'infos', label: 'Informations', icon: Info },
+    { id: 'etat-civil', label: 'État civil', icon: User },
+    { id: 'adresse', label: 'Adresse', icon: MapPin },
+    { id: 'deces', label: 'Décès', icon: Calendar },
+    { id: 'employeur', label: 'Employeur', icon: Briefcase },
+    { id: 'banque', label: 'Banque', icon: Building },
+    { id: 'revenus', label: 'Revenus', icon: CircleDollarSign },
+    { id: 'commentaires', label: 'Commentaires', icon: MessageSquare },
+    { id: 'notes', label: 'Notes perso', icon: StickyNote }
+  ];
+  
+  // Ajouter l'onglet Naissance pour PARTNER
+  if (isPartner) {
+    baseTabs.splice(2, 0, { id: 'naissance', label: 'Naissance', icon: Baby });
+  }
+  
+  return baseTabs;
+};
 
 const UpdateModal = ({ isOpen, onClose, data }) => {
+  const [clientCode, setClientCode] = useState('EOS'); // Code du client pour ce dossier
+  const [clientId, setClientId] = useState(null); // ID du client
+  const [confirmationOptions, setConfirmationOptions] = useState([]); // Options de confirmation dynamiques
+  
+  // Feature flag PARTNER
+  const isPartner = clientCode === 'PARTNER';
+  
   const [formData, setFormData] = useState({
     // Assignation enquêteur
     enqueteurId: null,
@@ -101,6 +119,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     // Résultat enquête
     code_resultat: 'P',
     elements_retrouves: 'A',
+    elements_retrouves_autre: '', // Pour PARTNER : saisie libre si "Autre"
     flag_etat_civil_errone: '',
     date_retour: new Date().toISOString().split('T')[0],
 
@@ -173,7 +192,13 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     memo5: '',
     
     // Notes personnelles
-    notes_personnelles: ''
+    notes_personnelles: '',
+    
+    // PARTNER : Date et lieu de naissance retrouvés
+    dateNaissanceRetrouvee_jour: '',
+    dateNaissanceRetrouvee_mois: '',
+    dateNaissanceRetrouvee_annee: '',
+    lieuNaissanceRetrouvee: ''
   });
 
   const [suggestions, setSuggestions] = useState({
@@ -293,6 +318,33 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   // Charger les données de l'enquêteur si disponibles
   useEffect(() => {
     if (data) {
+      // Récupérer le code client depuis les données
+      const fetchClientData = async () => {
+        try {
+          const response = await axios.get(`${API_URL}/api/donnees/${data.id}`);
+          if (response.data.success && response.data.data && response.data.data.client) {
+            const clientData = response.data.data.client;
+            setClientCode(clientData.code || 'EOS');
+            setClientId(clientData.id);
+            
+            // Charger les options de confirmation pour ce client
+            if (clientData.code !== 'EOS') {
+              try {
+                const optionsResponse = await axios.get(`${API_URL}/api/confirmation-options/${clientData.id}`);
+                if (optionsResponse.data.success) {
+                  setConfirmationOptions(optionsResponse.data.all_options || []);
+                }
+              } catch (err) {
+                console.error("Erreur lors du chargement des options:", err);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Erreur lors de la récupération du client:", error);
+          setClientCode('EOS'); // Par défaut
+        }
+      };
+      
       const fetchEnqueteurData = async () => {
         try {
           const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${data.id}`);
@@ -304,10 +356,27 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             setDonneesSauvegardees(enqueteurData);
             
             // Mise à jour du formulaire avec les données
+            // Pour PARTNER : gérer les valeurs personnalisées
+            const optionsPredefinies = [
+              'Confirmé par la mairie',
+              'En proximité',
+              'Confirmé par téléphone',
+              'Confirmé par voisinage',
+              'Confirmé par famille',
+              "Confirmé par l'employeur",
+              'Confirmé par courrier',
+              'Confirmé sur place',
+              'A', 'AT', 'D', 'AB', 'AE', 'ATB', 'ATE', 'ATBE', 'ATBER' // Options EOS
+            ];
+            
+            const elementsRetrouvesValue = enqueteurData.elements_retrouves || data.elementDemandes || 'A';
+            const isOptionPredefinie = optionsPredefinies.includes(elementsRetrouvesValue);
+            
             setFormData({
               // Valeurs par défaut
               code_resultat: enqueteurData.code_resultat || 'P',
-              elements_retrouves: enqueteurData.elements_retrouves || data.elementDemandes || 'A',
+              elements_retrouves: isOptionPredefinie ? elementsRetrouvesValue : 'AUTRE',
+              elements_retrouves_autre: isOptionPredefinie ? '' : elementsRetrouvesValue,
               flag_etat_civil_errone: enqueteurData.flag_etat_civil_errone || '',
               date_retour: enqueteurData.date_retour || new Date().toISOString().split('T')[0],
 
@@ -412,6 +481,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         }
       };
   
+      fetchClientData();
       fetchEnqueteurData();
     }
   }, [data, initializeWithDossierData]);
@@ -581,10 +651,16 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       }
   
       // Préparer les données à envoyer
+      // Pour PARTNER : si "AUTRE" est sélectionné, utiliser la saisie libre
+      let elementsRetrouvesValue = formData.elements_retrouves;
+      if (isPartner && formData.elements_retrouves === 'AUTRE' && formData.elements_retrouves_autre) {
+        elementsRetrouvesValue = formData.elements_retrouves_autre;
+      }
+      
       let dataToSend = {
         donnee_id: data.id,
         code_resultat: formData.code_resultat,
-        elements_retrouves: formData.code_resultat === 'I' ? '' : formData.elements_retrouves,
+        elements_retrouves: formData.code_resultat === 'I' ? '' : elementsRetrouvesValue,
         flag_etat_civil_errone: formData.flag_etat_civil_errone,
         date_retour: formData.date_retour,
       };
@@ -780,6 +856,37 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           // Notes personnelles
           notes_personnelles: formData.notes_personnelles
         };
+        
+        // Pour les clients non-EOS (PARTNER), ajouter les champs spécifiques
+        if (clientCode !== 'EOS') {
+          // Construire la date de naissance à partir des champs séparés
+          let dateNaissanceComplete = null;
+          if (formData.dateNaissanceRetrouvee_jour && formData.dateNaissanceRetrouvee_mois && formData.dateNaissanceRetrouvee_annee) {
+            const jour = String(formData.dateNaissanceRetrouvee_jour).padStart(2, '0');
+            const mois = String(formData.dateNaissanceRetrouvee_mois).padStart(2, '0');
+            const annee = formData.dateNaissanceRetrouvee_annee;
+            dateNaissanceComplete = `${annee}-${mois}-${jour}`;
+          }
+          
+          dataToSend = {
+            ...dataToSend,
+            dateNaissance: dateNaissanceComplete,
+            lieuNaissance: formData.lieuNaissanceRetrouvee || null
+          };
+          
+          // Sauvegarder la nouvelle option si "Autre" a été utilisé
+          if (formData.elements_retrouves === 'AUTRE' && formData.elements_retrouves_autre && clientId) {
+            try {
+              await axios.post(`${API_URL}/api/confirmation-options`, {
+                client_id: clientId,
+                option_text: formData.elements_retrouves_autre
+              });
+            } catch (err) {
+              console.error("Erreur lors de la sauvegarde de l'option:", err);
+              // Ne pas bloquer l'enregistrement pour autant
+            }
+          }
+        }
       }
 
       // L'enquêteur est déjà sauvegardé automatiquement au changement
@@ -832,6 +939,15 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
   // Validation des données du formulaire
   const validateFormData = () => {
+    // Pour les clients non-EOS, saisie libre (pas de contraintes)
+    const isNonEOS = clientCode !== 'EOS';
+    
+    // Pour les clients non-EOS, aucune validation stricte
+    if (isNonEOS) {
+      return null; // Pas de validation, saisie libre
+    }
+    
+    // Pour EOS uniquement, appliquer les validations strictes
     // Vérifier selon le code résultat
     if (formData.code_resultat === 'P') {
       // Vérifier les éléments retrouvés
@@ -879,7 +995,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         }
       }
     } else if (formData.code_resultat === 'D') {
-      // Vérifier les informations de décès
+      // Vérifier les informations de décès (uniquement pour EOS)
       if (!formData.date_deces) {
         return "La date de décès est obligatoire";
       }
@@ -983,6 +1099,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       <X className="w-6 h-6" />
     </button>
   </div>
+  
+  {/* Informations spécifiques PARTNER */}
+  {isPartner && (
+    <PartnerHeader 
+      recherche={data.recherche} 
+      instructions={data.instructions} 
+    />
+  )}
 </div>
 
 
@@ -1004,32 +1128,39 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
     
         <form onSubmit={handleSubmit}>
+          {/* Bloc INSTRUCTIONS pour PARTNER */}
+          {isPartner && <PartnerInstructions instructions={data.instructions} />}
+          
           {/* Navigation par onglets */}
           <div className="px-4 border-b overflow-x-auto">
             <div className="flex space-x-2">
-              {tabs.map(tab => {
-                // Cacher l'onglet décès si pas nécessaire
-                if (tab.id === 'deces' && !showDeathInfo && !formData.elements_retrouves.includes('D')) {
-                  return null;
-                }
-                
-                // Cacher les onglets qui dépendent des éléments retrouvés
-                if (
-                  (tab.id === 'employeur' && !formData.elements_retrouves.includes('E')) ||
-                  (tab.id === 'banque' && !formData.elements_retrouves.includes('B')) ||
-                  (tab.id === 'revenus' && !formData.elements_retrouves.includes('R'))
-                ) {
-                  // Ne pas cacher ces onglets si on a des données dedans
-                  const hasBankData = formData.banque_domiciliation || formData.code_banque;
-                  const hasEmployerData = formData.nom_employeur;
-                  const hasRevenueData = formData.montant_salaire;
-                  
-                  if (
-                    (tab.id === 'employeur' && !hasEmployerData) ||
-                    (tab.id === 'banque' && !hasBankData) ||
-                    (tab.id === 'revenus' && !hasRevenueData)
-                  ) {
+              {getTabsForClient(isPartner).map(tab => {
+                // Pour EOS : Cacher certains onglets selon les éléments retrouvés
+                // Pour PARTNER : Afficher tous les onglets
+                if (!isPartner) {
+                  // Cacher l'onglet décès si pas nécessaire
+                  if (tab.id === 'deces' && !showDeathInfo && !formData.elements_retrouves.includes('D')) {
                     return null;
+                  }
+                  
+                  // Cacher les onglets qui dépendent des éléments retrouvés
+                  if (
+                    (tab.id === 'employeur' && !formData.elements_retrouves.includes('E')) ||
+                    (tab.id === 'banque' && !formData.elements_retrouves.includes('B')) ||
+                    (tab.id === 'revenus' && !formData.elements_retrouves.includes('R'))
+                  ) {
+                    // Ne pas cacher ces onglets si on a des données dedans
+                    const hasBankData = formData.banque_domiciliation || formData.code_banque;
+                    const hasEmployerData = formData.nom_employeur;
+                    const hasRevenueData = formData.montant_salaire;
+                    
+                    if (
+                      (tab.id === 'employeur' && !hasEmployerData) ||
+                      (tab.id === 'banque' && !hasBankData) ||
+                      (tab.id === 'revenus' && !hasRevenueData)
+                    ) {
+                      return null;
+                    }
                   }
                 }
                 
@@ -1241,6 +1372,8 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       </div>
                     )}
 
+                    {/* Informations PARTNER */}
+
                   </div>
                   
                   <div className="border-t pt-4">
@@ -1260,24 +1393,54 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">Éléments retrouvés</label>
-                        <select
-                          name="elements_retrouves"
-                          value={formData.elements_retrouves}
-                          onChange={handleInputChange}
-                          className="w-full p-2 border rounded"
-                          disabled={formData.code_resultat === 'D' || formData.code_resultat === 'I'}
-                        >
-                          <option value="A">A - Adresse</option>
-                          <option value="AT">AT - Adresse et téléphone</option>
-                          <option value="D">D - Décès</option>
-                          <option value="AB">AB - Adresse et banque</option>
-                          <option value="AE">AE - Adresse et employeur</option>
-                          <option value="ATB">ATB - Adresse, téléphone et banque</option>
-                          <option value="ATE">ATE - Adresse, téléphone et employeur</option>
-                          <option value="ATBE">ATBE - Adresse, téléphone, banque et employeur</option>
-                          <option value="ATBER">ATBER - Adresse, téléphone, banque, employeur et revenus</option>
-                        </select>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          {clientCode !== 'EOS' ? 'Confirmation par qui' : 'Éléments retrouvés'}
+                        </label>
+                        {clientCode !== 'EOS' ? (
+                          <div className="space-y-2">
+                            <select
+                              name="elements_retrouves"
+                              value={formData.elements_retrouves || ''}
+                              onChange={handleInputChange}
+                              className="w-full p-2 border rounded"
+                              disabled={formData.code_resultat === 'D' || formData.code_resultat === 'I'}
+                            >
+                              <option value="">Sélectionner...</option>
+                              {confirmationOptions.map((option, index) => (
+                                <option key={index} value={option}>{option}</option>
+                              ))}
+                              <option value="AUTRE">Autre (saisir ci-dessous)</option>
+                            </select>
+                            {formData.elements_retrouves === 'AUTRE' && (
+                              <input
+                                type="text"
+                                name="elements_retrouves_autre"
+                                value={formData.elements_retrouves_autre || ''}
+                                onChange={handleInputChange}
+                                placeholder="Précisez la confirmation..."
+                                className="w-full p-2 border rounded border-blue-300 focus:ring-2 focus:ring-blue-500"
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <select
+                            name="elements_retrouves"
+                            value={formData.elements_retrouves}
+                            onChange={handleInputChange}
+                            className="w-full p-2 border rounded"
+                            disabled={formData.code_resultat === 'D' || formData.code_resultat === 'I'}
+                          >
+                            <option value="A">A - Adresse</option>
+                            <option value="AT">AT - Adresse et téléphone</option>
+                            <option value="D">D - Décès</option>
+                            <option value="AB">AB - Adresse et banque</option>
+                            <option value="AE">AE - Adresse et employeur</option>
+                            <option value="ATB">ATB - Adresse, téléphone et banque</option>
+                            <option value="ATE">ATE - Adresse, téléphone et employeur</option>
+                            <option value="ATBE">ATBE - Adresse, téléphone, banque et employeur</option>
+                            <option value="ATBER">ATBER - Adresse, téléphone, banque, employeur et revenus</option>
+                          </select>
+                        )}
                       </div>
                       <div>
                         <label className="flex items-center gap-1 text-sm text-gray-600 mb-1">
@@ -1320,43 +1483,85 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             )}
             {/* Onglet État civil */}
             {activeTab === 'etat-civil' && (
-            <EtatCivilPanel
-                originalData={{
-                qualite: data?.qualite,
-                nom: data?.nom,
-                prenom: data?.prenom,
-                dateNaissance: data?.dateNaissance,
-                lieuNaissance: data?.lieuNaissance,
-                codePostalNaissance: data?.codePostalNaissance,
-                paysNaissance: data?.paysNaissance,
-                nomPatronymique: data?.nomPatronymique
-                }}
-                formData={formData}
-                setFormData={setFormData}
-                onValidate={(correctedData, divergenceType) => {
-                // Mise à jour des mémos et du flag
-                setFormData(prev => ({
-                    ...prev,
-                    flag_etat_civil_errone: 'E',
-                    // Stocker les informations corrigées
-                    qualite_corrigee: correctedData.qualite,
-                    nom_corrige: correctedData.nom,
-                    prenom_corrige: correctedData.prenom,
-                    nom_patronymique_corrige: correctedData.nomPatronymique,
-                    date_naissance_corrigee: correctedData.dateNaissance,
-                    lieu_naissance_corrige: correctedData.lieuNaissance,
-                    code_postal_naissance_corrige: correctedData.codePostalNaissance,
-                    pays_naissance_corrige: correctedData.paysNaissance,
-                    type_divergence: divergenceType,
-                    // Ajouter une explication dans le mémo
-                    memo5: `${prev.memo5 ? prev.memo5 + '\n\n' : ''}État civil corrigé (${divergenceType}):\n` +
-                        `Nom: ${correctedData.nom || '-'}\n` +
-                        `Prénom: ${correctedData.prenom || '-'}\n` +
-                        `Date de naissance: ${correctedData.dateNaissance || '-'}\n` +
-                        `Lieu de naissance: ${correctedData.lieuNaissance || '-'}`
-                }));
-                }}
-            />
+              <div className="space-y-4">
+                <EtatCivilPanel
+                    originalData={{
+                    qualite: data?.qualite,
+                    nom: data?.nom,
+                    prenom: data?.prenom,
+                    dateNaissance: data?.dateNaissance,
+                    lieuNaissance: data?.lieuNaissance,
+                    codePostalNaissance: data?.codePostalNaissance,
+                    paysNaissance: data?.paysNaissance,
+                    nomPatronymique: data?.nomPatronymique
+                    }}
+                    formData={formData}
+                    setFormData={setFormData}
+                    onValidate={(correctedData, divergenceType) => {
+                    // Mise à jour des mémos et du flag
+                    setFormData(prev => ({
+                        ...prev,
+                        flag_etat_civil_errone: 'E',
+                        // Stocker les informations corrigées
+                        qualite_corrigee: correctedData.qualite,
+                        nom_corrige: correctedData.nom,
+                        prenom_corrige: correctedData.prenom,
+                        nom_patronymique_corrige: correctedData.nomPatronymique,
+                        date_naissance_corrigee: correctedData.dateNaissance,
+                        lieu_naissance_corrige: correctedData.lieuNaissance,
+                        code_postal_naissance_corrige: correctedData.codePostalNaissance,
+                        pays_naissance_corrige: correctedData.paysNaissance,
+                        type_divergence: divergenceType,
+                        // Ajouter une explication dans le mémo
+                        memo5: `${prev.memo5 ? prev.memo5 + '\n\n' : ''}État civil corrigé (${divergenceType}):\n` +
+                            `Nom: ${correctedData.nom || '-'}\n` +
+                            `Prénom: ${correctedData.prenom || '-'}\n` +
+                            `Date de naissance: ${correctedData.dateNaissance || '-'}\n` +
+                            `Lieu de naissance: ${correctedData.lieuNaissance || '-'}`
+                    }));
+                    }}
+                />
+                
+                {/* Section PARTNER : Date et lieu de naissance retrouvés */}
+                {clientCode !== 'EOS' && (
+                  <div className="bg-white border rounded-lg p-4 mt-4">
+                    <h3 className="font-medium mb-4 text-pink-800">🔍 Date et lieu de naissance retrouvés (PARTNER)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Date de naissance retrouvée
+                        </label>
+                        <input
+                          type="date"
+                          name="date_naissance_retrouvee"
+                          value={formData.date_naissance_retrouvee}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Si différente de celle du fichier importé
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Lieu de naissance retrouvé
+                        </label>
+                        <input
+                          type="text"
+                          name="lieu_naissance_retrouve"
+                          value={formData.lieu_naissance_retrouve}
+                          onChange={handleInputChange}
+                          placeholder="Lieu de naissance"
+                          className="w-full p-2 border rounded"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Si différent de celui du fichier importé
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {/* Onglet Adresse */}
             {activeTab === 'adresse' && (
@@ -2182,6 +2387,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   </div>
                 </div>
               </div>
+            )}
+            
+            {/* Onglet Naissance (PARTNER uniquement) */}
+            {activeTab === 'naissance' && isPartner && (
+              <PartnerNaissanceTab 
+                formData={formData}
+                handleInputChange={handleInputChange}
+              />
             )}
             
             {/* Onglet Notes personnelles */}

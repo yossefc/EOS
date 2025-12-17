@@ -55,6 +55,34 @@ class TarifEnqueteur(db.Model):
             'actif': self.actif
         }
 
+class TarifClient(db.Model):
+    """Modèle pour les tarifs spécifiques aux clients (ex: CLIENT_X)"""
+    __tablename__ = 'tarifs_client'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
+    code_lettre = db.Column(db.String(10), nullable=False)  # Ex: 'A', 'B', 'C', etc.
+    description = db.Column(db.String(100))
+    montant = db.Column(db.Numeric(8, 2), nullable=False)
+    date_debut = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    date_fin = db.Column(db.Date)
+    actif = db.Column(db.Boolean, default=True)
+    
+    # Relation avec Client
+    client = db.relationship('Client', backref='tarifs_client', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'client_id': self.client_id,
+            'code_lettre': self.code_lettre,
+            'description': self.description,
+            'montant': float(self.montant) if self.montant else 0,
+            'date_debut': self.date_debut.strftime('%Y-%m-%d') if self.date_debut else None,
+            'date_fin': self.date_fin.strftime('%Y-%m-%d') if self.date_fin else None,
+            'actif': self.actif
+        }
+
 class EnqueteFacturation(db.Model):
     """Modèle pour stocker les informations de facturation par enquête"""
     __tablename__ = 'enquete_facturation'

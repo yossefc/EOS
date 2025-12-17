@@ -405,10 +405,47 @@ const ImportHandler = ({ onImportComplete }) => {
       </div>
       
       {/* Aide et documentation */}
+      {/* MULTI-CLIENT: Aide pour CLIENT_X */}
+      {selectedClientId && clients.find(c => c.id === selectedClientId && c.code === 'CLIENT_X') && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="font-medium mb-2 flex items-center gap-2 text-blue-900">
+            <ChevronRight className="w-5 h-5 text-blue-500" />
+            Format de fichier CLIENT_X
+          </h3>
+          
+          <div className="space-y-3 text-sm text-blue-900">
+            <div>
+              <p className="font-medium mb-1">📋 ENQUÊTES</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-800 ml-2">
+                <li>Format: Excel (.xlsx ou .xls)</li>
+                <li>Onglet requis: <span className="font-mono bg-blue-100 px-1">Worksheet</span></li>
+                <li>Colonnes: NUM, NOM, PRENOM, JOUR, MOIS, ANNEE NAISSANCE, LIEUNAISSANCE, DATE ENVOI, DATE BUTOIR, ADRESSE, CP, VILLE, TEL, TARIF, RECHERCHE</li>
+                <li>Le code postal sera automatiquement formaté sur 5 chiffres</li>
+                <li>Les téléphones à "0" seront ignorés</li>
+              </ul>
+            </div>
+            
+            <div>
+              <p className="font-medium mb-1">⚠️ CONTESTATIONS</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-800 ml-2">
+                <li>Format: Excel (.xlsx ou .xls)</li>
+                <li>Onglet requis: <span className="font-mono bg-blue-100 px-1">FICHIER 1 CONTRE</span></li>
+                <li>Colonnes: DATE DU JOUR, NOM, PRENOM (URGENT si urgence), MOTIF, DATE BUTOIR</li>
+                <li>Si PRENOM contient "URGENT", la contestation sera marquée comme urgente</li>
+              </ul>
+            </div>
+            
+            <p className="text-xs text-blue-700 mt-2">
+              💡 Les lignes vides sont automatiquement ignorées lors de l&apos;import
+            </p>
+          </div>
+        </div>
+      )}
+      
       <div className="bg-gray-50 border rounded-lg p-4">
         <h3 className="font-medium mb-2 flex items-center gap-2">
           <ChevronRight className="w-5 h-5 text-blue-500" />
-          Format de fichier requis
+          Format de fichier requis (EOS)
         </h3>
         
         <p className="text-sm text-gray-600 mb-3">

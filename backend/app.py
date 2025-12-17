@@ -379,6 +379,28 @@ def register_legacy_routes(app):
             logger.error(f"Erreur lors de la récupération de l'historique: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    @app.route('/api/donnees/<int:id>', methods=['GET'])
+    def get_donnee(id):
+        """Récupère une donnée spécifique avec les informations du client"""
+        try:
+            donnee = Donnee.query.get_or_404(id)
+            donnee_dict = donnee.to_dict()
+            
+            # Ajouter les informations du client
+            from models.client import Client
+            client = db.session.get(Client, donnee.client_id)
+            if client:
+                donnee_dict['client'] = {
+                    'id': client.id,
+                    'code': client.code,
+                    'nom': client.nom
+                }
+            
+            return jsonify({'success': True, 'data': donnee_dict}), 200
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération de la donnée: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
     @app.route('/api/donnees/<int:id>', methods=['DELETE'])
     def delete_donnee(id):
         """Supprime une donnée"""
@@ -389,8 +411,14 @@ def register_legacy_routes(app):
             return jsonify({'success': True, 'message': 'Enregistrement supprimé avec succès'}), 200
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Erreur lors de la suppression : {str(e)}")
-            return jsonify({'success': False, 'error': 'Erreur lors de la suppression'}), 500
+            logger.error(f"Erreur lors de la suppression: {str(e)}")
+            
+            # Message d'erreur plus clair pour les violations de contraintes
+            error_message = 'Erreur lors de la suppression'
+            if 'ForeignKeyViolation' in str(e) or 'foreign key constraint' in str(e).lower():
+                error_message = 'Impossible de supprimer ce dossier car il contient des données enquêteur. Exécutez CORRIGER_CASCADE_SUPPRESSION.bat pour résoudre ce problème.'
+            
+            return jsonify({'success': False, 'error': error_message}), 500
 
     @app.route('/api/donnees', methods=['POST'])
     def add_donnee():
@@ -458,6 +486,11 @@ def register_legacy_routes(app):
             donnee = Donnee.query.get_or_404(id)
             data = request.json
             
+            # Récupérer le client pour vérifier les permissions
+            from models.client import Client
+            client = db.session.get(Client, donnee.client_id)
+            is_client_x = client and client.code != 'EOS'
+            
             # Mettre à jour les champs fournis
             if 'numeroDossier' in data:
                 donnee.numeroDossier = data['numeroDossier']
@@ -469,10 +502,17 @@ def register_legacy_routes(app):
                 donnee.nom = data['nom']
             if 'prenom' in data:
                 donnee.prenom = data['prenom']
-            if 'dateNaissance' in data and data['dateNaissance']:
-                donnee.dateNaissance = datetime.strptime(data['dateNaissance'], '%Y-%m-%d').date()
+            
+            # Pour CLIENT_X, autoriser la modification de dateNaissance et lieuNaissance
+            if 'dateNaissance' in data:
+                if data['dateNaissance']:
+                    donnee.dateNaissance = datetime.strptime(data['dateNaissance'], '%Y-%m-%d').date()
+                elif is_client_x:
+                    donnee.dateNaissance = None
+            
             if 'lieuNaissance' in data:
                 donnee.lieuNaissance = data['lieuNaissance']
+            
             if 'codePostal' in data:
                 donnee.codePostal = data['codePostal']
             if 'ville' in data:
@@ -752,6 +792,11 @@ def register_legacy_routes(app):
             if not donnee_parent:
                 return jsonify({'success': False, 'error': 'Enquête introuvable'}), 404
             
+            # Vérifier le type de client pour assouplir les validations
+            from models.client import Client
+            client = db.session.get(Client, donnee_parent.client_id)
+            is_client_x = client and client.code != 'EOS'
+            
             # Récupérer ou créer l'entrée
             donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee_id).first()
             if not donnee_enqueteur:
@@ -760,6 +805,8 @@ def register_legacy_routes(app):
                     client_id=donnee_parent.client_id  # AJOUT du client_id
                 )
                 db.session.add(donnee_enqueteur)
+                # Flush pour obtenir l'ID avant de continuer
+                db.session.flush()
             
             # Mettre à jour les champs
             for field in ['code_resultat', 'elements_retrouves', 'flag_etat_civil_errone',
@@ -794,10 +841,15 @@ def register_legacy_routes(app):
             donnee_enqueteur.updated_at = datetime.now()
             
             # Si le code résultat est positif, préparer la facturation
+            # Pour CLIENT_X, ne pas exiger de validation stricte
             if donnee_enqueteur.code_resultat in ['P', 'H']:
                 try:
                     from services.tarification_service import TarificationService
                     from models.tarifs import EnqueteFacturation
+                    
+                    # Pour CLIENT_X, utiliser le tarif_lettre de la donnée parent si disponible
+                    if is_client_x and donnee_parent.tarif_lettre and not donnee_enqueteur.elements_retrouves:
+                        donnee_enqueteur.elements_retrouves = donnee_parent.tarif_lettre
                     
                     existing = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
                     if existing:
@@ -813,6 +865,9 @@ def register_legacy_routes(app):
                             logger.info(f"Facturation créée: {facturation.id}")
                 except Exception as e:
                     logger.error(f"Erreur lors du calcul de la facturation: {str(e)}")
+                    # Pour CLIENT_X, ne pas bloquer si la facturation échoue
+                    if not is_client_x:
+                        raise
             
             # UN SEUL COMMIT à la fin pour éviter les conflits
             db.session.commit()
@@ -826,7 +881,13 @@ def register_legacy_routes(app):
         except Exception as e:
             db.session.rollback()
             logger.error(f"Erreur lors de la mise à jour: {str(e)}")
-            return jsonify({'success': False, 'error': str(e)}), 400
+            
+            # Message plus clair si l'enquête a été supprimée
+            error_msg = str(e)
+            if "has been deleted" in error_msg or "is otherwise not present" in error_msg:
+                error_msg = "Cette enquête a été supprimée. Veuillez rafraîchir la page (F5)."
+            
+            return jsonify({'success': False, 'error': error_msg}), 400
 
     @app.route('/api/assign-enquete', methods=['POST'])
     def assign_enquete():
@@ -1274,6 +1335,211 @@ def register_legacy_routes(app):
             db.session.rollback()
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    # ===========================
+    # Routes pour les tarifs clients (PARTNER)
+    # ===========================
+    @app.route('/api/tarifs-client', methods=['GET'])
+    def get_tarifs_client():
+        """Récupère les tarifs pour un client spécifique"""
+        try:
+            from models.tarifs import TarifClient
+            client_id = request.args.get('client_id', type=int)
+            
+            if not client_id:
+                return jsonify({"success": False, "error": "client_id requis"}), 400
+            
+            tarifs = TarifClient.query.filter_by(
+                client_id=client_id,
+                actif=True
+            ).order_by(TarifClient.code_lettre).all()
+            
+            return jsonify({
+                "success": True,
+                "tarifs": [tarif.to_dict() for tarif in tarifs]
+            })
+        except Exception as e:
+            logger.error(f"Erreur get_tarifs_client: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+    
+    @app.route('/api/tarifs-client', methods=['POST'])
+    def create_tarif_client():
+        """Crée un nouveau tarif client"""
+        try:
+            from models.tarifs import TarifClient
+            data = request.json
+            
+            # Vérifier si le tarif existe déjà
+            existing = TarifClient.query.filter_by(
+                client_id=data['client_id'],
+                code_lettre=data['code_lettre'],
+                actif=True
+            ).first()
+            
+            if existing:
+                return jsonify({
+                    "success": False,
+                    "error": f"Le tarif {data['code_lettre']} existe déjà pour ce client"
+                }), 400
+            
+            tarif = TarifClient(
+                client_id=data['client_id'],
+                code_lettre=data['code_lettre'],
+                description=data.get('description', ''),
+                montant=data['montant'],
+                date_debut=datetime.strptime(data['date_debut'], '%Y-%m-%d').date() if 'date_debut' in data else datetime.now().date(),
+                actif=True
+            )
+            
+            db.session.add(tarif)
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "tarif": tarif.to_dict()
+            })
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erreur create_tarif_client: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+    
+    @app.route('/api/tarifs-client/<int:tarif_id>', methods=['PUT'])
+    def update_tarif_client(tarif_id):
+        """Met à jour un tarif client"""
+        try:
+            from models.tarifs import TarifClient
+            tarif = TarifClient.query.get_or_404(tarif_id)
+            data = request.json
+            
+            if 'montant' in data:
+                tarif.montant = data['montant']
+            if 'description' in data:
+                tarif.description = data['description']
+            if 'actif' in data:
+                tarif.actif = data['actif']
+            
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "tarif": tarif.to_dict()
+            })
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erreur update_tarif_client: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+    
+    @app.route('/api/tarifs-client/<int:tarif_id>', methods=['DELETE'])
+    def delete_tarif_client(tarif_id):
+        """Désactive un tarif client (soft delete)"""
+        try:
+            from models.tarifs import TarifClient
+            tarif = TarifClient.query.get_or_404(tarif_id)
+            
+            tarif.actif = False
+            tarif.date_fin = datetime.now().date()
+            
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": "Tarif désactivé avec succès"
+            })
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erreur delete_tarif_client: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+    
+    # ===========================
+    # Routes pour les options de confirmation personnalisées
+    # ===========================
+    @app.route('/api/confirmation-options/<int:client_id>', methods=['GET'])
+    def get_confirmation_options(client_id):
+        """Récupère les options de confirmation pour un client"""
+        try:
+            from models.confirmation_options import ConfirmationOption
+            
+            # Options prédéfinies de base
+            options_base = [
+                'Confirmé par la mairie',
+                'En proximité',
+                'Confirmé par téléphone',
+                'Confirmé par voisinage',
+                'Confirmé par famille',
+                "Confirmé par l'employeur",
+                'Confirmé par courrier',
+                'Confirmé sur place'
+            ]
+            
+            # Options personnalisées du client
+            options_custom = ConfirmationOption.query.filter_by(
+                client_id=client_id
+            ).order_by(ConfirmationOption.usage_count.desc()).all()
+            
+            options_custom_list = [opt.option_text for opt in options_custom]
+            
+            return jsonify({
+                "success": True,
+                "options_base": options_base,
+                "options_custom": options_custom_list,
+                "all_options": options_base + options_custom_list
+            })
+        except Exception as e:
+            logger.error(f"Erreur get_confirmation_options: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+    
+    @app.route('/api/confirmation-options', methods=['POST'])
+    def save_confirmation_option():
+        """Sauvegarde une nouvelle option de confirmation"""
+        try:
+            from models.confirmation_options import ConfirmationOption
+            data = request.json
+            
+            client_id = data.get('client_id')
+            option_text = data.get('option_text', '').strip()
+            
+            if not client_id or not option_text:
+                return jsonify({
+                    "success": False,
+                    "error": "client_id et option_text requis"
+                }), 400
+            
+            # Vérifier si l'option existe déjà
+            existing = ConfirmationOption.query.filter_by(
+                client_id=client_id,
+                option_text=option_text
+            ).first()
+            
+            if existing:
+                # Incrémenter le compteur d'utilisation
+                existing.usage_count += 1
+                existing.updated_at = datetime.now()
+                db.session.commit()
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Option existante, compteur incrémenté",
+                    "option": existing.to_dict()
+                })
+            else:
+                # Créer une nouvelle option
+                new_option = ConfirmationOption(
+                    client_id=client_id,
+                    option_text=option_text,
+                    usage_count=1
+                )
+                db.session.add(new_option)
+                db.session.commit()
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Nouvelle option ajoutée",
+                    "option": new_option.to_dict()
+                })
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erreur save_confirmation_option: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+    
     logger.info("Routes legacy enregistrées")
 
 

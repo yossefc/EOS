@@ -1,10 +1,13 @@
-import  { useState, useEffect } from 'react';
+import  { useState, useEffect, lazy, Suspense } from 'react';
 import axios from 'axios';
 import {
   DollarSign, PlusCircle, RefreshCw, Check, AlertCircle, Edit, Trash2,
   FilePlus,  Calculator,  BarChart2, Users
 } from 'lucide-react';
 import config from '../config';
+
+// Lazy load TarifsPartner
+const TarifsPartner = lazy(() => import('./TarifsPartner'));
 
 
 const API_URL = config.API_URL;
@@ -366,6 +369,16 @@ useEffect(() => {
             }`}
           >
             Tarifs Enquêteur
+          </button>
+          <button
+            onClick={() => setActiveTab('tarifsPartner')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'tarifsPartner'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Tarifs PARTNER
           </button>
           <button
             onClick={() => setActiveTab('rapports')}
@@ -741,6 +754,18 @@ useEffect(() => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Tarifs PARTNER */}
+        {activeTab === 'tarifsPartner' && (
+          <Suspense fallback={
+            <div className="flex justify-center items-center p-8">
+              <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+              <span className="ml-2">Chargement...</span>
+            </div>
+          }>
+            <TarifsPartner />
+          </Suspense>
         )}
 
 {/* Rapports financiers */}

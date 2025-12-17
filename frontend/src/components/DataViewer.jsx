@@ -125,7 +125,7 @@ const DataViewer = () => {
     } finally {
       setLoading(false);
     }
-  }, [itemsPerPage, searchTerm, filters]);
+  }, [itemsPerPage, searchTerm, filters, selectedClientId]);
   
   // Récupérer le nombre d'enquêtes non exportées
   const fetchNonExporteesCount = async () => {
@@ -160,12 +160,12 @@ const DataViewer = () => {
     fetchEnqueteurs();
   }, [fetchClients]);
   
-  // Recharger les données quand la page, les filtres ou le client changent
+  // Recharger les données quand la page ou le client changent
   useEffect(() => {
     if (selectedClientId !== null) {  // MULTI-CLIENT: Attendre que le client soit sélectionné
       fetchData(currentPage);
     }
-  }, [currentPage, fetchData, selectedClientId]);
+  }, [currentPage, selectedClientId]);
   
   // Retourner à la page 1 quand les filtres ou la recherche changent
   useEffect(() => {

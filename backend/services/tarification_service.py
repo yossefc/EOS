@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime
-from models.tarifs import TarifEOS, TarifEnqueteur, EnqueteFacturation
+from models.tarifs import TarifEOS, TarifEnqueteur, EnqueteFacturation, TarifClient
 from models.models_enqueteur import DonneeEnqueteur
 from models.models import Donnee
+from models.client import Client
 from extensions import db
 from services.billing_service import BillingService
 
@@ -12,10 +13,33 @@ class TarificationService:
     """Service pour gérer la tarification des enquêtes et le calcul des rémunérations"""
     
     @staticmethod
-    def get_tarif_eos(code_elements, date=None):
-        """Récupère le tarif EOS pour un code d'éléments donné à une date donnée"""
+    def get_tarif_eos(code_elements, date=None, client_id=None):
+        """
+        Récupère le tarif EOS pour un code d'éléments donné à une date donnée
+        Si client_id est fourni et n'est pas EOS, utilise TarifClient
+        """
         if not date:
             date = datetime.now().date()
+        
+        # Si client_id fourni, vérifier s'il s'agit d'un client autre qu'EOS
+        if client_id:
+            client = db.session.get(Client, client_id)
+            if client and client.code != 'EOS':
+                # Utiliser TarifClient pour les clients non-EOS
+                tarif_client = TarifClient.query.filter(
+                    TarifClient.client_id == client_id,
+                    TarifClient.code_lettre == code_elements,
+                    TarifClient.date_debut <= date,
+                    (TarifClient.date_fin >= date) | (TarifClient.date_fin.is_(None)),
+                    TarifClient.actif == True
+                ).order_by(TarifClient.date_debut.desc()).first()
+                
+                if tarif_client:
+                    logger.info(f"Tarif Client {client.code} trouvé: {tarif_client.code_lettre} - {tarif_client.montant}€")
+                    return tarif_client
+                else:
+                    logger.warning(f"Aucun tarif client trouvé pour {client.code}, code: {code_elements}")
+                    return None
             
         # Imprimer les informations de recherche de tarif
         logger.info(f"Recherche de tarif EOS pour code: {code_elements}, date: {date}")
@@ -190,7 +214,7 @@ class TarificationService:
             logger.error(f"Enquête originale {donnee.enquete_originale_id} non trouvée")
             # MODIFICATION: Même sans enquête originale, créer une facturation basique
             elements_code = donnee_enqueteur.elements_retrouves or 'A'
-            tarif_eos = TarificationService.get_tarif_eos(elements_code)
+            tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
             tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
             
             if tarif_eos:
@@ -301,7 +325,7 @@ class TarificationService:
         # MODIFICATION: Même si original_enquete est None, nous continuons
         
         # Calculer les tarifs pour cette contestation
-        tarif_eos = TarificationService.get_tarif_eos(elements_code)
+        tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
         tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
         
         if tarif_eos:
@@ -332,10 +356,10 @@ class TarificationService:
         logger.info(f"Éléments changés dans la contestation: {original_elements} -> {elements_code}")
         
         # Récupérer les tarifs
-        tarif_eos_new = TarificationService.get_tarif_eos(elements_code)
+        tarif_eos_new = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
         tarif_enqueteur_new = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
         
-        tarif_eos_old = TarificationService.get_tarif_eos(original_elements)
+        tarif_eos_old = TarificationService.get_tarif_eos(original_elements, client_id=donnee.client_id)
         tarif_enqueteur_old = TarificationService.get_tarif_enqueteur(original_elements, donnee.enqueteurId)
         
         # Calculer les différences de montant
@@ -374,7 +398,7 @@ class TarificationService:
             elements_code = donnee_enqueteur.elements_retrouves
             
             # Récupérer les tarifs
-            tarif_eos = TarificationService.get_tarif_eos(elements_code)
+            tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
             tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
             
             if tarif_eos:
@@ -439,13 +463,19 @@ class TarificationService:
                 original_donnee = db.session.get(Donnee, original_id) if original_id else None
                 
                 # Obtenir les tarifs pour les éléments originaux et nouveaux
-                tarif_original_eos = TarificationService.get_tarif_eos(original_elements)
+                tarif_original_eos = TarificationService.get_tarif_eos(
+                    original_elements,
+                    client_id=original_donnee.client_id if original_donnee else None
+                )
                 tarif_original_enq = TarificationService.get_tarif_enqueteur(
                     original_elements, 
                     original_donnee.enqueteurId if original_donnee else None
                 )
                 
-                tarif_nouveau_eos = TarificationService.get_tarif_eos(elements_retrouves)
+                tarif_nouveau_eos = TarificationService.get_tarif_eos(
+                    elements_retrouves,
+                    client_id=original_donnee.client_id if original_donnee else None
+                )
                 tarif_nouveau_enq = TarificationService.get_tarif_enqueteur(
                     elements_retrouves, 
                     original_donnee.enqueteurId if original_donnee else None

@@ -116,6 +116,10 @@ class ImportEngine:
             
             for row_number, row in df.iterrows():
                 try:
+                    # Ignorer les lignes vides
+                    if row.isna().all():
+                        continue
+                    
                     record = {}
                     
                     for mapping in self.mappings:
@@ -212,6 +216,9 @@ class ImportEngine:
         """
         from utils import convert_date, convert_float
         
+        # Traitement spécial pour CLIENT_X
+        record = self._preprocess_client_x_record(record, client_id)
+        
         nouvelle_donnee = Donnee(
             client_id=client_id,
             fichier_id=fichier_id,
@@ -261,7 +268,14 @@ class ImportEngine:
             codesociete=record.get('codeSociete', '') or record.get('codesociete', ''),
             urgence=record.get('urgence', ''),
             commentaire=record.get('commentaire', ''),
-            date_butoir=date_butoir
+            date_butoir=date_butoir or convert_date(record.get('date_butoir', '')),
+            # Champs spécifiques PARTNER (ex-CLIENT_X)
+            tarif_lettre=record.get('tarif_lettre'),
+            recherche=record.get('recherche', '').strip() if record.get('recherche') else None,
+            instructions=record.get('instructions', '').strip() if record.get('instructions') else None,
+            date_jour=convert_date(record.get('date_jour', '')),
+            nom_complet=record.get('nom_complet'),
+            motif=record.get('motif')
         )
         
         # Traiter les contestations
@@ -322,5 +336,58 @@ class ImportEngine:
                 f"Contestation de l'enquête {contested_number}",
                 'Système d\'import'
             )
+    
+    def _preprocess_client_x_record(self, record, client_id):
+        """
+        Prétraite les enregistrements CLIENT_X avec logiques spécifiques
+        
+        Args:
+            record (dict): Enregistrement parsé
+            client_id (int): ID du client
+            
+        Returns:
+            dict: Enregistrement prétraité
+        """
+        from models.client import Client
+        
+        # Vérifier si c'est CLIENT_X
+        client = db.session.get(Client, client_id)
+        if not client or client.code != 'CLIENT_X':
+            return record
+        
+        # 1. Combiner JOUR/MOIS/ANNEE en dateNaissance
+        if 'dateNaissance' in record and record.get('dateNaissance'):
+            jour = record.get('dateNaissance', '').strip()
+            mois = record.get('dateNaissance_mois', '').strip()
+            annee = record.get('dateNaissance_annee', '').strip()
+            
+            if jour and mois and annee:
+                try:
+                    # Format: DD/MM/YYYY
+                    record['dateNaissance'] = f"{jour.zfill(2)}/{mois.zfill(2)}/{annee}"
+                except:
+                    logger.warning(f"Impossible de combiner la date de naissance: {jour}/{mois}/{annee}")
+        
+        # 2. Normaliser le code postal (zfill(5))
+        if 'codePostal' in record and record.get('codePostal'):
+            cp = str(record['codePostal']).strip()
+            if cp and cp.isdigit():
+                record['codePostal'] = cp.zfill(5)
+        
+        # 3. Nettoyer le téléphone (null si "0")
+        if 'telephonePersonnel' in record:
+            tel = str(record.get('telephonePersonnel', '')).strip()
+            if tel == '0' or tel == '':
+                record['telephonePersonnel'] = None
+        
+        # 4. Gérer l'urgence depuis PRENOM pour contestations
+        if record.get('typeDemande') == 'CON' and 'urgence' in record:
+            prenom_value = str(record.get('urgence', '')).strip().upper()
+            if prenom_value == 'URGENT':
+                record['urgence'] = '1'  # True
+            else:
+                record['urgence'] = '0'  # False
+        
+        return record
 
 

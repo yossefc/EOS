@@ -112,6 +112,14 @@ class Donnee(db.Model):
     # Champs pour le tracking d'export Word
     exported = db.Column(db.Boolean, default=False, nullable=False)  # Enquête exportée en Word
     exported_at = db.Column(db.DateTime, nullable=True)  # Date/heure du dernier export
+    
+    # Champs spécifiques PARTNER (ex-CLIENT_X)
+    tarif_lettre = db.Column(db.String(10), nullable=True)  # Code lettre du tarif (A, B, C, etc.)
+    recherche = db.Column(db.String(255), nullable=True)  # Éléments demandés (RECHERCHE)
+    instructions = db.Column(db.Text, nullable=True)  # Instructions spécifiques PARTNER
+    date_jour = db.Column(db.Date, nullable=True)  # Date du jour pour contestations
+    nom_complet = db.Column(db.String(100), nullable=True)  # Nom complet pour contestations
+    motif = db.Column(db.String(255), nullable=True)  # Motif pour contestations
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -179,6 +187,12 @@ class Donnee(db.Model):
             'statut_validation': self.statut_validation,
             'exported': self.exported,
             'exported_at': self.exported_at.strftime('%Y-%m-%d %H:%M:%S') if self.exported_at else None,
+            'tarif_lettre': self.tarif_lettre,
+            'recherche': self.recherche,
+            'instructions': self.instructions,
+            'date_jour': self.date_jour.strftime('%Y-%m-%d') if self.date_jour else None,
+            'nom_complet': self.nom_complet,
+            'motif': self.motif,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
