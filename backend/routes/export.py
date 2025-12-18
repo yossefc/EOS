@@ -1162,14 +1162,21 @@ def get_archive_file(archive_id):
 @export_bp.route('/api/exports/validated', methods=['GET'])
 def get_enquetes_validees_pour_export():
     """
-    Récupère toutes les enquêtes validées (statut='validee') prêtes pour l'export
+    Récupère toutes les enquêtes validées (statut='validee') prêtes pour l'export EOS uniquement
     Ces enquêtes ont été validées par l'admin mais pas encore archivées
+    FILTRE: Exclut les enquêtes PARTNER (client_id du client PARTNER)
     """
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 100, type=int)
         
+        # Récupérer l'ID du client PARTNER pour l'exclure
+        from models.client import Client
+        partner_client = Client.query.filter_by(code='PARTNER').first()
+        partner_id = partner_client.id if partner_client else None
+        
         # Récupérer les enquêtes avec statut_validation = 'validee'
+        # EXCLURE les enquêtes PARTNER
         enquetes_query = db.session.query(
             Donnee, DonneeEnqueteur
         ).join(
@@ -1177,9 +1184,13 @@ def get_enquetes_validees_pour_export():
         ).filter(
             Donnee.statut_validation == 'validee',
             DonneeEnqueteur.code_resultat.in_(['P', 'H', 'N', 'Z', 'I', 'Y'])
-        ).order_by(
-            Donnee.updated_at.desc()
         )
+        
+        # Exclure PARTNER si le client existe
+        if partner_id:
+            enquetes_query = enquetes_query.filter(Donnee.client_id != partner_id)
+        
+        enquetes_query = enquetes_query.order_by(Donnee.updated_at.desc())
         
         # Pagination
         enquetes_paginated = enquetes_query.paginate(page=page, per_page=per_page, error_out=False)
@@ -1499,12 +1510,24 @@ def create_export_batch():
 def get_export_batches():
     """
     Récupère la liste des exports batch créés
+    Paramètres optionnels:
+    - client_id: filtre par client (MULTI-CLIENT)
+    - page: numéro de page (défaut: 1)
+    - per_page: nombre d'éléments par page (défaut: 50)
     """
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
+        client_id = request.args.get('client_id', None, type=int)
         
-        batches_query = ExportBatch.query.order_by(ExportBatch.created_at.desc())
+        # Construire la requête avec filtre optionnel par client
+        batches_query = ExportBatch.query
+        
+        # MULTI-CLIENT: Filtrer par client_id si spécifié
+        if client_id is not None:
+            batches_query = batches_query.filter_by(client_id=client_id)
+        
+        batches_query = batches_query.order_by(ExportBatch.created_at.desc())
         batches_paginated = batches_query.paginate(page=page, per_page=per_page, error_out=False)
         
         result = [batch.to_dict() for batch in batches_paginated.items]

@@ -75,6 +75,7 @@ def register_blueprints(app):
     from routes.enqueteur import register_enqueteurs_routes
     from routes.vpn_template import register_vpn_template_routes
     from routes.export import register_export_routes
+    from routes.partner_export import partner_export_bp
     from routes.vpn_download import register_vpn_download_routes
     from routes.etat_civil import register_etat_civil_routes
     from routes.tarification import register_tarification_routes
@@ -89,6 +90,7 @@ def register_blueprints(app):
     register_enqueteurs_routes(app)
     register_vpn_template_routes(app)
     register_export_routes(app)
+    app.register_blueprint(partner_export_bp)
     register_vpn_download_routes(app)
     register_etat_civil_routes(app)
     register_tarification_routes(app)
@@ -840,6 +842,25 @@ def register_legacy_routes(app):
             # Mise à jour de la date de modification
             donnee_enqueteur.updated_at = datetime.now()
             
+            # Pour PARTNER (CLIENT_X), mettre à jour dateNaissance_maj et lieuNaissance_maj dans Donnee
+            if is_client_x:
+                if 'dateNaissance_maj' in data:
+                    if data.get('dateNaissance_maj'):
+                        try:
+                            donnee_parent.dateNaissance_maj = datetime.strptime(data.get('dateNaissance_maj'), '%Y-%m-%d').date()
+                            logger.info(f"Date de naissance (MAJ) mise à jour pour enquête {donnee_id}: {donnee_parent.dateNaissance_maj}")
+                        except ValueError as e:
+                            logger.error(f"Format de date invalide: {data.get('dateNaissance_maj')} - {e}")
+                            raise ValueError(f"Format de date invalide: {data.get('dateNaissance_maj')}. Attendu: YYYY-MM-DD")
+                    else:
+                        donnee_parent.dateNaissance_maj = None
+                
+                if 'lieuNaissance_maj' in data:
+                    donnee_parent.lieuNaissance_maj = data.get('lieuNaissance_maj')
+                    logger.info(f"Lieu de naissance (MAJ) mis à jour pour enquête {donnee_id}: {donnee_parent.lieuNaissance_maj}")
+                
+                donnee_parent.updated_at = datetime.now()
+            
             # Si le code résultat est positif, préparer la facturation
             # Pour CLIENT_X, ne pas exiger de validation stricte
             if donnee_enqueteur.code_resultat in ['P', 'H']:
@@ -1265,10 +1286,32 @@ def register_legacy_routes(app):
     def delete_file(file_id):
         """Supprime un fichier et ses données associées"""
         try:
+            from models.tarifs import EnqueteFacturation
+            
             fichier = Fichier.query.get_or_404(file_id)
-            Donnee.query.filter_by(fichier_id=file_id).delete()
+            
+            # Récupérer les IDs des donnees à supprimer
+            donnee_ids = [d.id for d in Donnee.query.filter_by(fichier_id=file_id).all()]
+            
+            if donnee_ids:
+                # 1. Supprimer d'abord les facturations liées
+                EnqueteFacturation.query.filter(
+                    EnqueteFacturation.donnee_id.in_(donnee_ids)
+                ).delete(synchronize_session=False)
+                
+                # 2. Supprimer les données enquêteur liées
+                DonneeEnqueteur.query.filter(
+                    DonneeEnqueteur.donnee_id.in_(donnee_ids)
+                ).delete(synchronize_session=False)
+                
+                # 3. Supprimer les données
+                Donnee.query.filter_by(fichier_id=file_id).delete()
+            
+            # 4. Supprimer le fichier
             db.session.delete(fichier)
             db.session.commit()
+            
+            logger.info(f"Fichier {file_id} supprimé avec {len(donnee_ids)} enquêtes associées")
             return jsonify({"message": "Fichier supprimé avec succès"}), 200
         except Exception as e:
             db.session.rollback()

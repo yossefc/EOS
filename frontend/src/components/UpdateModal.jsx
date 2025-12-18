@@ -195,10 +195,8 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     notes_personnelles: '',
     
     // PARTNER : Date et lieu de naissance retrouvés
-    dateNaissanceRetrouvee_jour: '',
-    dateNaissanceRetrouvee_mois: '',
-    dateNaissanceRetrouvee_annee: '',
-    lieuNaissanceRetrouvee: ''
+    dateNaissance_maj: '',
+    lieuNaissance_maj: ''
   });
 
   const [suggestions, setSuggestions] = useState({
@@ -673,8 +671,6 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           nom_corrige: formData.nom_corrige || null,
           prenom_corrige: formData.prenom_corrige || null,
           nom_patronymique_corrige: formData.nom_patronymique_corrige || null,
-          date_naissance_corrigee: formData.date_naissance_corrigee || null,
-          lieu_naissance_corrige: formData.lieu_naissance_corrige || null,
           code_postal_naissance_corrige: formData.code_postal_naissance_corrige || null,
           pays_naissance_corrige: formData.pays_naissance_corrige || null,
           type_divergence: formData.type_divergence || null,
@@ -687,8 +683,6 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           nom_corrige: formData.nom_corrige,
           prenom_corrige: formData.prenom_corrige,
           nom_patronymique_corrige: formData.nom_patronymique_corrige,
-          date_naissance_corrigee: formData.date_naissance_corrigee,
-          lieu_naissance_corrige: formData.lieu_naissance_corrige,
           code_postal_naissance_corrige: formData.code_postal_naissance_corrige,
           pays_naissance_corrige: formData.pays_naissance_corrige,
           type_divergence: formData.type_divergence
@@ -859,19 +853,11 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         
         // Pour les clients non-EOS (PARTNER), ajouter les champs spécifiques
         if (clientCode !== 'EOS') {
-          // Construire la date de naissance à partir des champs séparés
-          let dateNaissanceComplete = null;
-          if (formData.dateNaissanceRetrouvee_jour && formData.dateNaissanceRetrouvee_mois && formData.dateNaissanceRetrouvee_annee) {
-            const jour = String(formData.dateNaissanceRetrouvee_jour).padStart(2, '0');
-            const mois = String(formData.dateNaissanceRetrouvee_mois).padStart(2, '0');
-            const annee = formData.dateNaissanceRetrouvee_annee;
-            dateNaissanceComplete = `${annee}-${mois}-${jour}`;
-          }
-          
+          // Pour PARTNER : ajouter les champs de naissance mis à jour
           dataToSend = {
             ...dataToSend,
-            dateNaissance: dateNaissanceComplete,
-            lieuNaissance: formData.lieuNaissanceRetrouvee || null
+            dateNaissance_maj: formData.dateNaissance_maj || null,
+            lieuNaissance_maj: formData.lieuNaissance_maj || null
           };
           
           // Sauvegarder la nouvelle option si "Autre" a été utilisé
@@ -1507,17 +1493,13 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                         nom_corrige: correctedData.nom,
                         prenom_corrige: correctedData.prenom,
                         nom_patronymique_corrige: correctedData.nomPatronymique,
-                        date_naissance_corrigee: correctedData.dateNaissance,
-                        lieu_naissance_corrige: correctedData.lieuNaissance,
                         code_postal_naissance_corrige: correctedData.codePostalNaissance,
                         pays_naissance_corrige: correctedData.paysNaissance,
                         type_divergence: divergenceType,
                         // Ajouter une explication dans le mémo
                         memo5: `${prev.memo5 ? prev.memo5 + '\n\n' : ''}État civil corrigé (${divergenceType}):\n` +
                             `Nom: ${correctedData.nom || '-'}\n` +
-                            `Prénom: ${correctedData.prenom || '-'}\n` +
-                            `Date de naissance: ${correctedData.dateNaissance || '-'}\n` +
-                            `Lieu de naissance: ${correctedData.lieuNaissance || '-'}`
+                            `Prénom: ${correctedData.prenom || '-'}`
                     }));
                     }}
                 />
@@ -2320,71 +2302,119 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   </div>
                 )}
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">
-                      Mémo 1
-                    </label>
-                    <input
-                      type="text"
-                      name="memo1"
-                      value={formData.memo1}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border rounded"
-                      maxLength={64}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">
-                      Mémo 2
-                    </label>
-                    <input
-                      type="text"
-                      name="memo2"
-                      value={formData.memo2}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border rounded"
-                      maxLength={64}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">
-                      Mémo 3
-                    </label>
-                    <input
-                      type="text"
-                      name="memo3"
-                      value={formData.memo3}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border rounded"
-                      maxLength={64}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">
-                      Mémo 4
-                    </label>
-                    <input
-                      type="text"
-                      name="memo4"
-                      value={formData.memo4}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border rounded"
-                      maxLength={64}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">
-                      Commentaires détaillés
-                    </label>
-                    <textarea
-                      name="memo5"
-                      value={formData.memo5}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border rounded"
-                      rows="4"
-                      maxLength={1000}
-                    ></textarea>
-                  </div>
+                  {/* Pour PARTNER : uniquement memo1 et memo3 avec nouveaux libellés */}
+                  {isPartner ? (
+                    <>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Memo adresse / téléphone
+                        </label>
+                        <input
+                          type="text"
+                          name="memo1"
+                          value={formData.memo1}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          maxLength={64}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Memo employeur
+                        </label>
+                        <input
+                          type="text"
+                          name="memo3"
+                          value={formData.memo3}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          maxLength={64}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Proximité (commentaires détaillés)
+                        </label>
+                        <textarea
+                          name="memo5"
+                          value={formData.memo5}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          rows="4"
+                          maxLength={1000}
+                        ></textarea>
+                      </div>
+                    </>
+                  ) : (
+                    /* Pour EOS et autres : tous les mémos */
+                    <>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Mémo 1
+                        </label>
+                        <input
+                          type="text"
+                          name="memo1"
+                          value={formData.memo1}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          maxLength={64}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Mémo 2
+                        </label>
+                        <input
+                          type="text"
+                          name="memo2"
+                          value={formData.memo2}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          maxLength={64}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Mémo 3
+                        </label>
+                        <input
+                          type="text"
+                          name="memo3"
+                          value={formData.memo3}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          maxLength={64}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Mémo 4
+                        </label>
+                        <input
+                          type="text"
+                          name="memo4"
+                          value={formData.memo4}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          maxLength={64}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Commentaires détaillés
+                        </label>
+                        <textarea
+                          name="memo5"
+                          value={formData.memo5}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded"
+                          rows="4"
+                          maxLength={1000}
+                        ></textarea>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}

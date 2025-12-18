@@ -3,7 +3,7 @@ import { Archive, Download, FileText, Search, ChevronLeft, ChevronRight, Refresh
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
-const ArchivesViewer = () => {
+const ArchivesViewer = ({ clientId = null, title = 'Archives des Exports' }) => {
   const [exportBatches, setExportBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,15 +16,19 @@ const ArchivesViewer = () => {
 
   useEffect(() => {
     fetchExportBatches();
-  }, [currentPage]);
+  }, [currentPage, clientId]);
 
   const fetchExportBatches = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/exports/batches?page=${currentPage}&per_page=${perPage}`
-      );
+      // Construire l'URL avec le filtre client_id si fourni
+      let url = `${API_BASE_URL}/api/exports/batches?page=${currentPage}&per_page=${perPage}`;
+      if (clientId !== null) {
+        url += `&client_id=${clientId}`;
+      }
+      
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des exports archivés');
@@ -117,7 +121,7 @@ const ArchivesViewer = () => {
           <div className="flex items-center gap-3">
             <Archive className="w-8 h-8 text-purple-600" />
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Archives des Exports</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
               <p className="text-sm text-gray-600">
                 {totalBatches} export{totalBatches > 1 ? 's' : ''} archivé{totalBatches > 1 ? 's' : ''}
               </p>

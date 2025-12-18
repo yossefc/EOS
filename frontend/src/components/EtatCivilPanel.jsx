@@ -26,8 +26,6 @@ const EtatCivilPanel = ({ originalData, formData,  onValidate }) => {
     qualite: formData.qualite_corrigee || '',
     nom: formData.nom_corrige || '',
     prenom: formData.prenom_corrige || '',
-    dateNaissance: formData.date_naissance_corrigee || '',
-    lieuNaissance: formData.lieu_naissance_corrige || '',
     codePostalNaissance: formData.code_postal_naissance_corrige || '',
     paysNaissance: formData.pays_naissance_corrige || '',
     nomPatronymique: formData.nom_patronymique_corrige || ''
@@ -105,14 +103,6 @@ const EtatCivilPanel = ({ originalData, formData,  onValidate }) => {
               <p className="font-medium">{originalData.nomPatronymique || '-'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">Date de naissance</p>
-              <p className="font-medium">{originalData.dateNaissance || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Lieu de naissance</p>
-              <p className="font-medium">{originalData.lieuNaissance || '-'}</p>
-            </div>
-            <div>
               <p className="text-sm text-gray-500 mb-1">Code postal naissance</p>
               <p className="font-medium">{originalData.codePostalNaissance || '-'}</p>
             </div>
@@ -169,28 +159,6 @@ const EtatCivilPanel = ({ originalData, formData,  onValidate }) => {
                 onChange={handleChange}
                 className="w-full p-2 border rounded-md"
                 placeholder={originalData.nomPatronymique || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Date de naissance</label>
-              <input
-                type="text"
-                name="dateNaissance"
-                value={correctedData.dateNaissance}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.dateNaissance || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Lieu de naissance</label>
-              <input
-                type="text"
-                name="lieuNaissance"
-                value={correctedData.lieuNaissance}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.lieuNaissance || ""}
               />
             </div>
             <div>
@@ -263,8 +231,6 @@ const EtatCivilPanel = ({ originalData, formData,  onValidate }) => {
               qualite: '',
               nom: '',
               prenom: '',
-              dateNaissance: '',
-              lieuNaissance: '',
               codePostalNaissance: '',
               paysNaissance: '',
               nomPatronymique: ''

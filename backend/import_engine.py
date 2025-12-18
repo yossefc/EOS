@@ -339,7 +339,7 @@ class ImportEngine:
     
     def _preprocess_client_x_record(self, record, client_id):
         """
-        Prétraite les enregistrements CLIENT_X avec logiques spécifiques
+        Prétraite les enregistrements CLIENT_X/PARTNER avec logiques spécifiques
         
         Args:
             record (dict): Enregistrement parsé
@@ -350,23 +350,55 @@ class ImportEngine:
         """
         from models.client import Client
         
-        # Vérifier si c'est CLIENT_X
+        # Vérifier si c'est CLIENT_X ou PARTNER
         client = db.session.get(Client, client_id)
-        if not client or client.code != 'CLIENT_X':
+        if not client or client.code not in ['CLIENT_X', 'PARTNER']:
             return record
         
         # 1. Combiner JOUR/MOIS/ANNEE en dateNaissance
-        if 'dateNaissance' in record and record.get('dateNaissance'):
-            jour = record.get('dateNaissance', '').strip()
-            mois = record.get('dateNaissance_mois', '').strip()
-            annee = record.get('dateNaissance_annee', '').strip()
-            
-            if jour and mois and annee:
-                try:
-                    # Format: DD/MM/YYYY
-                    record['dateNaissance'] = f"{jour.zfill(2)}/{mois.zfill(2)}/{annee}"
-                except:
-                    logger.warning(f"Impossible de combiner la date de naissance: {jour}/{mois}/{annee}")
+        # Les 3 champs peuvent être séparés dans l'import Excel PARTNER
+        jour_raw = record.get('dateNaissance', '')
+        mois_raw = record.get('dateNaissance_mois', '')
+        annee_raw = record.get('dateNaissance_annee', '')
+        
+        # Nettoyer et convertir (gérer float pandas: 27.0 -> "27")
+        def clean_date_part(value):
+            """Convertit valeur Excel (float/str) en string propre"""
+            if value is None or str(value).strip() in ('', 'nan', 'NaN', 'None'):
+                return None
+            try:
+                # Si c'est un float (ex: 27.0), convertir en int puis string
+                return str(int(float(value)))
+            except (ValueError, TypeError):
+                return str(value).strip()
+        
+        jour = clean_date_part(jour_raw)
+        mois = clean_date_part(mois_raw)
+        annee = clean_date_part(annee_raw)
+        
+        logger.info(f"Date naissance PARTNER - JOUR:{jour} MOIS:{mois} ANNEE:{annee}")
+        
+        if jour and mois and annee:
+            try:
+                # Valider les valeurs
+                j = int(jour)
+                m = int(mois)
+                a = int(annee)
+                if 1 <= j <= 31 and 1 <= m <= 12 and 1900 <= a <= 2100:
+                    # Format: DD/MM/YYYY pour convert_date()
+                    record['dateNaissance'] = f"{str(j).zfill(2)}/{str(m).zfill(2)}/{a}"
+                    logger.info(f"✅ Date de naissance combinée: {record['dateNaissance']}")
+                else:
+                    logger.warning(f"⚠️ Date invalide ignorée: {j}/{m}/{a}")
+                    record['dateNaissance'] = None
+            except Exception as e:
+                logger.warning(f"⚠️ Erreur combinaison date: {jour}/{mois}/{annee} - {e}")
+                record['dateNaissance'] = None
+        else:
+            # Si l'un des 3 manque, laisser NULL
+            record['dateNaissance'] = None
+            if jour or mois or annee:
+                logger.warning(f"⚠️ Date incomplète (JOUR:{jour}, MOIS:{mois}, ANNEE:{annee})")
         
         # 2. Normaliser le code postal (zfill(5))
         if 'codePostal' in record and record.get('codePostal'):

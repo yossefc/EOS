@@ -4,7 +4,7 @@ import axios from 'axios';
 import PropTypes from 'prop-types';
 
 /**
- * Onglet spécifique PARTNER pour la saisie de la date et du lieu de naissance retrouvés
+ * Onglet spécifique PARTNER pour la saisie de la date et du lieu de naissance mis à jour
  */
 const PartnerNaissanceTab = ({ formData, handleInputChange }) => {
   const [suggestions, setSuggestions] = useState([]);
@@ -46,7 +46,7 @@ const PartnerNaissanceTab = ({ formData, handleInputChange }) => {
     // Créer un événement synthétique pour handleInputChange
     const syntheticEvent = {
       target: {
-        name: 'lieuNaissanceRetrouvee',
+        name: 'lieuNaissance_maj',
         value: ville.ville
       }
     };
@@ -58,80 +58,42 @@ const PartnerNaissanceTab = ({ formData, handleInputChange }) => {
     <div className="space-y-6">
       <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
         <p className="text-sm text-blue-800">
-          <strong>Pour PARTNER uniquement :</strong> Saisissez ici la date et le lieu de naissance retrouvés lors de votre enquête.
+          <strong>Pour PARTNER uniquement :</strong> Saisissez ici la date et le lieu de naissance mis à jour suite à votre enquête.
         </p>
       </div>
 
-      {/* Date de naissance retrouvée */}
+      {/* Date de naissance mise à jour */}
       <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-5 h-5 text-blue-600" />
           <h3 className="text-lg font-semibold text-gray-900">
-            Date de naissance retrouvée
+            Date de naissance (mise à jour)
           </h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Jour
-            </label>
-            <input
-              type="number"
-              name="dateNaissanceRetrouvee_jour"
-              min="1"
-              max="31"
-              value={formData.dateNaissanceRetrouvee_jour || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="JJ"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mois
-            </label>
-            <input
-              type="number"
-              name="dateNaissanceRetrouvee_mois"
-              min="1"
-              max="12"
-              value={formData.dateNaissanceRetrouvee_mois || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="MM"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Année
-            </label>
-            <input
-              type="number"
-              name="dateNaissanceRetrouvee_annee"
-              min="1900"
-              max={new Date().getFullYear()}
-              value={formData.dateNaissanceRetrouvee_annee || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="AAAA"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Choisir une date
+          </label>
+          <input
+            type="date"
+            name="dateNaissance_maj"
+            value={formData.dateNaissance_maj || ''}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            Sélectionnez la date de naissance telle que retrouvée pendant l&apos;enquête
+          </p>
         </div>
-        
-        <p className="mt-2 text-xs text-gray-500">
-          Saisissez la date de naissance telle que retrouvée pendant l'enquête
-        </p>
       </div>
 
-      {/* Lieu de naissance retrouvé */}
+      {/* Lieu de naissance mis à jour */}
       <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <MapPin className="w-5 h-5 text-blue-600" />
           <h3 className="text-lg font-semibold text-gray-900">
-            Lieu de naissance retrouvé
+            Lieu de naissance (mise à jour)
           </h3>
         </div>
         
@@ -142,8 +104,8 @@ const PartnerNaissanceTab = ({ formData, handleInputChange }) => {
           <div className="relative">
             <input
               type="text"
-              name="lieuNaissanceRetrouvee"
-              value={formData.lieuNaissanceRetrouvee || ''}
+              name="lieuNaissance_maj"
+              value={formData.lieuNaissance_maj || ''}
               onChange={handleLieuNaissanceChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Commencez à taper le nom de la ville..."
@@ -174,7 +136,7 @@ const PartnerNaissanceTab = ({ formData, handleInputChange }) => {
           )}
           
           <p className="mt-2 text-xs text-gray-500">
-            L'autocomplétion vous aide à trouver la ville exacte
+            L&apos;autocomplétion vous aide à trouver la ville exacte
           </p>
         </div>
       </div>

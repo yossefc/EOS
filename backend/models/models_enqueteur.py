@@ -23,8 +23,6 @@ class DonneeEnqueteur(db.Model):
     nom_corrige = db.Column(db.String(30))
     prenom_corrige = db.Column(db.String(20))
     nom_patronymique_corrige = db.Column(db.String(30))
-    date_naissance_corrigee = db.Column(db.Date)
-    lieu_naissance_corrige = db.Column(db.String(50))
     code_postal_naissance_corrige = db.Column(db.String(10))
     pays_naissance_corrige = db.Column(db.String(32))
     type_divergence = db.Column(db.String(20))  # Type de divergence d'état civil
@@ -130,8 +128,6 @@ class DonneeEnqueteur(db.Model):
             'nom_corrige': self.nom_corrige,
             'prenom_corrige': self.prenom_corrige,
             'nom_patronymique_corrige': self.nom_patronymique_corrige,
-            'date_naissance_corrigee': self.date_naissance_corrigee.strftime('%d/%m/%Y') if self.date_naissance_corrigee else None,
-            'lieu_naissance_corrige': self.lieu_naissance_corrige,
             'code_postal_naissance_corrige': self.code_postal_naissance_corrige,
             'pays_naissance_corrige': self.pays_naissance_corrige,
             'type_divergence': self.type_divergence,
