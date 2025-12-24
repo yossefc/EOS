@@ -91,6 +91,9 @@ class EnqueteFacturation(db.Model):
     donnee_id = db.Column(db.Integer, db.ForeignKey('donnees.id'), nullable=False)
     donnee_enqueteur_id = db.Column(db.Integer, db.ForeignKey('donnees_enqueteur.id'), nullable=False)
     
+    # ✅ AJOUT: Client pour traçabilité et filtrage
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
+    
     # Montants EOS France (facturation client)
     tarif_eos_code = db.Column(db.String(10))
     tarif_eos_montant = db.Column(db.Numeric(8, 2))
@@ -102,8 +105,7 @@ class EnqueteFacturation(db.Model):
     resultat_enqueteur_montant = db.Column(db.Numeric(8, 2))  # Montant final après ajustements
     
     # Statut de paiement enquêteur
-# Dans la classe EnqueteFacturation, assurez-vous que cette ligne définit explicitement False comme valeur par défaut
-    paye = db.Column(db.Boolean, default=False, nullable=False)    
+    paye = db.Column(db.Boolean, default=False, nullable=False)
     date_paiement = db.Column(db.Date)
     reference_paiement = db.Column(db.String(50))
     
@@ -114,12 +116,19 @@ class EnqueteFacturation(db.Model):
     # Relations
     donnee = db.relationship('Donnee', backref='facturations', lazy=True)
     donnee_enqueteur = db.relationship('DonneeEnqueteur', backref='facturations', lazy=True)
+    client = db.relationship('Client', backref='facturations', lazy=True)
+    
+    # ✅ AJOUT: Contrainte unique pour éviter doublons
+    __table_args__ = (
+        db.UniqueConstraint('donnee_id', 'donnee_enqueteur_id', name='uq_enquete_facturation_donnee'),
+    )
     
     def to_dict(self):
         return {
             'id': self.id,
             'donnee_id': self.donnee_id,
             'donnee_enqueteur_id': self.donnee_enqueteur_id,
+            'client_id': self.client_id,  # ✅ AJOUT
             'tarif_eos_code': self.tarif_eos_code,
             'tarif_eos_montant': float(self.tarif_eos_montant) if self.tarif_eos_montant else 0,
             'resultat_eos_montant': float(self.resultat_eos_montant) if self.resultat_eos_montant else 0,

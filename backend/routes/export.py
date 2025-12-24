@@ -579,7 +579,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.bold = True
-                run.font.size = Pt(9)
+                run.font.size = Pt(11)
     
     # Fonction pour ajouter une ligne
     def add_row(label, value):
@@ -590,18 +590,15 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
             for paragraph in row[0].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(8)
+                    run.font.size = Pt(10)
             for paragraph in row[1].paragraphs:
                 for run in paragraph.runs:
-                    run.font.size = Pt(8)
+                    run.font.size = Pt(10)
     
     # TOUTES LES DONNÉES DU FICHIER (Format compact pour 1 page)
     
     # 1. Identification complète
     add_row('N° Dossier', donnee.numeroDossier)
-    add_row('Référence', donnee.referenceDossier)
-    add_row('N° Interlocuteur', donnee.numeroInterlocuteur)
-    add_row('GUID', donnee.guidInterlocuteur)
     add_row('Type Demande', donnee.typeDemande)
     add_row('N° Demande', donnee.numeroDemande)
     add_row('N° Demande Contestée', donnee.numeroDemandeContestee)
@@ -641,11 +638,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     # 5. Banque initiale complète
     add_row('Banque', donnee.banqueDomiciliation)
     add_row('Libellé Guichet', donnee.libelleGuichet)
-    add_row('Titulaire Compte', donnee.titulaireCompte)
-    add_row('Code Banque', donnee.codeBanque)
-    add_row('Code Guichet', donnee.codeGuichet)
-    add_row('N° Compte', donnee.numeroCompte)
-    add_row('Clé RIB', donnee.ribCompte)
+
     
     # 6. Éléments demandés
     add_row('Éléments Demandés', donnee.elementDemandes)
@@ -653,7 +646,6 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     add_row('Éléments Contestés', donnee.elementContestes)
     add_row('Code Motif', donnee.codeMotif)
     add_row('Motif Contestation', donnee.motifDeContestation)
-    add_row('Cumul Montants', f"{donnee.cumulMontantsPrecedents:.2f} €" if donnee.cumulMontantsPrecedents else None)
     
     # 7. Commentaire complet
     if donnee.commentaire:

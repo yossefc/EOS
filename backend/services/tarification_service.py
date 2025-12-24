@@ -182,11 +182,16 @@ class TarificationService:
     @staticmethod
     def _get_or_create_facturation(donnee, donnee_enqueteur):
         """Récupère ou crée une facturation pour l'enquête"""
-        facturation = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+        facturation = EnqueteFacturation.query.filter_by(
+            donnee_enqueteur_id=donnee_enqueteur.id
+        ).first()
+        
         if not facturation:
+            # ✅ Inclure client_id pour traçabilité
             facturation = EnqueteFacturation(
                 donnee_id=donnee.id,
                 donnee_enqueteur_id=donnee_enqueteur.id,
+                client_id=donnee.client_id,  # ✅ AJOUT
                 tarif_eos_code="",
                 tarif_eos_montant=0.0,
                 resultat_eos_montant=0.0,
@@ -197,7 +202,7 @@ class TarificationService:
             )
             db.session.add(facturation)
             db.session.commit()
-            logger.info(f"Facturation créée pour l'enquête {donnee.id}")
+            logger.info(f"Facturation créée pour l'enquête {donnee.id} (client={donnee.client_id})")
         return facturation
 
     @staticmethod
@@ -305,9 +310,14 @@ class TarificationService:
                     
                     if not existing_neg:
                         logger.info(f"Création d'une facturation négative pour l'enquête originale {donnee.enquete_originale_id}")
+                        
+                        # ✅ Récupérer client_id de l'enquête originale
+                        enquete_originale = db.session.get(Donnee, donnee.enquete_originale_id)
+                        
                         neg_facturation = EnqueteFacturation(
                             donnee_id=donnee.enquete_originale_id,
                             donnee_enqueteur_id=original_enquete.id,
+                            client_id=enquete_originale.client_id if enquete_originale else donnee.client_id,  # ✅ AJOUT
                             tarif_eos_code=original_facturation.tarif_eos_code,
                             tarif_eos_montant=original_facturation.tarif_eos_montant,
                             resultat_eos_montant=-previous_montant_eos,
@@ -687,11 +697,17 @@ class TarificationService:
             }
     
     @staticmethod
-    def get_enqueteur_earnings(enqueteur_id, month=None, year=None):
+    def get_enqueteur_earnings(enqueteur_id, month=None, year=None, client_id=None):
         """
         Calcule les gains d'un enquêteur pour un mois et une année donnés
         Si month et year ne sont pas fournis, retourne les gains totaux
         Inclut à la fois les facturations positives et négatives, ainsi que les contestations
+        
+        Args:
+            enqueteur_id: ID de l'enquêteur
+            month: Mois (1-12) optionnel
+            year: Année optionnelle
+            client_id: ID du client pour filtrage optionnel (✅ AJOUT)
         """
         try:
             # Utiliser SQL brut pour plus de contrôle sur la requête
@@ -716,6 +732,12 @@ class TarificationService:
             
             # Préparer la requête avec les paramètres
             params = {"enqueteur_id": enqueteur_id}
+            
+            # ✅ AJOUT: Filtre client si fourni
+            if client_id:
+                sql_query += " AND ef.client_id = :client_id"
+                params["client_id"] = client_id
+                logger.info(f"Gains enquêteur {enqueteur_id} filtrés pour client_id={client_id}")
             
             # Ajouter les filtres de date si nécessaire
             if month and year:
@@ -763,7 +785,8 @@ class TarificationService:
                 'total_gagne': total_gagne,
                 'total_paye': total_paye,
                 'total_a_payer': total_a_payer,
-                'nombre_enquetes': len(facturations)
+                'nombre_enquetes': len(facturations),
+                'client_id': client_id  # ✅ AJOUT: Indiquer le filtre appliqué
             }
             
             return details

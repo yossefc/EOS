@@ -482,10 +482,11 @@ def marquer_comme_paye():
 
 @tarification_bp.route('/api/facturation/enqueteur/<int:enqueteur_id>', methods=['GET'])
 def get_enqueteur_earnings(enqueteur_id):
-    """Récupère les gains d'un enquêteur"""
+    """Récupère les gains d'un enquêteur (optionnellement filtrés par client)"""
     try:
         month = request.args.get('month', type=int)
         year = request.args.get('year', type=int)
+        client_id = request.args.get('client_id', type=int)  # ✅ AJOUT: Filtre optionnel
         
         # Si un seul des deux est spécifié, utiliser les deux
         if (month and not year) or (year and not month):
@@ -493,7 +494,8 @@ def get_enqueteur_earnings(enqueteur_id):
             month = month or now.month
             year = year or now.year
         
-        earnings = TarificationService.get_enqueteur_earnings(enqueteur_id, month, year)
+        # ✅ AJOUT: Passer client_id au service
+        earnings = TarificationService.get_enqueteur_earnings(enqueteur_id, month, year, client_id)
         
         if earnings:
             return jsonify({
@@ -539,40 +541,69 @@ def initialiser_tarifs():
     
 @tarification_bp.route('/api/tarification/stats/global', methods=['GET'])
 def get_global_stats():
-    """Récupère les statistiques financières globales"""
+    """Récupère les statistiques financières globales (optionnellement filtrées par client)"""
     try:
         from sqlalchemy import func
         
-        # Calcul du total facturé par EOS
-        total_eos = db.session.query(func.sum(EnqueteFacturation.resultat_eos_montant)).scalar() or 0
+        # ✅ AJOUT: Paramètre optionnel client_id pour filtrage
+        client_id = request.args.get('client_id', type=int)
+        
+        # Base query pour facturations
+        query_base = db.session.query(EnqueteFacturation)
+        
+        # ✅ AJOUT: Appliquer filtre client si fourni
+        if client_id:
+            query_base = query_base.filter(EnqueteFacturation.client_id == client_id)
+            logger.info(f"Stats globales filtrées pour client_id={client_id}")
+        else:
+            logger.info("Stats globales pour TOUS les clients")
+        
+        # Calcul du total facturé
+        total_eos = query_base.with_entities(
+            func.sum(EnqueteFacturation.resultat_eos_montant)
+        ).scalar() or 0
         
         # Calcul du total à payer aux enquêteurs
-        total_enqueteurs = db.session.query(func.sum(EnqueteFacturation.resultat_enqueteur_montant)).scalar() or 0
+        total_enqueteurs = query_base.with_entities(
+            func.sum(EnqueteFacturation.resultat_enqueteur_montant)
+        ).scalar() or 0
+        
+        # Base query pour enquêtes traitées
+        query_enquetes = db.session.query(DonneeEnqueteur)
+        if client_id:
+            # ✅ AJOUT: Filtrer par client via JOIN avec donnees
+            query_enquetes = query_enquetes.join(
+                Donnee, DonneeEnqueteur.donnee_id == Donnee.id
+            ).filter(Donnee.client_id == client_id)
         
         # Nombre d'enquêtes traitées
-        enquetes_traitees = db.session.query(func.count(DonneeEnqueteur.id)).filter(
+        enquetes_traitees = query_enquetes.filter(
             DonneeEnqueteur.code_resultat.isnot(None)
-        ).scalar() or 0
+        ).count() or 0
         
         # Nombre d'enquêtes positives
-        enquetes_positives = db.session.query(func.count(DonneeEnqueteur.id)).filter(
+        enquetes_positives = query_enquetes.filter(
             DonneeEnqueteur.code_resultat.in_(['P', 'H'])
-        ).scalar() or 0
+        ).count() or 0
         
         # Calcul de la marge
         marge = float(total_eos) - float(total_enqueteurs)
         pourcentage_marge = (marge / float(total_eos) * 100) if float(total_eos) > 0 else 0
         
         # Dernière date de paiement
-        derniere_date = db.session.query(
+        query_paiement = db.session.query(
             func.max(EnqueteFacturation.date_paiement)
-        ).filter(
-            EnqueteFacturation.paye == True
-        ).scalar()
+        ).filter(EnqueteFacturation.paye == True)
+        
+        if client_id:
+            query_paiement = query_paiement.filter(EnqueteFacturation.client_id == client_id)
+        
+        derniere_date = query_paiement.scalar()
         
         return jsonify({
             'success': True,
             'data': {
+                'client_id': client_id,  # ✅ AJOUT: Indiquer le filtre appliqué
                 'total_eos': float(total_eos),
                 'total_enqueteurs': float(total_enqueteurs),
                 'marge': marge,

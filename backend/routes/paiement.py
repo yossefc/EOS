@@ -379,10 +379,16 @@ def generer_pdf_paiement(enqueteur_id):
 
 @paiement_bp.route('/api/paiement/stats/periodes', methods=['GET'])
 def get_stats_periodes():
-    """Récupère les statistiques de paiement par période"""
+    """Récupère les statistiques de paiement par période (optionnellement filtrées par client)"""
     try:
-        # Nombre de mois à retourner (par défaut 12)
+        # Paramètres
         nb_mois = request.args.get('mois', 12, type=int)
+        client_id = request.args.get('client_id', type=int)  # ✅ AJOUT: Filtre optionnel
+        
+        if client_id:
+            logger.info(f"Stats périodes filtrées pour client_id={client_id}")
+        else:
+            logger.info("Stats périodes pour TOUS les clients")
         
         # Date de début (mois actuel - nb_mois)
         now = datetime.now()
@@ -415,29 +421,52 @@ def get_stats_periodes():
         stats = []
         
         for periode in periodes:
-            # Stats des enquêtes terminées (positives ou négatives)
-            nb_enquetes = db.session.query(func.count(DonneeEnqueteur.id)).filter(
+            # Base query pour enquêtes traitées
+            query_enquetes = db.session.query(func.count(DonneeEnqueteur.id))
+            
+            # ✅ AJOUT: Filtre client si fourni
+            if client_id:
+                query_enquetes = query_enquetes.join(
+                    Donnee, DonneeEnqueteur.donnee_id == Donnee.id
+                ).filter(Donnee.client_id == client_id)
+            
+            nb_enquetes = query_enquetes.filter(
                 DonneeEnqueteur.code_resultat.isnot(None),
                 DonneeEnqueteur.updated_at >= periode['debut'],
                 DonneeEnqueteur.updated_at <= periode['fin']
             ).scalar() or 0
             
-            # Stats des facturations
-            montant_facture = db.session.query(func.sum(EnqueteFacturation.resultat_eos_montant)).filter(
+            # Base query pour facturations
+            query_fact = db.session.query(EnqueteFacturation).filter(
                 EnqueteFacturation.created_at >= periode['debut'],
                 EnqueteFacturation.created_at <= periode['fin']
+            )
+            
+            # ✅ AJOUT: Filtre client si fourni
+            if client_id:
+                query_fact = query_fact.filter(EnqueteFacturation.client_id == client_id)
+            
+            montant_facture = query_fact.with_entities(
+                func.sum(EnqueteFacturation.resultat_eos_montant)
             ).scalar() or 0
             
-            montant_enqueteurs = db.session.query(func.sum(EnqueteFacturation.resultat_enqueteur_montant)).filter(
-                EnqueteFacturation.created_at >= periode['debut'],
-                EnqueteFacturation.created_at <= periode['fin']
+            montant_enqueteurs = query_fact.with_entities(
+                func.sum(EnqueteFacturation.resultat_enqueteur_montant)
             ).scalar() or 0
             
             # Stats des paiements
-            montant_paye = db.session.query(func.sum(EnqueteFacturation.resultat_enqueteur_montant)).filter(
+            query_paiement = db.session.query(EnqueteFacturation).filter(
                 EnqueteFacturation.paye == True,
                 EnqueteFacturation.date_paiement >= periode['debut'],
                 EnqueteFacturation.date_paiement <= periode['fin']
+            )
+            
+            # ✅ AJOUT: Filtre client si fourni
+            if client_id:
+                query_paiement = query_paiement.filter(EnqueteFacturation.client_id == client_id)
+            
+            montant_paye = query_paiement.with_entities(
+                func.sum(EnqueteFacturation.resultat_enqueteur_montant)
             ).scalar() or 0
             
             stats.append({
@@ -454,7 +483,8 @@ def get_stats_periodes():
         
         return jsonify({
             'success': True,
-            'data': stats
+            'data': stats,
+            'client_id': client_id  # ✅ AJOUT: Indiquer le filtre appliqué
         })
         
     except Exception as e:
