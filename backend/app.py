@@ -76,6 +76,7 @@ def register_blueprints(app):
     from routes.vpn_template import register_vpn_template_routes
     from routes.export import register_export_routes
     from routes.partner_export import partner_export_bp
+    from routes.partner_admin import partner_admin_bp
     from routes.vpn_download import register_vpn_download_routes
     from routes.etat_civil import register_etat_civil_routes
     from routes.tarification import register_tarification_routes
@@ -91,6 +92,7 @@ def register_blueprints(app):
     register_vpn_template_routes(app)
     register_export_routes(app)
     app.register_blueprint(partner_export_bp)
+    app.register_blueprint(partner_admin_bp)
     register_vpn_download_routes(app)
     register_etat_civil_routes(app)
     register_tarification_routes(app)
@@ -552,15 +554,38 @@ def register_legacy_routes(app):
 
     @app.route('/api/donnees-enqueteur/<int:donnee_id>', methods=['GET'])
     def get_donnee_enqueteur(donnee_id):
-        """Récupère les données enquêteur pour une donnée"""
+        """Récupère les données enquêteur pour une donnée (crée automatiquement si inexistant pour PARTNER)"""
         try:
             donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee_id).first()
             
             if not donnee_enqueteur:
-                return jsonify({
-                    'success': False, 
-                    'error': 'Aucune donnée enquêteur trouvée pour cet ID'
-                }), 404
+                # Pour PARTNER : créer automatiquement un DonneeEnqueteur vide
+                donnee = db.session.get(Donnee, donnee_id)
+                if donnee:
+                    from models.client import Client
+                    client = db.session.get(Client, donnee.client_id)
+                    is_partner = client and client.code == 'PARTNER'
+                    
+                    if is_partner:
+                        # Créer un DonneeEnqueteur vide pour PARTNER
+                        donnee_enqueteur = DonneeEnqueteur(
+                            donnee_id=donnee_id,
+                            client_id=donnee.client_id
+                        )
+                        db.session.add(donnee_enqueteur)
+                        db.session.commit()
+                        logger.info(f"DonneeEnqueteur créé automatiquement pour dossier PARTNER {donnee_id}")
+                    else:
+                        # Pour EOS : retourner 404 (comportement normal)
+                        return jsonify({
+                            'success': False, 
+                            'error': 'Aucune donnée enquêteur trouvée pour cet ID'
+                        }), 404
+                else:
+                    return jsonify({
+                        'success': False, 
+                        'error': 'Dossier introuvable'
+                    }), 404
                 
             return jsonify({
                 'success': True, 
@@ -569,6 +594,7 @@ def register_legacy_routes(app):
             
         except Exception as e:
             logger.error(f"Erreur lors de la récupération des données enquêteur: {str(e)}")
+            db.session.rollback()
             return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/donnees/non-exportees/count', methods=['GET'])
@@ -892,6 +918,16 @@ def register_legacy_routes(app):
             
             # UN SEUL COMMIT à la fin pour éviter les conflits
             db.session.commit()
+            
+            # Pour PARTNER : Recalculer automatiquement les demandes après la sauvegarde
+            if is_client_x:
+                try:
+                    from services.partner_request_calculator import PartnerRequestCalculator
+                    result = PartnerRequestCalculator.recalculate_all_requests(donnee_id)
+                    logger.info(f"Recalcul automatique PARTNER pour donnee_id={donnee_id}: {result['pos']} POS, {result['neg']} NEG")
+                except Exception as e:
+                    logger.error(f"Erreur lors du recalcul automatique PARTNER: {str(e)}")
+                    # Ne pas bloquer l'enregistrement si le recalcul échoue
                                     
             return jsonify({
                 'success': True, 
@@ -1125,6 +1161,20 @@ def register_legacy_routes(app):
                                     client_id=client.id
                                 )
                                 db.session.add(donnee_enqueteur)
+                        
+                        # Créer PartnerCaseRequest si PARTNER et demandes détectées
+                        if hasattr(nouvelle_donnee, '_pending_requests') and nouvelle_donnee._pending_requests:
+                            from models.partner_models import PartnerCaseRequest
+                            for request_code in nouvelle_donnee._pending_requests:
+                                case_request = PartnerCaseRequest(
+                                    donnee_id=nouvelle_donnee.id,
+                                    request_code=request_code,
+                                    requested=True,
+                                    found=False,
+                                    status='NEG'  # Par défaut NEG, sera recalculé lors de l'update
+                                )
+                                db.session.add(case_request)
+                            logger.info(f"✓ {len(nouvelle_donnee._pending_requests)} demandes créées pour {nouvelle_donnee.numeroDossier}")
                         
                         created_count += 1
                         

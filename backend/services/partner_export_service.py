@@ -27,6 +27,8 @@ from models.models import Donnee
 from models.models_enqueteur import DonneeEnqueteur
 from models.export_batch import ExportBatch
 from models.tarifs import TarifClient
+from models.partner_models import PartnerCaseRequest
+from services.partner_tarif_resolver import PartnerTarifResolver
 
 logger = logging.getLogger(__name__)
 
@@ -403,6 +405,36 @@ class PartnerExportService:
                 # Facturation
                 if donnee_enqueteur.montant_facture:
                     add_row("Montant facture", f"{donnee_enqueteur.montant_facture} €")
+            
+            # ═══════════════════════════════════════════════════════════
+            # SECTION 3 : DEMANDES (statuts POS/NEG)
+            # ═══════════════════════════════════════════════════════════
+            requests = PartnerCaseRequest.query.filter_by(donnee_id=donnee.id).all()
+            if requests:
+                add_row("═══ DEMANDES ═══", "", span=True)
+                
+                REQUEST_LABELS = {
+                    'ADDRESS': ('🏠', 'Adresse'),
+                    'PHONE': ('📞', 'Téléphone'),
+                    'EMPLOYER': ('🏢', 'Employeur'),
+                    'BANK': ('🏦', 'Banque'),
+                    'BIRTH': ('🎂', 'Naissance')
+                }
+                
+                for req in requests:
+                    icon, label = REQUEST_LABELS.get(req.request_code, ('❓', req.request_code))
+                    status_text = "✓ TROUVÉ (POS)" if req.status == 'POS' else "✗ NON TROUVÉ (NEG)"
+                    
+                    # Label de la demande
+                    demand_label = f"{icon} {label}"
+                    
+                    # Valeur : statut + memo si NEG
+                    if req.status == 'NEG' and req.memo:
+                        demand_value = f"{status_text} - {req.memo[:80]}"
+                    else:
+                        demand_value = status_text
+                    
+                    add_row(demand_label, demand_value, bold_label=False)
         
         # Sauvegarder dans un BytesIO
         output = BytesIO()
@@ -530,8 +562,17 @@ class PartnerExportService:
                 row_data.append(donnee_enqueteur.telephone_chez_employeur or '')
                 row_data.append('')  # Portable 1 (n'existe pas)
                 row_data.append('')  # Portable 2 (n'existe pas)
-                # Calculer le montant depuis le tarif_lettre de la donnée
-                montant = self._get_montant_from_tarif(donnee.tarif_lettre)
+                # Calculer le montant avec le tarif combiné (lettre + demandes)
+                try:
+                    resolver = PartnerTarifResolver()
+                    montant = resolver.resolve_tarif(donnee, self.client_id)
+                    if montant is None:
+                        # Fallback : utiliser le tarif simple si pas de règle combinée
+                        montant = self._get_montant_from_tarif(donnee.tarif_lettre)
+                        logger.warning(f"Pas de tarif combiné pour dossier {donnee.id}, utilisation tarif simple: {montant}€")
+                except Exception as e:
+                    logger.error(f"Erreur calcul tarif combiné pour dossier {donnee.id}: {e}")
+                    montant = self._get_montant_from_tarif(donnee.tarif_lettre)
                 row_data.append(montant)
                 row_data.append(donnee_enqueteur.memo1 or '')
                 

@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import config from '../config';
 
-// Lazy load TarifsPartner
-const TarifsPartner = lazy(() => import('./TarifsPartner'));
+// Lazy load PartnerTarifsAdmin (remplace TarifsPartner)
+const PartnerTarifsAdmin = lazy(() => import('./PartnerTarifsAdmin'));
 
 
 const API_URL = config.API_URL;
@@ -372,13 +372,14 @@ useEffect(() => {
           </button>
           <button
             onClick={() => setActiveTab('tarifsPartner')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+            className={`py-4 px-4 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
               activeTab === 'tarifsPartner'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-blue-500 text-blue-600 bg-blue-50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
-            Tarifs PARTNER
+            <DollarSign className="w-4 h-4" />
+            Tarifs combinés PARTNER
           </button>
           <button
             onClick={() => setActiveTab('rapports')}
@@ -756,7 +757,7 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Tarifs PARTNER */}
+        {/* Tarifs PARTNER (tarifs combinés) */}
         {activeTab === 'tarifsPartner' && (
           <Suspense fallback={
             <div className="flex justify-center items-center p-8">
@@ -764,7 +765,7 @@ useEffect(() => {
               <span className="ml-2">Chargement...</span>
             </div>
           }>
-            <TarifsPartner />
+            <PartnerTarifsAdmin />
           </Suspense>
         )}
 

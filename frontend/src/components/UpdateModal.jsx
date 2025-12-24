@@ -1,4 +1,4 @@
-import  { useState, useEffect, useCallback } from 'react';
+import  { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
   User, MapPin, Calendar, Info,
@@ -8,8 +8,9 @@ import {
 import { COUNTRIES } from './countryData';
 import config from '../config';
 import EtatCivilPanel from './EtatCivilPanel';
-import PartnerHeader, { PartnerInstructions } from './PartnerHeader';
+import PartnerInstructions from './PartnerHeader';
 import PartnerNaissanceTab from './PartnerNaissanceTab';
+import PartnerDemandesHeader from './PartnerDemandesHeader';
 import PropTypes from 'prop-types';
 
 // Définition des PropTypes en dehors du composant
@@ -96,7 +97,7 @@ const getTabsForClient = (isPartner) => {
     { id: 'notes', label: 'Notes perso', icon: StickyNote }
   ];
   
-  // Ajouter l'onglet Naissance pour PARTNER
+  // Ajouter les onglets spécifiques PARTNER
   if (isPartner) {
     baseTabs.splice(2, 0, { id: 'naissance', label: 'Naissance', icon: Baby });
   }
@@ -217,6 +218,9 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
   const [showEtatCivilHelp, setShowEtatCivilHelp] = useState(false);
   const [enqueteurs, setEnqueteurs] = useState([]);
+  
+  // Ref pour rafraîchir les demandes PARTNER automatiquement
+  const demandesHeaderRef = useRef(null);
   
   // Charger les enquêteurs
   useEffect(() => {
@@ -445,7 +449,11 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
               memo5: enqueteurData.memo5 || '',
               
               // Notes personnelles
-              notes_personnelles: enqueteurData.notes_personnelles || ''
+              notes_personnelles: enqueteurData.notes_personnelles || '',
+              
+              // PARTNER : Date et lieu de naissance mis à jour
+              dateNaissance_maj: data.dateNaissance_maj || '',
+              lieuNaissance_maj: data.lieuNaissance_maj || ''
             });
             
             // Mettre à jour l'onglet de décès si nécessaire
@@ -852,7 +860,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         };
         
         // Pour les clients non-EOS (PARTNER), ajouter les champs spécifiques
-        if (clientCode !== 'EOS') {
+        if (isPartner) {
           // Pour PARTNER : ajouter les champs de naissance mis à jour
           dataToSend = {
             ...dataToSend,
@@ -908,6 +916,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         
         setSuccess("Données enregistrées avec succès - Enquête confirmée et prête pour validation par l'administrateur");
         setDonneesSauvegardees(response.data.data);
+        
+        // Pour PARTNER : Rafraîchir automatiquement les demandes après l'enregistrement
+        if (isPartner && demandesHeaderRef.current) {
+          setTimeout(() => {
+            demandesHeaderRef.current.refresh();
+          }, 300); // Petit délai pour que le backend ait le temps de recalculer
+        }
+        
         // Attendre un peu avant de fermer pour montrer le message de succès
         setTimeout(() => {
           onClose(true); // Fermer le modal avec refresh = true
@@ -1018,25 +1034,27 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           </p>
         </div>
 
-        {/* Colonne 2 : Éléments demandés */}
-        <div className="space-y-2">
-          <p className="text-sm sm:text-base font-semibold">
-            Éléments demandés
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {elementsDemandes.map(code => (
-              <span
-                key={code}
-                className="px-3 py-1 rounded-full text-sm sm:text-base bg-white/15 border border-white/30 shadow-sm"
-              >
-                {TYPE_RECHERCHE[code] || code}
-              </span>
-            ))}
+        {/* Colonne 2 : Éléments demandés (EOS uniquement) */}
+        {!isPartner && (
+          <div className="space-y-2">
+            <p className="text-sm sm:text-base font-semibold">
+              Éléments demandés
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {elementsDemandes.map(code => (
+                <span
+                  key={code}
+                  className="px-3 py-1 rounded-full text-sm sm:text-base bg-white/15 border border-white/30 shadow-sm"
+                >
+                  {TYPE_RECHERCHE[code] || code}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Colonne 3 : Éléments obligatoires */}
-        {elementsObligatoires.length > 0 && (
+        {/* Colonne 3 : Éléments obligatoires (EOS uniquement) */}
+        {!isPartner && elementsObligatoires.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm sm:text-base font-semibold">
               Éléments obligatoires
@@ -1086,12 +1104,13 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     </button>
   </div>
   
-  {/* Informations spécifiques PARTNER */}
+  {/* En-tête des demandes PARTNER */}
   {isPartner && (
-    <PartnerHeader 
-      recherche={data.recherche} 
-      instructions={data.instructions} 
-    />
+    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-indigo-200">
+      <div className="px-6 py-4">
+        <PartnerDemandesHeader ref={demandesHeaderRef} donneeId={data.id} />
+      </div>
+    </div>
   )}
 </div>
 
@@ -1195,23 +1214,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   {/* Informations personnelles organisées par catégorie */}
                   <div className="space-y-4">
                     
-                    {/* Dossier */}
-                    {(data.numeroDossier || data.referenceDossier || data.codesociete) && (
-                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                        <h4 className="font-semibold text-blue-800 mb-2 text-sm">📁 DOSSIER</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
-                          {data.numeroDossier && (
-                            <div><span className="text-gray-600">N° Dossier:</span> <span className="font-medium">{data.numeroDossier}</span></div>
-                          )}
-                          {data.referenceDossier && (
-                            <div><span className="text-gray-600">Référence:</span> <span className="font-medium">{data.referenceDossier}</span></div>
-                          )}
-                          {data.codesociete && (
-                            <div><span className="text-gray-600">Code société:</span> <span className="font-medium">{data.codesociete}</span></div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+
 
                     {/* Identité */}
                     {(data.nom || data.prenom) && (

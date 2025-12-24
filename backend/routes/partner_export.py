@@ -365,10 +365,11 @@ def export_enquetes_negatives():
         if fichier_id:
             query = query.filter(Donnee.fichier_id == fichier_id)
         
-        # Joindre avec DonneeEnqueteur et filtrer les résultats négatifs
-        query = query.join(Donnee.donnee_enqueteur).filter(
+        # LEFT OUTER JOIN pour gérer les dossiers sans DonneeEnqueteur
+        query = query.outerjoin(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id).filter(
             db.or_(
-                db.text("donnees_enqueteur.code_resultat IN ('N', 'I')")
+                DonneeEnqueteur.code_resultat.in_(['N', 'I']),
+                DonneeEnqueteur.id == None  # Dossiers sans enquêteur (considérés comme NEG)
             )
         )
         

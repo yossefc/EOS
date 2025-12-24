@@ -1,42 +1,11 @@
-import { Info, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import PropTypes from 'prop-types';
 
 /**
- * Composant pour afficher les informations spécifiques PARTNER
- * dans le header et en haut du modal
- */
-const PartnerHeader = ({ recherche, instructions }) => {
-  return (
-    <>
-      {/* RECHERCHE dans le header (sous les infos principales) */}
-      {recherche && (
-        <div className="mt-3 pt-3 border-t border-blue-400/30">
-          <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-blue-200 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-xs text-blue-200 font-medium mb-1">
-                Éléments demandés
-              </div>
-              <div className="text-sm text-white font-medium">
-                {recherche}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
-PartnerHeader.propTypes = {
-  recherche: PropTypes.string,
-  instructions: PropTypes.string,
-};
-
-/**
  * Bloc INSTRUCTIONS à afficher en haut du contenu du modal
+ * (RECHERCHE est déjà affichée dans PartnerDemandesHeader)
  */
-export const PartnerInstructions = ({ instructions }) => {
+const PartnerInstructions = ({ instructions }) => {
   if (!instructions) return null;
   
   return (
@@ -60,6 +29,4 @@ PartnerInstructions.propTypes = {
   instructions: PropTypes.string,
 };
 
-export default PartnerHeader;
-
-
+export default PartnerInstructions;

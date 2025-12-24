@@ -740,8 +740,56 @@ const DataViewer = () => {
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {donnee.elements_retrouves || '-'}
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {clients.find(c => c.id === selectedClientId)?.code === 'PARTNER' ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(() => {
+                            const recherche = (donnee.recherche || '').toUpperCase().trim();
+                            if (!recherche || recherche === '-') return [<span key="none" className="text-gray-400 text-xs">-</span>];
+                            
+                            // Détecter les patterns complets
+                            const patterns = [
+                              { regex: /DATE\s+ET\s+LIEU\s+DE\s+NAISSANCE/g, label: 'DATE ET LIEU DE NAISSANCE', icon: '🎂' },
+                              { regex: /LIEU\s+DE\s+NAISSANCE/g, label: 'LIEU DE NAISSANCE', icon: '🎂' },
+                              { regex: /DATE\s+DE\s+NAISSANCE/g, label: 'DATE DE NAISSANCE', icon: '🎂' },
+                              { regex: /ADRESSE/g, label: 'ADRESSE', icon: '🏠' },
+                              { regex: /EMPLOYEUR/g, label: 'EMPLOYEUR', icon: '💼' },
+                              { regex: /BANQUE/g, label: 'BANQUE', icon: '🏦' },
+                              { regex: /TEL[EÉ]PHONE/g, label: 'TÉLÉPHONE', icon: '📞' }
+                            ];
+                            
+                            const found = [];
+                            let remaining = recherche;
+                            
+                            patterns.forEach(pattern => {
+                              if (pattern.regex.test(remaining)) {
+                                found.push({ label: pattern.label, icon: pattern.icon });
+                                remaining = remaining.replace(pattern.regex, '');
+                              }
+                            });
+                            
+                            // Ajouter les mots restants non reconnus
+                            const otherWords = remaining.split(/\s+/).filter(w => w && w !== 'ET' && w !== 'DE');
+                            otherWords.forEach(word => {
+                              if (!found.some(f => f.label.includes(word))) {
+                                found.push({ label: word, icon: '' });
+                              }
+                            });
+                            
+                            return found.map((item, idx) => (
+                              <span 
+                                key={idx}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300"
+                              >
+                                {item.icon && <span>{item.icon}</span>}
+                                <span>{item.label}</span>
+                              </span>
+                            ));
+                          })()}
+                        </div>
+                      ) : (
+                        <span className="whitespace-nowrap">{donnee.elements_retrouves || '-'}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <select

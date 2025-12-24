@@ -282,6 +282,13 @@ class ImportEngine:
         if record.get('typeDemande') == 'CON':
             self._handle_contestation(nouvelle_donnee, record, client_id)
         
+        # IMPORTANT: Flush pour obtenir l'ID avant de créer les PartnerCaseRequest
+        db.session.add(nouvelle_donnee)
+        db.session.flush()
+        
+        # Parse RECHERCHE pour PARTNER (créer les demandes)
+        self._parse_recherche_if_partner(nouvelle_donnee, client_id)
+        
         return nouvelle_donnee
     
     def _handle_contestation(self, nouvelle_donnee, record, client_id):
@@ -421,5 +428,62 @@ class ImportEngine:
                 record['urgence'] = '0'  # False
         
         return record
+    
+    def _parse_recherche_if_partner(self, donnee, client_id):
+        """
+        Parse le champ RECHERCHE pour PARTNER et crée les demandes
+        
+        Args:
+            donnee (Donnee): Instance de Donnee (DOIT avoir un ID - après flush)
+            client_id (int): ID du client
+        """
+        from models.client import Client
+        from models.partner_models import PartnerCaseRequest
+        from services.partner_request_parser import PartnerRequestParser
+        
+        # Vérifier si c'est PARTNER
+        client = db.session.get(Client, client_id)
+        if not client or client.code not in ['CLIENT_X', 'PARTNER']:
+            return
+        
+        # Vérifier si RECHERCHE existe
+        if not donnee.recherche or not donnee.recherche.strip():
+            logger.info(f"Pas de RECHERCHE pour donnee {donnee.numeroDossier}, skip parsing")
+            return
+        
+        # Vérifier que donnee a un ID (doit être flushed avant)
+        if not donnee.id:
+            logger.error(f"ERREUR: donnee.id est None, impossible de créer les PartnerCaseRequest")
+            return
+        
+        # Parser RECHERCHE
+        detected_requests = PartnerRequestParser.parse_recherche(donnee.recherche, client_id)
+        
+        if not detected_requests:
+            logger.warning(f"Aucune demande détectée dans RECHERCHE: '{donnee.recherche}'")
+            return
+        
+        # Créer les PartnerCaseRequest
+        logger.info(f"Création de {len(detected_requests)} demandes pour donnee {donnee.id} ({donnee.numeroDossier})")
+        
+        for request_code in detected_requests:
+            # Vérifier si existe déjà
+            existing = PartnerCaseRequest.query.filter_by(
+                donnee_id=donnee.id,
+                request_code=request_code
+            ).first()
+            
+            if not existing:
+                new_request = PartnerCaseRequest(
+                    donnee_id=donnee.id,
+                    request_code=request_code,
+                    requested=True,
+                    found=False,  # Sera calculé plus tard
+                    status='NEG'  # Sera calculé plus tard
+                )
+                db.session.add(new_request)
+                logger.info(f"  → PartnerCaseRequest créé: {request_code}")
+            else:
+                logger.info(f"  → PartnerCaseRequest existe déjà: {request_code}")
 
 

@@ -9,6 +9,7 @@ const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 const TarificationViewer = lazy(() => import('./TarificationViewer'));
+const PartnerKeywordsAdmin = lazy(() => import('./PartnerKeywordsAdmin'));
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
 const ArchivesViewer = lazy(() => import('./ArchivesViewer'));
 // const AdminDashboard = lazy(() => import('./AdminDashboard')); // Supprimé - validation intégrée dans DataViewer
@@ -104,6 +105,12 @@ const Tabs = () => {
       label: 'Rapports Financiers',
       icon: <BarChart2 className="w-4 h-4" />,
       component: <FinancialReports />
+    },
+    {
+      id: 'partner-keywords',
+      label: 'PARTNER - Mots-clés',
+      icon: <ClipboardList className="w-4 h-4" />,
+      component: <PartnerKeywordsAdmin />
     }
   ];
 

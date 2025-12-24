@@ -9,6 +9,15 @@ from services.billing_service import BillingService
 
 logger = logging.getLogger(__name__)
 
+# Import conditionnel pour éviter les dépendances circulaires
+def get_partner_tarif_resolver():
+    """Import lazy de PartnerTarifResolver"""
+    try:
+        from services.partner_tarif_resolver import PartnerTarifResolver
+        return PartnerTarifResolver
+    except ImportError:
+        return None
+
 class TarificationService:
     """Service pour gérer la tarification des enquêtes et le calcul des rémunérations"""
     
@@ -322,9 +331,36 @@ class TarificationService:
             elements_code = 'A'
             donnee_enqueteur.elements_retrouves = 'A'
         
-        # MODIFICATION: Même si original_enquete est None, nous continuons
+        # Vérifier si c'est un client PARTNER
+        client = db.session.get(Client, donnee.client_id)
+        is_partner = client and client.code == 'PARTNER'
         
-        # Calculer les tarifs pour cette contestation
+        if is_partner:
+            # PARTNER : utiliser PartnerTarifResolver (tarif combiné)
+            PartnerTarifResolver = get_partner_tarif_resolver()
+            if PartnerTarifResolver:
+                try:
+                    montant = PartnerTarifResolver.resolve_tarif(
+                        donnee.client_id,
+                        donnee.tarif_lettre,
+                        donnee.id
+                    )
+                    
+                    if montant is not None:
+                        facturation.tarif_eos_code = donnee.tarif_lettre or elements_code
+                        facturation.tarif_eos_montant = montant
+                        facturation.resultat_eos_montant = montant
+                        facturation.tarif_enqueteur_code = donnee.tarif_lettre or elements_code
+                        facturation.tarif_enqueteur_montant = montant * 0.7
+                        facturation.resultat_enqueteur_montant = montant * 0.7
+                        logger.info(f"Tarif PARTNER combiné appliqué (contestation): {montant}€")
+                        return
+                    else:
+                        logger.warning(f"Pas de tarif combiné PARTNER trouvé pour contestation {donnee.id}")
+                except Exception as e:
+                    logger.error(f"Erreur calcul tarif PARTNER contestation: {e}")
+        
+        # EOS ou fallback : utiliser get_tarif_eos standard
         tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
         tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
         
@@ -397,7 +433,36 @@ class TarificationService:
         if donnee_enqueteur.code_resultat in ['P', 'H'] and donnee_enqueteur.elements_retrouves:
             elements_code = donnee_enqueteur.elements_retrouves
             
-            # Récupérer les tarifs
+            # Vérifier si c'est un client PARTNER
+            client = db.session.get(Client, donnee.client_id)
+            is_partner = client and client.code == 'PARTNER'
+            
+            if is_partner:
+                # PARTNER : utiliser PartnerTarifResolver (tarif combiné)
+                PartnerTarifResolver = get_partner_tarif_resolver()
+                if PartnerTarifResolver:
+                    try:
+                        montant = PartnerTarifResolver.resolve_tarif(
+                            donnee.client_id,
+                            donnee.tarif_lettre,
+                            donnee.id
+                        )
+                        
+                        if montant is not None:
+                            facturation.tarif_eos_code = donnee.tarif_lettre or elements_code
+                            facturation.tarif_eos_montant = montant
+                            facturation.resultat_eos_montant = montant
+                            facturation.tarif_enqueteur_code = donnee.tarif_lettre or elements_code
+                            facturation.tarif_enqueteur_montant = montant * 0.7  # 70% pour l'enquêteur
+                            facturation.resultat_enqueteur_montant = montant * 0.7
+                            logger.info(f"Tarif PARTNER combiné appliqué: {montant}€ (lettre={donnee.tarif_lettre})")
+                            return
+                        else:
+                            logger.warning(f"Pas de tarif combiné PARTNER trouvé pour dossier {donnee.id}")
+                    except Exception as e:
+                        logger.error(f"Erreur calcul tarif PARTNER: {e}")
+            
+            # EOS ou fallback : utiliser get_tarif_eos standard
             tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
             tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
             
