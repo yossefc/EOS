@@ -35,3 +35,5 @@ def downgrade():
     op.add_column('donnees_enqueteur', sa.Column('date_naissance_corrigee', sa.Date(), nullable=True))
     op.add_column('donnees_enqueteur', sa.Column('lieu_naissance_corrige', sa.String(50), nullable=True))
 
+
+

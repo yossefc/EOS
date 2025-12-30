@@ -1,11 +1,20 @@
 """
 Migration pour ajouter client_id à EnqueteFacturation et contrainte unique
 
-Date: 24 décembre 2025
-"""
+Revision ID: 003_client_id_facturation
+Revises: 002_add_multi_client_support
+Create Date: 2025-12-24 15:00:00.000000
 
+"""
 from alembic import op
 import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision = '003_client_id_facturation'
+down_revision = '012'  # La dernière migration est 012
+branch_labels = None
+depends_on = None
 
 
 def upgrade():

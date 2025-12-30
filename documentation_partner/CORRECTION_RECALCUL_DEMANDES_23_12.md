@@ -252,3 +252,5 @@ return jsonify({
 **Statut** : ✅ Correction appliquée  
 **Priorité** : 🔴 HAUTE (bloquait la validation des demandes)
 
+
+

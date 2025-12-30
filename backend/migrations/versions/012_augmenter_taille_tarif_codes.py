@@ -52,3 +52,5 @@ def downgrade():
     
     print("✓ Colonnes tarif_*_code réduites à VARCHAR(10)")
 
+
+

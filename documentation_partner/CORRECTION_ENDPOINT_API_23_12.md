@@ -128,3 +128,5 @@ const response = await axios.get(PARTNER_ENDPOINTS.CASE_REQUESTS(donneeId));
 **Type** : Correction bug frontend  
 **Statut** : ✅ Appliqué (pas besoin de redémarrage backend)
 
+
+

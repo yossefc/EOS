@@ -35,12 +35,14 @@ class TarifEnqueteur(db.Model):
     description = db.Column(db.String(100))
     montant = db.Column(db.Numeric(8, 2), nullable=False)
     enqueteur_id = db.Column(db.Integer, db.ForeignKey('enqueteurs.id'), nullable=True)  # Si NULL, c'est le tarif par défaut
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=True)  # Si NULL, c'est pour EOS (défaut)
     date_debut = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     date_fin = db.Column(db.Date)
     actif = db.Column(db.Boolean, default=True)
     
-    # Relation avec Enqueteur
+    # Relations
     enqueteur = db.relationship('Enqueteur', backref='tarifs', lazy=True)
+    client = db.relationship('Client', foreign_keys=[client_id], lazy=True)
     
     def to_dict(self):
         return {
@@ -50,6 +52,8 @@ class TarifEnqueteur(db.Model):
             'montant': float(self.montant) if self.montant else 0,
             'enqueteur_id': self.enqueteur_id,
             'enqueteur_nom': f"{self.enqueteur.nom} {self.enqueteur.prenom}" if self.enqueteur else "Tarif par défaut",
+            'client_id': self.client_id,
+            'client_nom': self.client.nom if self.client else None,
             'date_debut': self.date_debut.strftime('%Y-%m-%d') if self.date_debut else None,
             'date_fin': self.date_fin.strftime('%Y-%m-%d') if self.date_fin else None,
             'actif': self.actif

@@ -233,3 +233,5 @@ has_name = bool(obj.name and obj.name.strip())
 **Priorité** : 🔴 CRITIQUE (bloquait l'enregistrement)  
 **Complexité** : 🟢 SIMPLE (ajout de `bool()`)
 
+
+

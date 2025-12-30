@@ -62,13 +62,34 @@ def format_alphanum_eos(value, length):
 
 
 def format_numeric_eos(value, length):
-    """Formate un champ numérique : padding à gauche avec des zéros"""
+    """
+    Formate un champ numérique entier.
+    - None → espaces (PAS zéros)
+    - Valeurs négatives (-1) → justifié droite avec espaces
+    - Valeurs positives → padding gauche avec zéros
+
+    Exemples:
+        format_numeric_eos(12, 3) → "012"
+        format_numeric_eos(-1, 2) → "-1"
+        format_numeric_eos(None, 3) → "   "
+    """
     if value is None:
-        value = 0
-    value_str = str(int(value))
-    if len(value_str) > length:
-        value_str = value_str[:length]
-    return value_str.rjust(length, '0')
+        return ' ' * length
+
+    try:
+        n = int(value)
+        value_str = str(n)
+
+        if len(value_str) > length:
+            value_str = value_str[:length]
+
+        # Si négatif, pas de zero-padding (garder le signe)
+        if n < 0:
+            return value_str.rjust(length)
+        else:
+            return value_str.rjust(length, '0')
+    except (ValueError, TypeError):
+        return ' ' * length
 
 
 def format_date_eos(date_value):
@@ -91,13 +112,144 @@ def format_date_eos(date_value):
     return ' ' * 10
 
 
-def format_montant_eos(montant):
-    """Formate un montant au format 99999,99 (8 caractères)"""
+def format_montant_8(montant):
+    """
+    Formate un montant FACTURATION au format sur 8 chars.
+    - Séparateur décimal: POINT (pas virgule)
+    - Padding: ESPACES à gauche (pas zéros)
+    - 2 décimales
+    - Valeurs négatives acceptées
+
+    Exemples (conforme ligne exemple):
+        format_montant_8(24.00) → "   24.00"
+        format_montant_8(0.00) → "    0.00"
+        format_montant_8(None) → "    0.00"
+        format_montant_8(-10.50) → "  -10.50"
+    """
     if montant is None:
         montant = 0.0
-    montant_float = float(montant)
-    montant_str = f"{montant_float:.2f}".replace('.', ',')
-    return montant_str.rjust(8, '0')
+
+    try:
+        montant_float = float(montant)
+        # Formater avec 2 décimales, POINT décimal
+        montant_str = f"{montant_float:.2f}"
+
+        # Right-justify avec espaces sur 8 chars
+        return montant_str.rjust(8)
+    except (ValueError, TypeError):
+        return "    0.00"
+
+
+def format_montant_10(montant):
+    """
+    Formate un montant REVENUS/SALAIRE au format sur 10 chars.
+    - Séparateur décimal: POINT (cohérence avec montant_8)
+    - Padding: ESPACES à gauche
+    - 2 décimales
+    - Valeurs négatives acceptées
+
+    Exemples:
+        format_montant_10(123456.78) → " 123456.78"
+        format_montant_10(0.00) → "      0.00"
+        format_montant_10(None) → "      0.00"
+    """
+    if montant is None:
+        montant = 0.0
+
+    try:
+        montant_float = float(montant)
+        # Formater avec 2 décimales, POINT décimal
+        montant_str = f"{montant_float:.2f}"
+
+        # Right-justify avec espaces sur 10 chars
+        return montant_str.rjust(10)
+    except (ValueError, TypeError):
+        return "      0.00"
+
+
+def format_int_8(value):
+    """
+    Formate un entier sur 8 chars.
+    - Padding: ESPACES à gauche (pas zéros)
+    - Valeurs négatives acceptées
+    - None → "       0"
+
+    Exemples:
+        format_int_8(0) → "       0"
+        format_int_8(123) → "     123"
+        format_int_8(-50) → "     -50"
+        format_int_8(None) → "       0"
+    """
+    if value is None:
+        value = 0
+
+    try:
+        n = int(value)
+        value_str = str(n)
+        return value_str.rjust(8)
+    except (ValueError, TypeError):
+        return "       0"
+
+
+def get_tarif_from_eos(donnee, donnee_enqueteur, export_date):
+    """
+    Recherche le tarif actif dans tarifs_eos pour une enquête.
+
+    Logique:
+    1. Déterminer code_tarif:
+       - Priorité 1: donnee.elementDemandes (trim)
+       - Sinon: donnee_enqueteur.elements_retrouves (trim)
+    2. Chercher montant actif à export_date dans tarifs_eos
+    3. Si introuvable: retourner 0.00 + log warning
+
+    Args:
+        donnee: Objet Donnee
+        donnee_enqueteur: Objet DonneeEnqueteur
+        export_date: Date d'export (pour filtrer tarifs actifs)
+
+    Returns:
+        float: Montant tarif (0.00 si introuvable)
+    """
+    # Déterminer code_tarif
+    code_tarif = None
+
+    # Priorité 1: elementDemandes
+    if hasattr(donnee, 'elementDemandes') and donnee.elementDemandes:
+        code_tarif = str(donnee.elementDemandes).strip()
+
+    # Sinon: elements_retrouves
+    if not code_tarif and hasattr(donnee_enqueteur, 'elements_retrouves') and donnee_enqueteur.elements_retrouves:
+        code_tarif = str(donnee_enqueteur.elements_retrouves).strip()
+
+    if not code_tarif:
+        logger.warning(f"Enquête ID={donnee.id}: aucun code tarif trouvé (elementDemandes et elements_retrouves vides)")
+        return 0.0
+
+    # Chercher tarif actif dans tarifs_eos
+    try:
+        from models.tarifs import TarifEOS
+
+        tarif = TarifEOS.query.filter(
+            TarifEOS.code == code_tarif,
+            TarifEOS.actif == True,
+            TarifEOS.date_debut <= export_date
+        ).filter(
+            db.or_(
+                TarifEOS.date_fin.is_(None),
+                TarifEOS.date_fin >= export_date
+            )
+        ).order_by(TarifEOS.date_debut.desc()).first()
+
+        if tarif and tarif.montant is not None:
+            logger.debug(f"Enquête ID={donnee.id}: tarif '{code_tarif}' trouvé → {tarif.montant}€")
+            return float(tarif.montant)
+        else:
+            logger.warning(f"Enquête ID={donnee.id}: tarif '{code_tarif}' introuvable dans tarifs_eos pour date {export_date}")
+            return 0.0
+
+    except Exception as e:
+        logger.error(f"Erreur recherche tarif pour enquête ID={donnee.id}: {e}")
+        return 0.0
 
 
 try:
@@ -501,7 +653,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
     titre.paragraph_format.space_after = Pt(4)  # Espacement réduit
     for run in titre.runs:
-        run.font.size = Pt(12)  # Plus petit
+        run.font.size = Pt(14)  # Plus petit
         run.font.bold = True
     
     # Informations récapitulatives EN HAUT DE CHAQUE PAGE - COMPACT
@@ -509,11 +661,11 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     recap_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     recap_para.paragraph_format.space_after = Pt(4)  # Espacement réduit
     run1 = recap_para.add_run(f"Date: {date_reception.strftime('%d/%m/%Y') if date_reception else 'N/A'}")
-    run1.font.size = Pt(9)  # Plus petit
+    run1.font.size = Pt(14)  # Plus petit
     run1.font.bold = True
     recap_para.add_run(" | ")
     run2 = recap_para.add_run(f"Dossiers: {nombre_dossiers}")
-    run2.font.size = Pt(9)  # Plus petit
+    run2.font.size = Pt(14)  # Plus petit
     run2.font.bold = True
     run2.font.color.rgb = RGBColor(0, 102, 204)
     
@@ -522,7 +674,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
         """Ajoute une section avec un tableau de données - Format compact"""
         doc.add_heading(title, level=2)
         for run in doc.paragraphs[-1].runs:
-            run.font.size = Pt(10)  # Titre plus petit
+            run.font.size = Pt(14)  # Titre plus petit
         
         table = doc.add_table(rows=1, cols=2)
         table.style = 'Light Grid Accent 1'
@@ -535,7 +687,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
             for paragraph in cell.paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(8)  # Police plus petite
+                    run.font.size = Pt(14)  # Police plus petite
         
         # Données
         has_data = False
@@ -549,10 +701,10 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
                 for paragraph in row[0].paragraphs:
                     for run in paragraph.runs:
                         run.font.bold = True
-                        run.font.size = Pt(10)
+                        run.font.size = Pt(14)
                 for paragraph in row[1].paragraphs:
                     for run in paragraph.runs:
-                        run.font.size = Pt(10)
+                        run.font.size = Pt(14)
         
         if not has_data:
             row = table.add_row().cells
@@ -579,7 +731,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.bold = True
-                run.font.size = Pt(11)
+                run.font.size = Pt(14)
     
     # Fonction pour ajouter une ligne
     def add_row(label, value):
@@ -590,10 +742,10 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
             for paragraph in row[0].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(10)
+                    run.font.size = Pt(14)
             for paragraph in row[1].paragraphs:
                 for run in paragraph.runs:
-                    run.font.size = Pt(10)
+                    run.font.size = Pt(14)
     
     # TOUTES LES DONNÉES DU FICHIER (Format compact pour 1 page)
     
@@ -742,7 +894,7 @@ def generate_word_document(donnees):
             for paragraph in cell.paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(11)
+                    run.font.size = Pt(14)
         
         # Données
         has_data = False
@@ -756,10 +908,10 @@ def generate_word_document(donnees):
                 for paragraph in row[0].paragraphs:
                     for run in paragraph.runs:
                         run.font.bold = True
-                        run.font.size = Pt(10)
+                        run.font.size = Pt(14)
                 for paragraph in row[1].paragraphs:
                     for run in paragraph.runs:
-                        run.font.size = Pt(10)
+                        run.font.size = Pt(14)
         
         if not has_data:
             row = table.add_row().cells
@@ -797,7 +949,7 @@ def generate_word_document(donnees):
         sous_titre = doc.add_paragraph(f"Dernière mise à jour : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
         sous_titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in sous_titre.runs:
-            run.font.size = Pt(11)
+            run.font.size = Pt(14)
             run.font.color.rgb = RGBColor(64, 64, 64)
         
         doc.add_paragraph()
@@ -885,7 +1037,7 @@ def generate_word_document(donnees):
             doc.add_heading('8. Commentaire Initial', level=2)
             para = doc.add_paragraph(donnee.commentaire)
             for run in para.runs:
-                run.font.size = Pt(10)
+                run.font.size = Pt(14)
             doc.add_paragraph()
         
         # ========== SECTIONS ENQUÊTEUR (SI DONNÉES DISPONIBLES) ==========
@@ -1021,7 +1173,7 @@ def generate_word_document(donnees):
         footer_para = doc.add_paragraph(f"Document généré le {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}")
         footer_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         for run in footer_para.runs:
-            run.font.size = Pt(8)
+            run.font.size = Pt(14)
             run.font.color.rgb = RGBColor(128, 128, 128)
             run.font.italic = True
     
@@ -1223,83 +1375,164 @@ def get_enquetes_validees_pour_export():
         }), 500
 
 
-def generate_eos_export_line(donnee, donnee_enqueteur, enqueteur):
+def generate_eos_export_line(donnee, donnee_enqueteur, enqueteur, export_date, facturation=None):
     """
-    Génère une ligne d'export au format EOS pour une enquête
-    Format: longueur fixe avec CR+LF en fin de ligne
+    Génère une ligne d'export au format "Réponses EOS" (fixed-width 2618 chars + CRLF).
+
+    STRICTEMENT CONFORME AU CAHIER DES CHARGES + FICHIER EXEMPLE:
+    - Longueur fixe: EXACTEMENT 2618 caractères (hors CRLF) + \\r\\n
+    - Champs identifiants: valeurs EXACTES transmises par EOS (pas d'IDs internes)
+    - État civil: priorité corrections (e.*_corrige), sinon valeurs d (d.*)
+    - Facturation: calculée depuis tarifs_eos (date export + code tarif)
+    - Date retour: date_retour réelle, fallback aujourd'hui
+    - REVENUS (274 chars): commentaires(128) + salaire(14) + revenus1-3(44 chacun)
+    - MÉMOS (1256 chars): memo1-4(64) + memo5(1000)
+    - numeroCompte (11) et RIB (2): TOUJOURS VIDES (espaces)
+    - Montants facturation (8 chars): POINT décimal, padding espaces
+    - Montants revenus (10 chars): POINT décimal, padding espaces
+    - Entiers facturation (8 chars): padding espaces
+    - Format Windows CRLF (\\r\\n)
+    - Validation longueur STRICTE (len=2618, sinon reject)
+
+    Args:
+        donnee: Objet Donnee (table donnees)
+        donnee_enqueteur: Objet DonneeEnqueteur (table donnees_enqueteur)
+        enqueteur: Objet Enqueteur (non utilisé, compatibilité signature)
+        export_date: Date d'export (utilisée pour facturation)
+        facturation: Objet EnqueteFacturation (optionnel, non utilisé actuellement)
+
+    Returns:
+        str: Ligne formatée + CRLF, ou None si erreur/champs manquants
     """
+    # === VALIDATION DES CHAMPS OBLIGATOIRES ===
+    # Note: Pour compatibilité avec données existantes, on utilise des fallbacks minimaux
+    # mais on logue les problèmes au lieu de bloquer tout l'export
+    champs_obligatoires = {
+        # Identifiants (depuis donnee)
+        'numeroDossier': donnee.numeroDossier,
+        'referenceDossier': donnee.referenceDossier,
+        'numeroInterlocuteur': donnee.numeroInterlocuteur,
+        'guidInterlocuteur': donnee.guidInterlocuteur,
+        'typeDemande': donnee.typeDemande,
+        'numeroDemande': donnee.numeroDemande,
+        'forfaitDemande': donnee.forfaitDemande,
+        # Résultat (depuis donnee_enqueteur)
+        'code_resultat': donnee_enqueteur.code_resultat if hasattr(donnee_enqueteur, 'code_resultat') else None,
+        'elements_retrouves': donnee_enqueteur.elements_retrouves if hasattr(donnee_enqueteur, 'elements_retrouves') else None,
+    }
+
+    champs_manquants = [nom for nom, valeur in champs_obligatoires.items() if not valeur]
+    if champs_manquants:
+        logger.warning(f"Enquête ID={donnee.id} ignorée - champs obligatoires manquants: {', '.join(champs_manquants)}")
+        return None  # Ignorer cette ligne au lieu de bloquer tout l'export
+
+    # Déterminer si c'est une contestation
+    est_contestation = (donnee.typeDemande == 'CON')
+
+    # === CONSTRUCTION DE LA LIGNE SELON LE CAHIER DES CHARGES ===
     fields = []
-    
-    # 1. N° DOSSIER (10)
-    fields.append(format_numeric_eos(donnee.numeroDossier or donnee.id, 10))
-    
-    # 2. RÉFÉRENCE DOSSIER (15)
-    fields.append(format_alphanum_eos(donnee.referenceDossier or '', 15))
-    
-    # 3. NUMÉRO INTERLOCUTEUR (12)
-    fields.append(format_alphanum_eos(f'D-{donnee.id}', 12))
-    
-    # 4. GUID INTERLOCUTEUR (36)
-    fields.append(format_alphanum_eos(donnee.guidInterlocuteur or '', 36))
-    
-    # 5. TYPE DE DEMANDE (3)
-    fields.append(format_alphanum_eos('ENQ', 3))
-    
-    # 6. NUMÉRO DE DEMANDE (11)
-    fields.append(format_numeric_eos(donnee.id, 11))
-    
-    # 7-8. NUMÉRO DEMANDE CONTESTÉE/INITIALE (11 + 11) - vides
-    fields.append(format_alphanum_eos('', 11))
-    fields.append(format_alphanum_eos('', 11))
-    
-    # 9. FORFAIT DE DEMANDE (16)
-    fields.append(format_alphanum_eos(donnee.forfaitDemande or 'AT2', 16))
-    
-    # 10. DATE DE RETOUR ESPÉRÉ (10)
-    fields.append(format_date_eos(donnee.date_butoir))
-    
-    # 11. QUALITÉ / CIVILITÉ (10)
-    fields.append(format_alphanum_eos(donnee.qualite or '', 10))
-    
-    # 12-13. NOM, PRÉNOM (30 + 20)
-    fields.append(format_alphanum_eos(donnee.nom or '', 30))
-    fields.append(format_alphanum_eos(donnee.prenom or '', 20))
-    
+
+    # 1. N° DOSSIER (10) - EXACTEMENT celui transmis par EOS
+    fields.append(format_alphanum_eos(donnee.numeroDossier, 10))
+
+    # 2. RÉFÉRENCE DOSSIER (15) - EXACTEMENT celle transmise par EOS
+    fields.append(format_alphanum_eos(donnee.referenceDossier, 15))
+
+    # 3. NUMÉRO INTERLOCUTEUR (12) - EXACTEMENT celui transmis par EOS
+    fields.append(format_alphanum_eos(donnee.numeroInterlocuteur, 12))
+
+    # 4. GUID INTERLOCUTEUR (36) - EXACTEMENT celui transmis par EOS
+    fields.append(format_alphanum_eos(donnee.guidInterlocuteur, 36))
+
+    # 5. TYPE DE DEMANDE (3) - ENQ ou CON selon la donnée
+    fields.append(format_alphanum_eos(donnee.typeDemande, 3))
+
+    # 6. NUMÉRO DE DEMANDE (11) - EXACTEMENT celui transmis par EOS
+    fields.append(format_alphanum_eos(donnee.numeroDemande, 11))
+
+    # 7-8. NUMÉRO DEMANDE CONTESTÉE/INITIALE (11 + 11)
+    # Rempli uniquement pour les contestations (CON)
+    if est_contestation:
+        fields.append(format_alphanum_eos(donnee.numeroDemandeContestee or '', 11))
+        fields.append(format_alphanum_eos(donnee.numeroDemandeInitiale or '', 11))
+    else:
+        fields.append(format_alphanum_eos('', 11))
+        fields.append(format_alphanum_eos('', 11))
+
+    # 9. FORFAIT DE DEMANDE (16) - EXACTEMENT celui transmis par EOS
+    fields.append(format_alphanum_eos(donnee.forfaitDemande, 16))
+
+    # 10. DATE DE RETOUR ESPÉRÉ (10) - EXACTEMENT celle transmise par EOS
+    fields.append(format_date_eos(donnee.dateRetourEspere))
+
+    # 11. QUALITÉ / CIVILITÉ (10) - PRIORITÉ CORRECTION
+    qualite = donnee_enqueteur.qualite_corrigee if hasattr(donnee_enqueteur, 'qualite_corrigee') and donnee_enqueteur.qualite_corrigee else donnee.qualite
+    fields.append(format_alphanum_eos(qualite or '', 10))
+
+    # 12-13. NOM, PRÉNOM (30 + 20) - PRIORITÉ CORRECTION
+    nom = donnee_enqueteur.nom_corrige if hasattr(donnee_enqueteur, 'nom_corrige') and donnee_enqueteur.nom_corrige else donnee.nom
+    prenom = donnee_enqueteur.prenom_corrige if hasattr(donnee_enqueteur, 'prenom_corrige') and donnee_enqueteur.prenom_corrige else donnee.prenom
+    fields.append(format_alphanum_eos(nom or '', 30))
+    fields.append(format_alphanum_eos(prenom or '', 20))
+
     # 14-17. DATE/LIEU/CP/PAYS NAISSANCE (10 + 50 + 10 + 32)
     fields.append(format_date_eos(donnee.dateNaissance))
     fields.append(format_alphanum_eos(donnee.lieuNaissance or '', 50))
-    fields.append(format_alphanum_eos(donnee.codePostalNaissance or '', 10))
-    fields.append(format_alphanum_eos(donnee.paysNaissance or '', 32))
-    
-    # 18. NOM PATRONYMIQUE (30)
-    fields.append(format_alphanum_eos(donnee.nomPatronymique or '', 30))
-    
-    # 19. DATE DE RETOUR (10) - Date du jour
-    fields.append(format_date_eos(datetime.date.today()))
-    
+
+    # CP/Pays naissance - PRIORITÉ CORRECTION
+    cp_naissance = donnee_enqueteur.code_postal_naissance_corrige if hasattr(donnee_enqueteur, 'code_postal_naissance_corrige') and donnee_enqueteur.code_postal_naissance_corrige else donnee.codePostalNaissance
+    pays_naissance = donnee_enqueteur.pays_naissance_corrige if hasattr(donnee_enqueteur, 'pays_naissance_corrige') and donnee_enqueteur.pays_naissance_corrige else donnee.paysNaissance
+    fields.append(format_alphanum_eos(cp_naissance or '', 10))
+    fields.append(format_alphanum_eos(pays_naissance or '', 32))
+
+    # 18. NOM PATRONYMIQUE (30) - PRIORITÉ CORRECTION
+    nom_patronymique = donnee_enqueteur.nom_patronymique_corrige if hasattr(donnee_enqueteur, 'nom_patronymique_corrige') and donnee_enqueteur.nom_patronymique_corrige else donnee.nomPatronymique
+    fields.append(format_alphanum_eos(nom_patronymique or '', 30))
+
+    # 19. DATE DE RETOUR (10) - Date retour enquêteur (fallback aujourd'hui)
+    date_retour = donnee_enqueteur.date_retour if hasattr(donnee_enqueteur, 'date_retour') and donnee_enqueteur.date_retour else datetime.date.today()
+    fields.append(format_date_eos(date_retour))
+
     # 20-21. CODE RÉSULTAT, ÉLÉMENTS RETROUVÉS (1 + 10)
     fields.append(format_alphanum_eos(donnee_enqueteur.code_resultat or '', 1))
     fields.append(format_alphanum_eos(donnee_enqueteur.elements_retrouves or '', 10))
-    
+
     # 22. FLAG ÉTAT CIVIL ERRONÉ (1)
     fields.append(format_alphanum_eos(donnee_enqueteur.flag_etat_civil_errone or '', 1))
+
+    # 23-29. FACTURATION (9 + 10 + 8*5)
+    # N° facture: toujours vide (9 espaces)
+    fields.append(format_alphanum_eos('', 9))
     
-    # 23-29. FACTURATION (9 + 10 + 8*5) - tous vides ou 0
-    fields.append(format_alphanum_eos('', 9))  # Numéro facture
-    fields.append(format_alphanum_eos('', 10))  # Date facture
-    fields.append(format_montant_eos(0.0))  # Montant facturé
-    fields.append(format_montant_eos(0.0))  # Tarif appliqué
-    fields.append(format_montant_eos(0.0))  # Cumul montants précédents
-    fields.append(format_montant_eos(0.0))  # Reprise facturation
-    fields.append(format_montant_eos(0.0))  # Remise éventuelle
+    # Date facture: date dexport (10 chars DD/MM/YYYY)
+    fields.append(format_date_eos(export_date))
+
+    # Récupérer le tarif depuis tarifs_eos
+    tarif_montant = get_tarif_from_eos(donnee, donnee_enqueteur, export_date)
     
+    # Montant facturé: tarif lookup (8 chars avec point et espaces)
+    fields.append(format_montant_8(tarif_montant))
+    
+    # Tarif appliqué: même valeur que montant facturé (8 chars)
+    fields.append(format_montant_8(tarif_montant))
+
+    # Cumul montants précédents: toujours 0.00 (8 chars)
+    fields.append(format_montant_8(0.0))
+
+    # Reprise facturation: toujours 0 (8 chars entier avec espaces)
+    fields.append(format_int_8(0))
+    
+    # Remise éventuelle: toujours 0 (8 chars entier avec espaces)
+    fields.append(format_int_8(0))
+
+
     # 30-34. DÉCÈS (10 + 10 + 5 + 10 + 32)
     fields.append(format_date_eos(donnee_enqueteur.date_deces))
     fields.append(format_alphanum_eos(donnee_enqueteur.numero_acte_deces or '', 10))
     fields.append(format_alphanum_eos(donnee_enqueteur.code_insee_deces or '', 5))
     fields.append(format_alphanum_eos(donnee_enqueteur.code_postal_deces or '', 10))
     fields.append(format_alphanum_eos(donnee_enqueteur.localite_deces or '', 32))
-    
+
     # 35-38. ADRESSE (32*4 + 10 + 32 + 32)
     fields.append(format_alphanum_eos(donnee_enqueteur.adresse1 or '', 32))
     fields.append(format_alphanum_eos(donnee_enqueteur.adresse2 or '', 32))
@@ -1308,11 +1541,11 @@ def generate_eos_export_line(donnee, donnee_enqueteur, enqueteur):
     fields.append(format_alphanum_eos(donnee_enqueteur.code_postal or '', 10))
     fields.append(format_alphanum_eos(donnee_enqueteur.ville or '', 32))
     fields.append(format_alphanum_eos(donnee_enqueteur.pays_residence or '', 32))
-    
+
     # 39-40. TÉLÉPHONES (15 + 15)
     fields.append(format_alphanum_eos(donnee_enqueteur.telephone_personnel or '', 15))
     fields.append(format_alphanum_eos(donnee_enqueteur.telephone_chez_employeur or '', 15))
-    
+
     # 41-47. EMPLOYEUR (32 + 15 + 15 + 32*4 + 10 + 32 + 32)
     fields.append(format_alphanum_eos(donnee_enqueteur.nom_employeur or '', 32))
     fields.append(format_alphanum_eos(donnee_enqueteur.telephone_employeur or '', 15))
@@ -1324,7 +1557,7 @@ def generate_eos_export_line(donnee, donnee_enqueteur, enqueteur):
     fields.append(format_alphanum_eos(donnee_enqueteur.code_postal_employeur or '', 10))
     fields.append(format_alphanum_eos(donnee_enqueteur.ville_employeur or '', 32))
     fields.append(format_alphanum_eos(donnee_enqueteur.pays_employeur or '', 32))
-    
+
     # 48-54. BANQUE (32 + 30 + 32 + 5 + 5 + 11 + 2)
     fields.append(format_alphanum_eos(donnee_enqueteur.banque_domiciliation or '', 32))
     fields.append(format_alphanum_eos(donnee_enqueteur.libelle_guichet or '', 30))
@@ -1333,31 +1566,60 @@ def generate_eos_export_line(donnee, donnee_enqueteur, enqueteur):
     fields.append(format_alphanum_eos(donnee_enqueteur.code_guichet or '', 5))
     fields.append(format_alphanum_eos('', 11))  # Numéro compte - TOUJOURS VIDE
     fields.append(format_alphanum_eos('', 2))   # RIB - TOUJOURS VIDE
-    
-    # 55. DATE D'ENVOI (10) - Date du jour
-    fields.append(format_date_eos(datetime.date.today()))
-    
-    # 56-57. ÉLÉMENTS DEMANDÉS/OBLIGATOIRES (10 + 10)
-    fields.append(format_alphanum_eos(donnee.elementDemandes or 'AT', 10))
-    fields.append(format_alphanum_eos(donnee.elementObligatoires or 'A', 10))
-    
-    # 58-61. CONTESTATION (10 + 16 + 64 + 8) - vides pour enquête normale
-    fields.append(format_alphanum_eos('', 10))  # Éléments contestés
-    fields.append(format_alphanum_eos('', 16))  # Code motif
-    fields.append(format_alphanum_eos('', 64))  # Motif contestation
-    fields.append(format_montant_eos(0.0))      # Cumul montants facturés
-    
-    # 62-63. CODE SOCIÉTÉ, URGENCE (2 + 1)
-    fields.append(format_numeric_eos(donnee.codesociete or 1, 2))
-    fields.append(format_numeric_eos(donnee.urgence or 0, 1))
-    
-    # 64. COMMENTAIRES (1000)
-    fields.append(format_alphanum_eos(donnee.commentaire or '', 1000))
-    
-    # Joindre tous les champs et ajouter CR+LF (Windows)
-    line = ''.join(fields) + '\r\n'
-    
-    return line
+
+    # === BLOC REVENUS (274 chars: 128+14+44*3) - FORMAT "RÉPONSES" ===
+    # 55. Commentaires revenus (128)
+    fields.append(format_alphanum_eos(donnee_enqueteur.commentaires_revenus if hasattr(donnee_enqueteur, 'commentaires_revenus') else '', 128))
+
+    # 56-58. Salaire (10+2+2 = 14)
+    fields.append(format_montant_10(donnee_enqueteur.montant_salaire if hasattr(donnee_enqueteur, 'montant_salaire') else None))
+    fields.append(format_numeric_eos(donnee_enqueteur.periode_versement_salaire if hasattr(donnee_enqueteur, 'periode_versement_salaire') else None, 2))
+    fields.append(format_alphanum_eos(donnee_enqueteur.frequence_versement_salaire if hasattr(donnee_enqueteur, 'frequence_versement_salaire') else '', 2))
+
+    # 59-62. Revenu 1 (30+10+2+2 = 44)
+    fields.append(format_alphanum_eos(donnee_enqueteur.nature_revenu1 if hasattr(donnee_enqueteur, 'nature_revenu1') else '', 30))
+    fields.append(format_montant_10(donnee_enqueteur.montant_revenu1 if hasattr(donnee_enqueteur, 'montant_revenu1') else None))
+    fields.append(format_numeric_eos(donnee_enqueteur.periode_versement_revenu1 if hasattr(donnee_enqueteur, 'periode_versement_revenu1') else None, 2))
+    fields.append(format_alphanum_eos(donnee_enqueteur.frequence_versement_revenu1 if hasattr(donnee_enqueteur, 'frequence_versement_revenu1') else '', 2))
+
+    # 63-66. Revenu 2 (30+10+2+2 = 44)
+    fields.append(format_alphanum_eos(donnee_enqueteur.nature_revenu2 if hasattr(donnee_enqueteur, 'nature_revenu2') else '', 30))
+    fields.append(format_montant_10(donnee_enqueteur.montant_revenu2 if hasattr(donnee_enqueteur, 'montant_revenu2') else None))
+    fields.append(format_numeric_eos(donnee_enqueteur.periode_versement_revenu2 if hasattr(donnee_enqueteur, 'periode_versement_revenu2') else None, 2))
+    fields.append(format_alphanum_eos(donnee_enqueteur.frequence_versement_revenu2 if hasattr(donnee_enqueteur, 'frequence_versement_revenu2') else '', 2))
+
+    # 67-70. Revenu 3 (30+10+2+2 = 44)
+    fields.append(format_alphanum_eos(donnee_enqueteur.nature_revenu3 if hasattr(donnee_enqueteur, 'nature_revenu3') else '', 30))
+    fields.append(format_montant_10(donnee_enqueteur.montant_revenu3 if hasattr(donnee_enqueteur, 'montant_revenu3') else None))
+    fields.append(format_numeric_eos(donnee_enqueteur.periode_versement_revenu3 if hasattr(donnee_enqueteur, 'periode_versement_revenu3') else None, 2))
+    fields.append(format_alphanum_eos(donnee_enqueteur.frequence_versement_revenu3 if hasattr(donnee_enqueteur, 'frequence_versement_revenu3') else '', 2))
+
+    # === BLOC MÉMOS (1128 chars) - FORMAT "RÉPONSES" ===
+    # 72-76. Mémos (64 + 64 + 64 + 64 + 1000)
+    fields.append(format_alphanum_eos(donnee_enqueteur.memo1 if hasattr(donnee_enqueteur, 'memo1') else '', 64))
+    fields.append(format_alphanum_eos(donnee_enqueteur.memo2 if hasattr(donnee_enqueteur, 'memo2') else '', 64))
+    fields.append(format_alphanum_eos(donnee_enqueteur.memo3 if hasattr(donnee_enqueteur, 'memo3') else '', 64))
+    fields.append(format_alphanum_eos(donnee_enqueteur.memo4 if hasattr(donnee_enqueteur, 'memo4') else '', 64))
+    fields.append(format_alphanum_eos(donnee_enqueteur.memo5 if hasattr(donnee_enqueteur, 'memo5') else '', 1000))
+
+    # Joindre tous les champs
+    line = ''.join(fields)
+
+    # VALIDATION HARD DE LA LONGUEUR - STRICTEMENT 2618 caractères
+    # Calcul: Identif(135) + EtatCivil(192) + Résultat(22) + Facturation(59) +
+    #         Décès(67) + Adresse(202) + Tél(30) + Employeur(264) + Banque(117) +
+    #         Revenus(274) + Mémos(1256) = 2618 caractères
+    EXPECTED_LENGTH = 2618
+
+    if len(line) != EXPECTED_LENGTH:
+        logger.error(f"ERREUR LONGUEUR export EOS: enquête ID={donnee.id}")
+        logger.error(f"  Attendu: {EXPECTED_LENGTH} chars")
+        logger.error(f"  Obtenu:  {len(line)} chars")
+        logger.error(f"  Différence: {len(line) - EXPECTED_LENGTH:+d} chars")
+        return None
+
+    # Ajouter CRLF Windows - IMPORTANT: newline='' dans open() pour préserver
+    return line + '\r\n'
 
 
 @export_bp.route('/api/exports/create-batch', methods=['POST'])
@@ -1410,27 +1672,45 @@ def create_export_batch():
         os.makedirs(batches_dir, exist_ok=True)
         
         # Créer un nom de fichier selon le format EOS : XXXExp_AAAAMMJJ.txt
-        date_str = datetime.date.today().strftime('%Y%m%d')
+        export_date = datetime.date.today()  # Date d'export pour facturation
+        date_str = export_date.strftime('%Y%m%d')
         filename = f"{CODE_PRESTATAIRE}Exp_{date_str}.txt"
         filepath_full = os.path.join(batches_dir, filename)
         
         # Générer le contenu du fichier au format EOS
         lines = []
+        exported_ids = []  # IDs des enquêtes RÉELLEMENT exportées
+        skipped_count = 0
+
         for donnee in donnees:
             # Récupérer les données enquêteur
             donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first()
             if not donnee_enqueteur:
                 logger.warning(f"Pas de données enquêteur pour l'enquête {donnee.id}, ignorée")
+                skipped_count += 1
                 continue
-            
-            # Récupérer l'enquêteur
+
+            # Récupérer l'enquêteur (pour compatibilité signature)
             enqueteur = None
             if donnee.enqueteurId:
                 enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
-            
-            # Générer la ligne au format EOS
-            line = generate_eos_export_line(donnee, donnee_enqueteur, enqueteur)
+
+            # TODO: Récupérer facturation si disponible (pour fallback montants)
+            # from models.enquete_facturation import EnqueteFacturation
+            # facturation = EnqueteFacturation.query.filter_by(donnee_enqueteur_id=donnee_enqueteur.id).first()
+            facturation = None  # Temporaire, en attendant modèle
+
+            # Générer la ligne au format EOS "Réponses" avec export_date
+            line = generate_eos_export_line(donnee, donnee_enqueteur, enqueteur, export_date, facturation)
+
+            # Ignorer les lignes avec champs obligatoires manquants OU longueur invalide
+            if line is None:
+                skipped_count += 1
+                continue
+
+            # Ligne valide → ajouter à l'export
             lines.append(line)
+            exported_ids.append(donnee.id)  # Tracer uniquement les enquêtes exportées
         
         if not lines:
             return jsonify({
@@ -1451,33 +1731,37 @@ def create_export_batch():
         
         # Récupérer le client_id (toutes les enquêtes exportées ensemble ont le même client)
         client_id = donnees[0].client_id if donnees else None
-        
-        # Créer l'entrée ExportBatch
-        enquete_ids = [d.id for d in donnees if DonneeEnqueteur.query.filter_by(donnee_id=d.id).first()]
+
+        # Créer l'entrée ExportBatch (UNIQUEMENT avec les IDs réellement exportés)
         export_batch = ExportBatch(
-            client_id=client_id,  # AJOUT du client_id
+            client_id=client_id,
             filename=filename,
             filepath=filepath_relative,
             file_size=file_size,
-            enquete_count=len(lines),
+            enquete_count=len(exported_ids),  # Nombre réel exporté
             utilisateur=utilisateur
         )
-        export_batch.set_enquete_ids_list(enquete_ids)
+        export_batch.set_enquete_ids_list(exported_ids)  # UNIQUEMENT les IDs exportés
         db.session.add(export_batch)
-        
-        # Marquer toutes les enquêtes exportées comme archivées
-        for donnee in donnees:
-            if DonneeEnqueteur.query.filter_by(donnee_id=donnee.id).first():
+
+        # Marquer UNIQUEMENT les enquêtes RÉELLEMENT EXPORTÉES comme archivées
+        for donnee_id in exported_ids:
+            donnee = db.session.get(Donnee, donnee_id)
+            if donnee:
                 donnee.statut_validation = 'archivee'
                 donnee.add_to_history(
                     'archivage',
-                    f'Enquête exportée au format EOS dans {filename} par {utilisateur}',
+                    f'Enquête exportée au format EOS Réponses dans {filename} par {utilisateur}',
                     utilisateur
                 )
         
         db.session.commit()
-        
-        logger.info(f"Export EOS créé avec succès: {filename} ({len(lines)} lignes, {file_size} octets)")
+
+        # Log du résultat avec info sur les lignes ignorées
+        if skipped_count > 0:
+            logger.warning(f"Export EOS créé avec {skipped_count} enquête(s) ignorée(s) (champs obligatoires manquants): {filename} ({len(lines)} lignes exportées, {file_size} octets)")
+        else:
+            logger.info(f"Export EOS créé avec succès: {filename} ({len(lines)} lignes, {file_size} octets)")
         
         # Retourner le fichier pour téléchargement
         return send_file(

@@ -194,3 +194,5 @@ Cette correction fait partie d'une série de corrections du 23/12/2025 :
 **Type** : Correction backend  
 **Statut** : ✅ Appliqué (redémarrage backend requis)
 
+
+

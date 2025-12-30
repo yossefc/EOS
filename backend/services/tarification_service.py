@@ -203,6 +203,10 @@ class TarificationService:
             db.session.add(facturation)
             db.session.commit()
             logger.info(f"Facturation créée pour l'enquête {donnee.id} (client={donnee.client_id})")
+        elif facturation.paye:
+            # ⚠️ PROTECTION: Ne pas recalculer une facturation déjà payée
+            logger.warning(f"Facturation {facturation.id} déjà payée le {facturation.date_paiement} - recalcul interdit")
+            return facturation
         return facturation
 
     @staticmethod

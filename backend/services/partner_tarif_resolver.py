@@ -201,3 +201,5 @@ class PartnerTarifResolver:
         db.session.commit()
         return True
 
+
+

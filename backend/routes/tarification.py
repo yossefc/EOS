@@ -301,10 +301,14 @@ def create_tarif_enqueteur():
                 'error': 'Code et montant sont obligatoires'
             }), 400
         
-        # Vérifier si un tarif actif existe déjà pour ce code et cet enquêteur
+        # Récupérer client_id (peut être None pour EOS par défaut)
+        client_id = data.get('client_id') if data.get('client_id') and data.get('client_id') != '' else None
+        
+        # Vérifier si un tarif actif existe déjà pour ce code, cet enquêteur et ce client
         existing_tarif = TarifEnqueteur.query.filter_by(
             code=data.get('code'),
-            enqueteur_id=data.get('enqueteur_id'),
+            enqueteur_id=data.get('enqueteur_id') if data.get('enqueteur_id') else None,
+            client_id=client_id,
             actif=True,
             date_fin=None
         ).first()
@@ -319,7 +323,8 @@ def create_tarif_enqueteur():
             code=data.get('code'),
             description=data.get('description'),
             montant=data.get('montant'),
-            enqueteur_id=data.get('enqueteur_id'),  # Peut être None (tarif par défaut)
+            enqueteur_id=data.get('enqueteur_id') if data.get('enqueteur_id') else None,  # Peut être None (tarif par défaut)
+            client_id=client_id,  # Peut être None (EOS par défaut)
             date_debut=datetime.now().date(),
             actif=True
         )
@@ -355,6 +360,8 @@ def update_tarif_enqueteur(id):
             tarif.montant = data['montant']
         if 'actif' in data:
             tarif.actif = data['actif']
+        if 'client_id' in data:
+            tarif.client_id = data['client_id'] if data['client_id'] and data['client_id'] != '' else None
         
         db.session.commit()
         

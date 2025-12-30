@@ -92,3 +92,5 @@ def downgrade():
     op.drop_index('idx_partner_keywords_client', table_name='partner_request_keywords')
     op.drop_table('partner_request_keywords')
 
+
+

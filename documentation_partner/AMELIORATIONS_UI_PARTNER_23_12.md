@@ -276,3 +276,5 @@ demandesHeaderRef.current.refresh();
 **Type** : Améliorations UI + Correction bug  
 **Statut** : ✅ Appliqué et testé
 
+
+

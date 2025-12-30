@@ -8,15 +8,13 @@ const ImprovedEnqueteurViewer = lazy(() => import('./ImprovedEnqueteurViewer'));
 const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
 const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
-const TarificationViewer = lazy(() => import('./TarificationViewer'));
 const PartnerKeywordsAdmin = lazy(() => import('./PartnerKeywordsAdmin'));
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
 const ArchivesViewer = lazy(() => import('./ArchivesViewer'));
 // const AdminDashboard = lazy(() => import('./AdminDashboard')); // Supprimé - validation intégrée dans DataViewer
 
 // Non-lazy loaded components
-import PaiementManager from './PaiementManager';
-import FinancialReports from './FinancialReports';
+import FinanceManager from './FinanceManager';
 
 // Loading component
 const LoadingComponent = () => (
@@ -89,22 +87,10 @@ const Tabs = () => {
       component: <AssignmentViewer />
     },
     {
-      id: 'tarification',
-      label: 'Tarification',
-      icon: <DollarSign className="w-4 h-4" />,
-      component: <TarificationViewer onTabChange={handleTabChange} />
-    },
-    {
-      id: 'paiements',
-      label: 'Paiements Enquêteurs',
-      icon: <DollarSign className="w-4 h-4" />,
-      component: <PaiementManager />
-    },
-    {
       id: 'finance',
-      label: 'Rapports Financiers',
-      icon: <BarChart2 className="w-4 h-4" />,
-      component: <FinancialReports />
+      label: 'Finance & Paiements',
+      icon: <DollarSign className="w-4 h-4" />,
+      component: <FinanceManager />
     },
     {
       id: 'partner-keywords',

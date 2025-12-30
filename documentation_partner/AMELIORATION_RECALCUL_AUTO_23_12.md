@@ -291,3 +291,5 @@ myRef.current?.refresh();
 **Impact** : 🟢 HAUTE (amélioration UX majeure)  
 **Complexité** : 🟡 MOYENNE (3 fichiers modifiés)
 
+
+

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python analyze_example_line.py:*)"
+    ]
+  }
+}

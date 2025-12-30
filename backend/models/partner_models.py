@@ -131,3 +131,5 @@ class PartnerTarifRule(db.Model):
             return ""
         return "+".join(sorted(set(request_codes)))
 
+
+

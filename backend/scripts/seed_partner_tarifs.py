@@ -117,3 +117,5 @@ def seed_tarifs():
 if __name__ == '__main__':
     seed_tarifs()
 
+
+

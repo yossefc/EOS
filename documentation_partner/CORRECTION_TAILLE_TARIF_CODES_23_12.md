@@ -61,3 +61,5 @@ Ces champs peuvent maintenant accepter des textes jusqu'à 100 caractères.
 ---
 *Cette correction fait suite à la série de corrections du 23/12/2025 pour finaliser le système PARTNER.*
 
+
+

@@ -205,6 +205,19 @@ def confirm_enquete():
         db.session.add(enquete_terminee)
         db.session.commit()
         
+        # Calculer et persister la tarification lors de la confirmation
+        from models.donnee_enqueteur import DonneeEnqueteur
+        from services.tarification_service import TarificationService
+        
+        donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=enquete_id).first()
+        if donnee_enqueteur:
+            try:
+                facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+                if facturation:
+                    logger.info(f"Tarification calculée pour l'enquête {enquete_id}: EOS={facturation.resultat_eos_montant}€, Enquêteur={facturation.resultat_enqueteur_montant}€")
+            except Exception as e:
+                logger.error(f"Erreur lors du calcul de la tarification pour l'enquête {enquete_id}: {str(e)}")
+        
         # Retourner les données de l'enquête confirmée
         result = {
             'id': donnee.id,

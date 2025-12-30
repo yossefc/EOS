@@ -147,3 +147,5 @@ UpdateModal (PARTNER)
 **Type** : Amélioration UI (suppression duplication)  
 **Statut** : ✅ Appliqué et validé
 
+
+

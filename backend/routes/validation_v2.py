@@ -52,6 +52,17 @@ def valider_enquete(enquete_id):
         # Mettre à jour le statut à 'validee' (pas encore archivée)
         donnee.statut_validation = 'validee'
         
+        # Calculer et persister la tarification lors de la validation
+        from services.tarification_service import TarificationService
+        
+        if donnee_enqueteur:
+            try:
+                facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
+                if facturation:
+                    logger.info(f"Tarification calculée pour l'enquête {enquete_id}: EOS={facturation.resultat_eos_montant}€, Enquêteur={facturation.resultat_enqueteur_montant}€")
+            except Exception as e:
+                logger.error(f"Erreur lors du calcul de la tarification pour l'enquête {enquete_id}: {str(e)}")
+        
         # Ajouter à l'historique
         donnee.add_to_history(
             'validation',

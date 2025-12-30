@@ -33,6 +33,11 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
   const [csvDownloading, setCsvDownloading] = useState(false);
   // Revenue history for chart visualization
   const [revenueHistory, setRevenueHistory] = useState([]);
+  
+  // MULTI-CLIENT: États pour les clients
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState(null);
+  const [loadingClients, setLoadingClients] = useState(true);
 
   /**
    * Fetch earnings data based on selected period
@@ -47,6 +52,13 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
       // Add date filtering parameters if viewAll is false
       if (!viewAll) {
         url += `?month=${month}&year=${year}`;
+      } else {
+        url += '?';
+      }
+      
+      // MULTI-CLIENT: Ajouter le filtre client si sélectionné
+      if (selectedClientId) {
+        url += `${url.includes('?') && !url.endsWith('?') ? '&' : ''}client_id=${selectedClientId}`;
       }
 
       const response = await axios.get(url);
@@ -80,7 +92,11 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
         const month = targetDate.getMonth() + 1;
         const year = targetDate.getFullYear();
         
-        const url = `${API_URL}/api/facturation/enqueteur/${enqueteurId}?month=${month}&year=${year}`;
+        // MULTI-CLIENT: Ajouter le filtre client si sélectionné
+        let url = `${API_URL}/api/facturation/enqueteur/${enqueteurId}?month=${month}&year=${year}`;
+        if (selectedClientId) {
+          url += `&client_id=${selectedClientId}`;
+        }
         
         try {
           const response = await axios.get(url);
@@ -119,13 +135,37 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
     }
   };
 
+  /**
+   * MULTI-CLIENT: Récupérer la liste des clients
+   */
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      const response = await axios.get(`${API_URL}/api/clients`);
+      if (response.data.success) {
+        setClients(response.data.clients);
+        // Sélectionner "Tous" par défaut (null = tous les clients)
+        setSelectedClientId(null);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération des clients:", error);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
+  
+  // Fetch clients on mount
+  useEffect(() => {
+    fetchClients();
+  }, []);
+  
   // Fetch data when component mounts or when filters change
   useEffect(() => {
-    if (enqueteurId) {
+    if (enqueteurId && !loadingClients) {
       fetchEarnings();
       fetchEarningsHistory();
     }
-  }, [enqueteurId, month, year, viewAll]);
+  }, [enqueteurId, month, year, viewAll, selectedClientId, loadingClients]);
 
   /**
    * Export earnings data as CSV
@@ -267,7 +307,26 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
   );
 
   const renderFilters = () => (
-    <div className="flex items-center gap-4 mb-6 bg-gray-50 p-3 rounded-lg">
+    <div className="flex items-center gap-4 mb-6 bg-gray-50 p-3 rounded-lg flex-wrap">
+      {/* MULTI-CLIENT: Sélecteur de client */}
+      {!loadingClients && clients.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Client :</span>
+          <select
+            value={selectedClientId || ''}
+            onChange={(e) => setSelectedClientId(e.target.value ? parseInt(e.target.value) : null)}
+            className="py-1 px-2 border rounded-md text-sm"
+          >
+            <option value="">Tous</option>
+            {clients.map(client => (
+              <option key={client.id} value={client.id}>
+                {client.nom}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      
       <div className="flex items-center gap-2">
         <Calendar className="w-5 h-5 text-gray-400" />
         <span className="text-sm text-gray-600">Période :</span>
