@@ -50,7 +50,7 @@ WITH required_tables AS (
         'enqueteurs',
         'donnees',
         'donnees_enqueteur',
-        'fichiers_importes',
+        'fichiers',
         'import_profiles',
         'import_field_mappings',
         'tarifs_eos',
@@ -59,7 +59,6 @@ WITH required_tables AS (
         'enquete_facturation',
         'export_batches',
         'confirmation_options',
-        'partner_keywords',
         'partner_case_requests',
         'partner_tarif_rules'
     ]) AS table_name
@@ -223,14 +222,12 @@ SELECT
 
 SELECT 
     c.code as client,
-    co.type,
-    co.code,
-    co.label,
-    co.is_active
+    co.option_text,
+    co.usage_count,
+    to_char(co.created_at, 'YYYY-MM-DD') as date_creation
 FROM confirmation_options co
 JOIN clients c ON co.client_id = c.id
-WHERE co.is_active = true
-ORDER BY c.code, co.type, co."order";
+ORDER BY c.code, co.option_text;
 
 \echo ''
 
@@ -323,7 +320,7 @@ UNION ALL
 SELECT 
     'Fichiers importés',
     COUNT(*)
-FROM fichiers_importes
+FROM fichiers
 UNION ALL
 SELECT 
     'Profils d''import',
@@ -341,39 +338,29 @@ ORDER BY table_name;
 \echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
 \echo ''
 
-WITH diagnostics AS (
-    SELECT 
-        EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tarifs_client') as tarifs_client_ok,
-        EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'confirmation_options') as confirmation_ok,
-        EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'donnees' AND column_name = 'tarif_lettre') as colonnes_partner_ok,
-        (SELECT data_type FROM information_schema.columns WHERE table_name = 'donnees_enqueteur' AND column_name = 'elements_retrouves') = 'text' as colonnes_text_ok,
-        EXISTS (SELECT 1 FROM clients WHERE code = 'PARTNER') as client_partner_ok,
-        EXISTS (SELECT 1 FROM import_profiles ip JOIN clients c ON ip.client_id = c.id WHERE c.code = 'PARTNER') as profil_partner_ok
-)
 SELECT 
-    CASE WHEN tarifs_client_ok THEN '✅' ELSE '❌' END || ' Table tarifs_client' as verification,
-    CASE WHEN tarifs_client_ok THEN 'OK' ELSE 'MANQUANT - Exécuter CONFIGURER_TARIFS_PARTNER.bat' END as action
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tarifs_client') THEN '✅' ELSE '❌' END || ' Table tarifs_client' as verification,
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tarifs_client') THEN 'OK' ELSE 'MANQUANT - Exécuter CONFIGURER_TARIFS_PARTNER.bat' END as action
 UNION ALL
 SELECT 
-    CASE WHEN confirmation_ok THEN '✅' ELSE '❌' END || ' Table confirmation_options',
-    CASE WHEN confirmation_ok THEN 'OK' ELSE 'MANQUANT - Migration 006 non appliquée' END
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'confirmation_options') THEN '✅' ELSE '❌' END || ' Table confirmation_options',
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'confirmation_options') THEN 'OK' ELSE 'MANQUANT - Migration 006 non appliquée' END
 UNION ALL
 SELECT 
-    CASE WHEN colonnes_partner_ok THEN '✅' ELSE '❌' END || ' Colonnes PARTNER dans donnees',
-    CASE WHEN colonnes_partner_ok THEN 'OK' ELSE 'MANQUANT - Migration 005 non appliquée' END
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'donnees' AND column_name = 'tarif_lettre') THEN '✅' ELSE '❌' END || ' Colonnes PARTNER dans donnees',
+    CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'donnees' AND column_name = 'tarif_lettre') THEN 'OK' ELSE 'MANQUANT - Migration 005 non appliquée' END
 UNION ALL
 SELECT 
-    CASE WHEN colonnes_text_ok THEN '✅' ELSE '❌' END || ' Colonnes TEXT dans donnees_enqueteur',
-    CASE WHEN colonnes_text_ok THEN 'OK' ELSE 'MANQUANT - Exécuter CORRIGER_COLONNES_TEXTE.bat' END
+    CASE WHEN (SELECT data_type FROM information_schema.columns WHERE table_name = 'donnees_enqueteur' AND column_name = 'elements_retrouves') = 'text' THEN '✅' ELSE '❌' END || ' Colonnes TEXT dans donnees_enqueteur',
+    CASE WHEN (SELECT data_type FROM information_schema.columns WHERE table_name = 'donnees_enqueteur' AND column_name = 'elements_retrouves') = 'text' THEN 'OK' ELSE 'MANQUANT - Exécuter CORRIGER_COLONNES_TEXTE.bat' END
 UNION ALL
 SELECT 
-    CASE WHEN client_partner_ok THEN '✅' ELSE '❌' END || ' Client PARTNER configuré',
-    CASE WHEN client_partner_ok THEN 'OK' ELSE 'MANQUANT - Exécuter CONFIGURER_PARTNER.bat' END
+    CASE WHEN EXISTS (SELECT 1 FROM clients WHERE code = 'PARTNER') THEN '✅' ELSE '❌' END || ' Client PARTNER configuré',
+    CASE WHEN EXISTS (SELECT 1 FROM clients WHERE code = 'PARTNER') THEN 'OK' ELSE 'MANQUANT - Exécuter CONFIGURER_PARTNER.bat' END
 UNION ALL
 SELECT 
-    CASE WHEN profil_partner_ok THEN '✅' ELSE '❌' END || ' Profil import PARTNER',
-    CASE WHEN profil_partner_ok THEN 'OK' ELSE 'MANQUANT - Exécuter CONFIGURER_PARTNER.bat' END
-FROM diagnostics;
+    CASE WHEN EXISTS (SELECT 1 FROM import_profiles ip JOIN clients c ON ip.client_id = c.id WHERE c.code = 'PARTNER') THEN '✅' ELSE '❌' END || ' Profil import PARTNER',
+    CASE WHEN EXISTS (SELECT 1 FROM import_profiles ip JOIN clients c ON ip.client_id = c.id WHERE c.code = 'PARTNER') THEN 'OK' ELSE 'MANQUANT - Exécuter CONFIGURER_PARTNER.bat' END;
 
 \echo ''
 \echo '╔════════════════════════════════════════════════════════════════╗'
