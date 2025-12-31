@@ -163,3 +163,11 @@ backend/vpn_configs/
 # Fichiers temporaires de l'application
 *.bak
 *.backup
+
+# ============================================================
+# Rapports et exports générés
+# ============================================================
+RAPPORT_*.txt
+*_EXPORT.sql
+PARTNER_*_EXPORT.sql
+FETCH_HEAD
