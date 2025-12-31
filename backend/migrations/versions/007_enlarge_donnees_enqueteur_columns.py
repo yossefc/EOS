@@ -22,26 +22,20 @@ def upgrade():
     
     print("Agrandissement des colonnes dans donnees_enqueteur...")
     
-    # Agrandir elements_retrouves à TEXT (illimité)
-    op.alter_column('donnees_enqueteur', 'elements_retrouves',
-                    existing_type=sa.String(10),
-                    type_=sa.Text(),
-                    existing_nullable=True)
-    print("✓ elements_retrouves : VARCHAR(10) → TEXT")
+    # Utiliser des commandes SQL directes pour éviter les problèmes de conversion
+    conn = op.get_bind()
+    
+    # Agrandir elements_retrouves à TEXT
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN elements_retrouves TYPE TEXT"))
+    print("✓ elements_retrouves : VARCHAR → TEXT")
     
     # Agrandir code_resultat à TEXT
-    op.alter_column('donnees_enqueteur', 'code_resultat',
-                    existing_type=sa.String(10),
-                    type_=sa.Text(),
-                    existing_nullable=True)
-    print("✓ code_resultat : VARCHAR(10) → TEXT")
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN code_resultat TYPE TEXT"))
+    print("✓ code_resultat : VARCHAR → TEXT")
     
     # Agrandir flag_etat_civil_errone à TEXT
-    op.alter_column('donnees_enqueteur', 'flag_etat_civil_errone',
-                    existing_type=sa.String(10),
-                    type_=sa.Text(),
-                    existing_nullable=True)
-    print("✓ flag_etat_civil_errone : VARCHAR(10) → TEXT")
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN flag_etat_civil_errone TYPE TEXT"))
+    print("✓ flag_etat_civil_errone : VARCHAR → TEXT")
     
     print("✅ Migration 007 : Colonnes converties en TEXT dans donnees_enqueteur")
 
@@ -49,20 +43,11 @@ def upgrade():
 def downgrade():
     """Réduit les colonnes à leur taille originale"""
     
-    op.alter_column('donnees_enqueteur', 'flag_etat_civil_errone',
-                    existing_type=sa.Text(),
-                    type_=sa.String(10),
-                    existing_nullable=True)
+    conn = op.get_bind()
     
-    op.alter_column('donnees_enqueteur', 'code_resultat',
-                    existing_type=sa.Text(),
-                    type_=sa.String(10),
-                    existing_nullable=True)
-    
-    op.alter_column('donnees_enqueteur', 'elements_retrouves',
-                    existing_type=sa.Text(),
-                    type_=sa.String(10),
-                    existing_nullable=True)
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN flag_etat_civil_errone TYPE VARCHAR(10)"))
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN code_resultat TYPE VARCHAR(10)"))
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN elements_retrouves TYPE VARCHAR(10)"))
     
     print("✓ Colonnes réduites à VARCHAR(10)")
 
