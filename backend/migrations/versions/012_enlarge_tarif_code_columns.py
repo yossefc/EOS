@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '012'
+revision = '012_enlarge_tarif_code_columns'
 down_revision = '011'
 branch_labels = None
 depends_on = None

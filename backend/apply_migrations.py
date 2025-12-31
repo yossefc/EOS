@@ -12,6 +12,10 @@ print("[OK] DATABASE_URL definie")
 print(f"  {os.environ['DATABASE_URL'][:50]}...")
 print()
 
+# Chemin vers le dossier migrations (relatif au script)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MIGRATIONS_DIR = os.path.join(BASE_DIR, 'migrations')
+
 # Importer l'application Flask
 from app import create_app
 from flask_migrate import stamp, upgrade, current
@@ -22,6 +26,7 @@ app = create_app()
 
 # Appliquer les migrations dans le contexte de l'application
 with app.app_context():
+    print(f"[INFO] Utilisation du dossier migrations : {MIGRATIONS_DIR}")
     print("[INFO] Verification de l'etat des migrations...")
     
     try:
@@ -44,23 +49,23 @@ with app.app_context():
                 if 'client_id' in columns:
                     print("[OK] La colonne client_id existe deja")
                     print("[INFO] Marquage de toutes les migrations comme appliquees...")
-                    stamp(revision='002_multi_client', directory='migrations')
+                    stamp(revision='002_multi_client', directory=MIGRATIONS_DIR)
                     print("[DONE] Base de donnees deja a jour !")
                 else:
                     print("[WARNING] La colonne client_id n'existe pas")
                     print("[INFO] Marquage de la migration 001 comme appliquee...")
-                    stamp(revision='001_initial', directory='migrations')
+                    stamp(revision='001_initial', directory=MIGRATIONS_DIR)
                     print("[INFO] Application de la migration 002 (ajout support multi-client)...")
-                    upgrade(directory='migrations')
+                    upgrade(directory=MIGRATIONS_DIR)
                     print("[DONE] Migration 002 appliquee avec succes !")
             else:
                 print("[INFO] Base de donnees vide, application de toutes les migrations...")
-                upgrade(directory='migrations')
+                upgrade(directory=MIGRATIONS_DIR)
                 print("[DONE] Toutes les migrations appliquees !")
         else:
             print("[INFO] Table alembic_version trouvee")
             print("[INFO] Application des migrations manquantes...")
-            upgrade(directory='migrations')
+            upgrade(directory=MIGRATIONS_DIR)
             print("[DONE] Migrations appliquees avec succes !")
             
     except Exception as e:

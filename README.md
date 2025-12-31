@@ -68,6 +68,22 @@ Application web de gestion d'enquêtes multi-clients avec support EOS et PARTNER
 
 ## 📦 Installation
 
+### ⚠️ **Correction importante (31/12/2025)**
+
+Un conflit de migrations Alembic a été corrigé. Si vous installez sur un **nouvel ordinateur**, utilisez :
+
+**Méthode rapide :**
+```bash
+# Double-cliquez sur le fichier
+INSTALLER_BASE_DONNEES.bat
+```
+
+**Ou consultez :**
+- 📄 **[INSTALLATION_RAPIDE.md](INSTALLATION_RAPIDE.md)** - Guide d'installation 1 page
+- 📄 **[__CORRECTION_MIGRATIONS_LISEZMOI__.txt](__CORRECTION_MIGRATIONS_LISEZMOI__.txt)** - Résumé de la correction
+
+---
+
 ### Prérequis
 - Python 3.11 ou supérieur
 - Node.js 18 ou supérieur
@@ -161,6 +177,11 @@ EOS/
 ### Documentation principale
 - **[LISEZ-MOI.md](LISEZ-MOI.md)** - Guide d'utilisation détaillé
 
+### Installation et migrations
+- **[INSTALLATION_RAPIDE.md](INSTALLATION_RAPIDE.md)** - Guide d'installation rapide (1 page)
+- **[GUIDE_INSTALLATION_APRES_CORRECTION_MIGRATIONS.md](GUIDE_INSTALLATION_APRES_CORRECTION_MIGRATIONS.md)** - Guide complet avec dépannage
+- **[__CORRECTION_MIGRATIONS_LISEZMOI__.txt](__CORRECTION_MIGRATIONS_LISEZMOI__.txt)** - Résumé de la correction du 31/12/2025
+
 ### Documentation PARTNER
 - **[00_INDEX_DOCUMENTATION_PARTNER.md](documentation_partner/00_INDEX_DOCUMENTATION_PARTNER.md)** - Index de la documentation PARTNER
 - **[GUIDE_INSTALLATION_PARTNER_COMPLET.md](documentation_partner/GUIDE_INSTALLATION_PARTNER_COMPLET.md)** - Installation complète PARTNER
@@ -241,4 +262,4 @@ Pour toute question ou problème :
 ---
 
 **Version** : 2.0 (Décembre 2025)  
-**Dernière mise à jour** : 24/12/2025
+**Dernière mise à jour** : 31/12/2025 (Correction migrations Alembic)

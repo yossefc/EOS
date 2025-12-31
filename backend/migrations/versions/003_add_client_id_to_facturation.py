@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '003_client_id_facturation'
-down_revision = '012'  # La dernière migration est 012
+down_revision = '012_enlarge_tarif_code_columns'  # Après l'agrandissement des colonnes tarif_*_code
 branch_labels = None
 depends_on = None
 

@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '004_tarif_enqueteur_client'
-down_revision = '012_enlarge_tarif_code_columns'
+down_revision = '003_client_id_facturation'  # Après l'ajout de client_id à facturation
 branch_labels = None
 depends_on = None
 
@@ -46,6 +46,7 @@ def downgrade():
     
     # Supprimer la colonne
     op.drop_column('tarifs_enqueteur', 'client_id')
+
 
 
 

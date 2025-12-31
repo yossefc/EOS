@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '009'
-down_revision = '008'
+down_revision = '002_multi_client'  # Après le support multi-client
 branch_labels = None
 depends_on = None
 
