@@ -22,19 +22,19 @@ def upgrade():
     
     print("Agrandissement des colonnes dans donnees_enqueteur...")
     
-    # Utiliser des commandes SQL directes pour éviter les problèmes de conversion
+    # Utiliser USING pour forcer la conversion même avec des données existantes
     conn = op.get_bind()
     
     # Agrandir elements_retrouves à TEXT
-    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN elements_retrouves TYPE TEXT"))
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN elements_retrouves TYPE TEXT USING elements_retrouves::TEXT"))
     print("✓ elements_retrouves : VARCHAR → TEXT")
     
     # Agrandir code_resultat à TEXT
-    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN code_resultat TYPE TEXT"))
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN code_resultat TYPE TEXT USING code_resultat::TEXT"))
     print("✓ code_resultat : VARCHAR → TEXT")
     
     # Agrandir flag_etat_civil_errone à TEXT
-    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN flag_etat_civil_errone TYPE TEXT"))
+    conn.execute(sa.text("ALTER TABLE donnees_enqueteur ALTER COLUMN flag_etat_civil_errone TYPE TEXT USING flag_etat_civil_errone::TEXT"))
     print("✓ flag_etat_civil_errone : VARCHAR → TEXT")
     
     print("✅ Migration 007 : Colonnes converties en TEXT dans donnees_enqueteur")
