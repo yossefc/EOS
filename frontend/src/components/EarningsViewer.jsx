@@ -149,7 +149,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
       const stats = [];
 
       // Get data for the last N months
-      for (let i = monthsPeriod - 1; i \u003e = 0; i--) {
+      for (let i = monthsPeriod - 1; i >= 0; i--) {
         const targetDate = new Date(now);
         targetDate.setMonth(now.getMonth() - i);
 
