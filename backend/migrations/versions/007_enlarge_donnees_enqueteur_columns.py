@@ -22,47 +22,47 @@ def upgrade():
     
     print("Agrandissement des colonnes dans donnees_enqueteur...")
     
-    # Agrandir elements_retrouves de VARCHAR(10) à VARCHAR(255)
+    # Agrandir elements_retrouves à TEXT (illimité)
     op.alter_column('donnees_enqueteur', 'elements_retrouves',
                     existing_type=sa.String(10),
-                    type_=sa.String(255),
+                    type_=sa.Text(),
                     existing_nullable=True)
-    print("✓ elements_retrouves : VARCHAR(10) → VARCHAR(255)")
+    print("✓ elements_retrouves : VARCHAR(10) → TEXT")
     
-    # Agrandir code_resultat de VARCHAR(10) à VARCHAR(50)
+    # Agrandir code_resultat à TEXT
     op.alter_column('donnees_enqueteur', 'code_resultat',
                     existing_type=sa.String(10),
-                    type_=sa.String(50),
+                    type_=sa.Text(),
                     existing_nullable=True)
-    print("✓ code_resultat : VARCHAR(10) → VARCHAR(50)")
+    print("✓ code_resultat : VARCHAR(10) → TEXT")
     
-    # Agrandir flag_etat_civil_errone de VARCHAR(10) à VARCHAR(50)
+    # Agrandir flag_etat_civil_errone à TEXT
     op.alter_column('donnees_enqueteur', 'flag_etat_civil_errone',
                     existing_type=sa.String(10),
-                    type_=sa.String(50),
+                    type_=sa.Text(),
                     existing_nullable=True)
-    print("✓ flag_etat_civil_errone : VARCHAR(10) → VARCHAR(50)")
+    print("✓ flag_etat_civil_errone : VARCHAR(10) → TEXT")
     
-    print("✅ Migration 007 : Colonnes agrandies dans donnees_enqueteur")
+    print("✅ Migration 007 : Colonnes converties en TEXT dans donnees_enqueteur")
 
 
 def downgrade():
     """Réduit les colonnes à leur taille originale"""
     
     op.alter_column('donnees_enqueteur', 'flag_etat_civil_errone',
-                    existing_type=sa.String(50),
+                    existing_type=sa.Text(),
                     type_=sa.String(10),
                     existing_nullable=True)
     
     op.alter_column('donnees_enqueteur', 'code_resultat',
-                    existing_type=sa.String(50),
+                    existing_type=sa.Text(),
                     type_=sa.String(10),
                     existing_nullable=True)
     
     op.alter_column('donnees_enqueteur', 'elements_retrouves',
-                    existing_type=sa.String(255),
+                    existing_type=sa.Text(),
                     type_=sa.String(10),
                     existing_nullable=True)
     
-    print("✓ Colonnes réduites à leur taille originale")
+    print("✓ Colonnes réduites à VARCHAR(10)")
 
