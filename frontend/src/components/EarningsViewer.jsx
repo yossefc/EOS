@@ -1,4 +1,4 @@
-import  { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   DollarSign, Calendar, RefreshCw, AlertCircle, CheckSquare, FileDown,
@@ -29,11 +29,15 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
   const [month, setMonth] = useState(new Date().getMonth() + 1); // Current month (1-12)
   const [year, setYear] = useState(new Date().getFullYear()); // Current year
   const [viewAll, setViewAll] = useState(false);
-  const [activeView, setActiveView] = useState('summary'); // 'summary' or 'details'
+  const [activeView, setActiveView] = useState('summary'); // 'summary', 'details', or 'monthly-stats'
   const [csvDownloading, setCsvDownloading] = useState(false);
   // Revenue history for chart visualization
   const [revenueHistory, setRevenueHistory] = useState([]);
-  
+  // Monthly statistics
+  const [monthsPeriod, setMonthsPeriod] = useState(12); // 12 or 24 months
+  const [monthlyStats, setMonthlyStats] = useState([]);
+  const [loadingMonthlyStats, setLoadingMonthlyStats] = useState(false);
+
   // MULTI-CLIENT: États pour les clients
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState(null);
@@ -48,14 +52,14 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
       setError(null);
 
       let url = `${API_URL}/api/facturation/enqueteur/${enqueteurId}`;
-      
+
       // Add date filtering parameters if viewAll is false
       if (!viewAll) {
         url += `?month=${month}&year=${year}`;
       } else {
         url += '?';
       }
-      
+
       // MULTI-CLIENT: Ajouter le filtre client si sélectionné
       if (selectedClientId) {
         url += `${url.includes('?') && !url.endsWith('?') ? '&' : ''}client_id=${selectedClientId}`;
@@ -83,21 +87,21 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
     try {
       const now = new Date();
       const history = [];
-      
+
       // Get data for the last 6 months
       for (let i = 0; i < 6; i++) {
         const targetDate = new Date(now);
         targetDate.setMonth(now.getMonth() - i);
-        
+
         const month = targetDate.getMonth() + 1;
         const year = targetDate.getFullYear();
-        
+
         // MULTI-CLIENT: Ajouter le filtre client si sélectionné
         let url = `${API_URL}/api/facturation/enqueteur/${enqueteurId}?month=${month}&year=${year}`;
         if (selectedClientId) {
           url += `&client_id=${selectedClientId}`;
         }
-        
+
         try {
           const response = await axios.get(url);
           if (response.data.success) {
@@ -121,17 +125,77 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
           });
         }
       }
-      
+
       // Sort from oldest to newest
       history.sort((a, b) => {
         if (a.year !== b.year) return a.year - b.year;
         return a.month - b.month;
       });
-      
+
       setRevenueHistory(history);
-      
+
     } catch (error) {
       console.error("Erreur lors de la récupération de l'historique:", error);
+    }
+  };
+
+  /**
+   * Fetch monthly statistics for the selected period (12 or 24 months)
+   */
+  const fetchMonthlyStats = async () => {
+    try {
+      setLoadingMonthlyStats(true);
+      const now = new Date();
+      const stats = [];
+
+      // Get data for the last N months
+      for (let i = monthsPeriod - 1; i \u003e = 0; i--) {
+        const targetDate = new Date(now);
+        targetDate.setMonth(now.getMonth() - i);
+
+        const month = targetDate.getMonth() + 1;
+        const year = targetDate.getFullYear();
+
+        // Build URL with client filter if selected
+        let url = `${API_URL}/api/facturation/enqueteur/${enqueteurId}?month=${month}\u0026year=${year}`;
+        if (selectedClientId) {
+          url += `\u0026client_id=${selectedClientId}`;
+        }
+
+        try {
+          const response = await axios.get(url);
+          if (response.data.success) {
+            stats.push({
+              month: month,
+              year: year,
+              label: getMonthName(month) + ' ' + year,
+              total_gagne: response.data.data.total_gagne || 0,
+              total_paye: response.data.data.total_paye || 0,
+              total_a_payer: response.data.data.total_a_payer || 0,
+              nombre_enquetes: response.data.data.nombre_enquetes || 0
+            });
+          }
+        } catch (error) {
+          console.log(`Erreur pour ${getMonthName(month)} ${year}:`, error);
+          // Add empty entry for this month
+          stats.push({
+            month: month,
+            year: year,
+            label: getMonthName(month) + ' ' + year,
+            total_gagne: 0,
+            total_paye: 0,
+            total_a_payer: 0,
+            nombre_enquetes: 0
+          });
+        }
+      }
+
+      setMonthlyStats(stats);
+
+    } catch (error) {
+      console.error("Erreur lors de la récupération des statistiques mensuelles:", error);
+    } finally {
+      setLoadingMonthlyStats(false);
     }
   };
 
@@ -153,12 +217,12 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
       setLoadingClients(false);
     }
   };
-  
+
   // Fetch clients on mount
   useEffect(() => {
     fetchClients();
   }, []);
-  
+
   // Fetch data when component mounts or when filters change
   useEffect(() => {
     if (enqueteurId && !loadingClients) {
@@ -167,18 +231,26 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
     }
   }, [enqueteurId, month, year, viewAll, selectedClientId, loadingClients]);
 
+  // Fetch monthly stats when switching to monthly-stats view or when period/client changes
+  useEffect(() => {
+    if (enqueteurId && activeView === 'monthly-stats' && !loadingClients) {
+      fetchMonthlyStats();
+    }
+  }, [enqueteurId, activeView, monthsPeriod, selectedClientId, loadingClients]);
+
+
   /**
    * Export earnings data as CSV
    */
   const handleExportCSV = () => {
     if (!earnings || !earnings.facturations) return;
-    
+
     setCsvDownloading(true);
-    
+
     try {
       // Create CSV headers
       const headers = ["Date", "N° Dossier", "Éléments trouvés", "Montant", "Statut"];
-      
+
       // Create data rows
       const rows = earnings.facturations.map(facturation => [
         formatDate(facturation.created_at),
@@ -187,34 +259,34 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
         facturation.resultat_enqueteur_montant.toFixed(2),
         facturation.paye ? 'Payé' : 'En attente'
       ]);
-      
+
       // Add total row
       rows.push(['', '', 'TOTAL', earnings.total_gagne.toFixed(2), '']);
-      
+
       // Convert to CSV content
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.join(','))
       ].join('\n');
-      
+
       // Create download link
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      
+
       // Configure the download link
       const period = viewAll ? 'tous' : `${getMonthName(month)}-${year}`;
       link.setAttribute('href', url);
       link.setAttribute('download', `revenus-${period}.csv`);
       document.body.appendChild(link);
-      
+
       // Trigger download
       link.click();
-      
+
       // Clean up
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
     } catch (error) {
       console.error("Erreur lors de l'export CSV:", error);
       setError("Erreur lors de l'export CSV");
@@ -228,7 +300,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
    */
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    
+
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
       day: '2-digit',
@@ -266,8 +338,8 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
 
   // Generate array of years (current year and 2 years back)
   const currentYear = new Date().getFullYear();
-  const years = useMemo(() => 
-    Array.from({ length: 3 }, (_, i) => currentYear - i), 
+  const years = useMemo(() =>
+    Array.from({ length: 3 }, (_, i) => currentYear - i),
     [currentYear]
   );
 
@@ -279,26 +351,35 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
         Mes Revenus
       </h2>
       <div className="flex gap-2">
+        {activeView !== 'monthly-stats' && (
+          <button
+            onClick={() => setActiveView(activeView === 'summary' ? 'details' : 'summary')}
+            className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors">
+            {activeView === 'summary' ? (
+              <>
+                <Table className="w-4 h-4" />
+                <span>Voir détails</span>
+              </>
+            ) : (
+              <>
+                <BarChart2 className="w-4 h-4" />
+                <span>Voir résumé</span>
+              </>
+            )}
+          </button>
+        )}
         <button
-          onClick={() => setActiveView(activeView === 'summary' ? 'details' : 'summary')}
-          className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
-        >
-          {activeView === 'summary' ? (
-            <>
-              <Table className="w-4 h-4" />
-              <span>Voir détails</span>
-            </>
-          ) : (
-            <>
-              <BarChart2 className="w-4 h-4" />
-              <span>Voir résumé</span>
-            </>
-          )}
+          onClick={() => setActiveView(activeView === 'monthly-stats' ? 'summary' : 'monthly-stats')}
+          className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${activeView === 'monthly-stats'
+            ? 'bg-green-500 text-white hover:bg-green-600'
+            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+            }`}>
+          <BarChart2 className="w-4 h-4" />
+          <span>Statistiques</span>
         </button>
         <button
           onClick={fetchEarnings}
-          className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
           <RefreshCw className="w-4 h-4" />
           <span>Actualiser</span>
         </button>
@@ -326,12 +407,12 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
           </select>
         </div>
       )}
-      
+
       <div className="flex items-center gap-2">
         <Calendar className="w-5 h-5 text-gray-400" />
         <span className="text-sm text-gray-600">Période :</span>
       </div>
-      
+
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2">
           <input
@@ -342,7 +423,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
           />
           <span className="text-sm">Toutes les périodes</span>
         </label>
-        
+
         {!viewAll && (
           <>
             <select
@@ -357,7 +438,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
                 </option>
               ))}
             </select>
-            
+
             <select
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value))}
@@ -383,12 +464,12 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
         <div className="text-2xl font-bold text-green-700">{earnings.total_gagne.toFixed(2)} €</div>
         <div className="text-green-600 text-xs">{earnings.nombre_enquetes} enquêtes</div>
       </div>
-      
+
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 transition-all hover:shadow-md">
         <div className="text-blue-600 text-sm font-medium mb-1">Déjà payé</div>
         <div className="text-2xl font-bold text-blue-700">{earnings.total_paye.toFixed(2)} €</div>
       </div>
-      
+
       <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 transition-all hover:shadow-md">
         <div className="text-amber-600 text-sm font-medium mb-1">Reste à payer</div>
         <div className="text-2xl font-bold text-amber-700">{earnings.total_a_payer.toFixed(2)} €</div>
@@ -399,36 +480,36 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
   const renderRevenueChart = () => {
     // Calculate maximum height for bars (for scaling)
     const maxRevenue = Math.max(...revenueHistory.map(item => item.total), 10);
-    
+
     return (
       <div className="bg-white border rounded-lg p-4 mb-6 hover:shadow-md transition-all">
         <h3 className="font-medium mb-3 flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-blue-500" />
           Évolution de vos revenus sur 6 mois
         </h3>
-        
+
         <div className="h-64 flex items-end justify-between gap-2 mt-4 pl-8 pb-8 relative">
           {/* Y-axis (amounts) */}
           <div className="absolute left-0 top-0 bottom-8 w-8 flex flex-col justify-between text-xs text-gray-500">
             <span>{maxRevenue.toFixed(0)}€</span>
-            <span>{(maxRevenue/2).toFixed(0)}€</span>
+            <span>{(maxRevenue / 2).toFixed(0)}€</span>
             <span>0€</span>
           </div>
-          
+
           {/* Horizontal grid lines */}
           <div className="absolute left-8 right-0 top-0 bottom-8 flex flex-col justify-between">
             <div className="border-t border-gray-100 w-full"></div>
             <div className="border-t border-gray-100 w-full"></div>
             <div className="border-t border-gray-100 w-full"></div>
           </div>
-          
+
           {/* Chart bars */}
           {revenueHistory.map((item, index) => (
             <div key={index} className="flex flex-col items-center gap-1 flex-1">
               <div className="relative w-full flex justify-center">
-                <div 
+                <div
                   className="w-16 bg-blue-500 rounded-t-md transition-all duration-500 ease-in-out hover:bg-blue-600"
-                  style={{ 
+                  style={{
                     height: `${(item.total / maxRevenue) * 100}%`,
                     minHeight: item.total > 0 ? '4px' : '0px'
                   }}
@@ -440,11 +521,11 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               </div>
             </div>
           ))}
-          
+
           {/* X-axis (months) */}
           <div className="absolute left-8 right-0 bottom-0 h-8 border-t border-gray-300"></div>
         </div>
-        
+
         {/* Legend */}
         <div className="flex justify-center mt-8 text-sm text-gray-600">
           <div className="flex items-center gap-1">
@@ -460,7 +541,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
     <div className="bg-white border rounded-lg overflow-hidden hover:shadow-md transition-all">
       <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
         <h3 className="font-medium">Détail des enquêtes</h3>
-        <button 
+        <button
           onClick={handleExportCSV}
           className="text-sm flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
           disabled={csvDownloading}
@@ -478,7 +559,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
           )}
         </button>
       </div>
-      
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -554,6 +635,109 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
     </div>
   );
 
+  const renderMonthlyStatsTable = () => {
+    const totals = monthlyStats.reduce((acc, stat) => ({
+      nombre_enquetes: acc.nombre_enquetes + stat.nombre_enquetes,
+      total_gagne: acc.total_gagne + stat.total_gagne,
+      total_paye: acc.total_paye + stat.total_paye,
+      total_a_payer: acc.total_a_payer + stat.total_a_payer
+    }), { nombre_enquetes: 0, total_gagne: 0, total_paye: 0, total_a_payer: 0 });
+
+    return (
+      <div className="bg-white border rounded-lg overflow-hidden hover:shadow-md transition-all">
+        <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+          <h3 className="font-medium flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-blue-500" />
+            Statistiques des {monthsPeriod} derniers mois
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Période:</span>
+            <select
+              value={monthsPeriod}
+              onChange={(e) => setMonthsPeriod(parseInt(e.target.value))}
+              className="py-1 px-2 border rounded-md text-sm">
+              <option value={1}>1 mois</option>
+              <option value={12}>12 mois</option>
+              <option value={24}>24 mois</option>
+            </select>
+          </div>
+        </div>
+
+        {loadingMonthlyStats ? (
+          <div className="text-center p-8">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-500 mb-4" />
+            <p className="text-gray-600">Chargement des statistiques...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Mois
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    Nb enquêtes
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Total gagné
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Total payé
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Reste à payer
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {monthlyStats.map((stat, index) => (
+                  <tr key={index} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {stat.label}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                      {stat.nombre_enquetes}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-green-700">
+                      {stat.total_gagne.toFixed(2)} €
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-blue-700">
+                      {stat.total_paye.toFixed(2)} €
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-amber-700">
+                      {stat.total_a_payer.toFixed(2)} €
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                <tr>
+                  <td className="px-4 py-3 text-left text-sm font-bold text-gray-900">
+                    TOTAL
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">
+                    {totals.nombre_enquetes}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-green-700">
+                    {totals.total_gagne.toFixed(2)} €
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-blue-700">
+                    {totals.total_paye.toFixed(2)} €
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-bold text-amber-700">
+                    {totals.total_a_payer.toFixed(2)} €
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+
   const renderNonNumericalStats = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-all">
@@ -565,7 +749,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               <span className="font-medium">12 enquêtes</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div className="bg-blue-500 h-2 rounded-full" style={{width: '75%'}}></div>
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '75%' }}></div>
             </div>
           </div>
           <div>
@@ -574,7 +758,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               <span className="font-medium">8 enquêtes</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div className="bg-blue-500 h-2 rounded-full" style={{width: '50%'}}></div>
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '50%' }}></div>
             </div>
           </div>
           <div>
@@ -583,12 +767,12 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               <span className="font-medium">5 enquêtes</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div className="bg-blue-500 h-2 rounded-full" style={{width: '30%'}}></div>
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '30%' }}></div>
             </div>
           </div>
         </div>
       </div>
-      
+
       <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-all">
         <h3 className="text-base font-medium text-gray-900 mb-3">Répartition par résultat</h3>
         <div className="space-y-3">
@@ -598,7 +782,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               <span className="font-medium">18 enquêtes</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div className="bg-green-500 h-2 rounded-full" style={{width: '80%'}}></div>
+              <div className="bg-green-500 h-2 rounded-full" style={{ width: '80%' }}></div>
             </div>
           </div>
           <div>
@@ -607,7 +791,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               <span className="font-medium">5 enquêtes</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div className="bg-red-500 h-2 rounded-full" style={{width: '20%'}}></div>
+              <div className="bg-red-500 h-2 rounded-full" style={{ width: '20%' }}></div>
             </div>
           </div>
           <div>
@@ -616,7 +800,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
               <span className="font-medium">2 enquêtes</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div className="bg-gray-500 h-2 rounded-full" style={{width: '10%'}}></div>
+              <div className="bg-gray-500 h-2 rounded-full" style={{ width: '10%' }}></div>
             </div>
           </div>
         </div>
@@ -654,13 +838,13 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
             <>
               {/* Summary cards */}
               {renderSummaryCards()}
-              
+
               {/* Evolution chart */}
               {renderRevenueChart()}
-              
+
               {/* Non-numerical statistics */}
               {renderNonNumericalStats()}
-              
+
               {/* Call to action for more details */}
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center hover:shadow-md transition-all">
                 <p className="text-blue-700 mb-2">Vous voulez voir le détail de toutes vos enquêtes?</p>
@@ -672,6 +856,11 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
                   Voir le tableau détaillé
                 </button>
               </div>
+            </>
+          ) : activeView === 'monthly-stats' ? (
+            <>
+              {/* Monthly Statistics View */}
+              {renderMonthlyStatsTable()}
             </>
           ) : (
             <>
@@ -685,10 +874,10 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
                     <div className="text-lg font-bold text-blue-700">{earnings.total_gagne.toFixed(2)} €</div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-xs text-gray-600">Nombre d&apos;enquêtes</div>
+                    <div className="text-xs text-gray-600">Nombre d'enquêtes</div>
                     <div className="text-sm font-medium">{earnings.nombre_enquetes}</div>
                   </div>
                   <div className="text-right">
@@ -697,7 +886,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Billing list/table */}
               {earnings.facturations.length > 0 ? renderFacturationsTable() : renderEmptyState()}
             </>
@@ -708,7 +897,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
           <p>Aucune donnée disponible. Veuillez actualiser.</p>
         </div>
       )}
-      
+
       {/* Information guide */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6 hover:shadow-md transition-all">
         <h3 className="font-medium text-gray-900 mb-2">Comment suis-je rémunéré?</h3>

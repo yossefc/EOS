@@ -422,24 +422,28 @@ def get_stats_periodes():
         
         for periode in periodes:
             # Base query pour enquêtes traitées
-            query_enquetes = db.session.query(func.count(DonneeEnqueteur.id))
+            query_enquetes = db.session.query(func.count(DonneeEnqueteur.id)).join(
+                Donnee, DonneeEnqueteur.donnee_id == Donnee.id
+            )
             
             # ✅ AJOUT: Filtre client si fourni
             if client_id:
-                query_enquetes = query_enquetes.join(
-                    Donnee, DonneeEnqueteur.donnee_id == Donnee.id
-                ).filter(Donnee.client_id == client_id)
+                query_enquetes = query_enquetes.filter(Donnee.client_id == client_id)
             
             nb_enquetes = query_enquetes.filter(
                 DonneeEnqueteur.code_resultat.isnot(None),
+                Donnee.statut_validation.in_(['confirmee', 'archivee']),
                 DonneeEnqueteur.updated_at >= periode['debut'],
                 DonneeEnqueteur.updated_at <= periode['fin']
             ).scalar() or 0
             
             # Base query pour facturations
-            query_fact = db.session.query(EnqueteFacturation).filter(
+            query_fact = db.session.query(EnqueteFacturation).join(
+                Donnee, EnqueteFacturation.donnee_id == Donnee.id
+            ).filter(
                 EnqueteFacturation.created_at >= periode['debut'],
-                EnqueteFacturation.created_at <= periode['fin']
+                EnqueteFacturation.created_at <= periode['fin'],
+                Donnee.statut_validation.in_(['confirmee', 'archivee'])
             )
             
             # ✅ AJOUT: Filtre client si fourni
@@ -455,10 +459,13 @@ def get_stats_periodes():
             ).scalar() or 0
             
             # Stats des paiements
-            query_paiement = db.session.query(EnqueteFacturation).filter(
+            query_paiement = db.session.query(EnqueteFacturation).join(
+                Donnee, EnqueteFacturation.donnee_id == Donnee.id
+            ).filter(
                 EnqueteFacturation.paye == True,
                 EnqueteFacturation.date_paiement >= periode['debut'],
-                EnqueteFacturation.date_paiement <= periode['fin']
+                EnqueteFacturation.date_paiement <= periode['fin'],
+                Donnee.statut_validation.in_(['confirmee', 'archivee'])
             )
             
             # ✅ AJOUT: Filtre client si fourni

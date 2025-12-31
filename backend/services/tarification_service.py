@@ -151,8 +151,9 @@ class TarificationService:
                             logger.error(f"Impossible d'assigner un enquêteur à la contestation {donnee.id}")
                             return None
                 else:
-                    logger.error(f"No enqueteur assigned to donnee {donnee.id}, cannot calculate payment")
-                    return None
+                    logger.info(f"No enqueteur assigned to donnee {donnee.id}, treating as internal/admin processing (cost=0)")
+                    # Continue execution to create facturation for client billing
+
             
             # Récupérer ou créer la facturation
             facturation = TarificationService._get_or_create_facturation(donnee, donnee_enqueteur)
@@ -376,7 +377,11 @@ class TarificationService:
         
         # EOS ou fallback : utiliser get_tarif_eos standard
         tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
-        tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
+        
+        # Ne récupérer le tarif enquêteur que s'il y a un enquêteur
+        tarif_enqueteur = None
+        if donnee.enqueteurId:
+            tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
         
         if tarif_eos:
             facturation.tarif_eos_code = elements_code
@@ -392,8 +397,13 @@ class TarificationService:
             facturation.tarif_enqueteur_code = elements_code
             facturation.tarif_enqueteur_montant = tarif_enqueteur.montant
             facturation.resultat_enqueteur_montant = tarif_enqueteur.montant
+        elif not donnee.enqueteurId:
+            # Traitement INTERNE (Admin) -> Coût 0
+            facturation.tarif_enqueteur_code = "INTERNE"
+            facturation.tarif_enqueteur_montant = 0.0
+            facturation.resultat_enqueteur_montant = 0.0
         else:
-            # Valeur par défaut
+            # Valeur par défaut (enquêteur assigné mais pas de tarif trouvé)
             facturation.tarif_enqueteur_code = elements_code
             facturation.tarif_enqueteur_montant = 7.0
             facturation.resultat_enqueteur_montant = 7.0
@@ -478,7 +488,11 @@ class TarificationService:
             
             # EOS ou fallback : utiliser get_tarif_eos standard
             tarif_eos = TarificationService.get_tarif_eos(elements_code, client_id=donnee.client_id)
-            tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
+            
+            # Ne récupérer le tarif enquêteur que s'il y a un enquêteur
+            tarif_enqueteur = None
+            if donnee.enqueteurId:
+                tarif_enqueteur = TarificationService.get_tarif_enqueteur(elements_code, donnee.enqueteurId)
             
             if tarif_eos:
                 facturation.tarif_eos_code = elements_code
@@ -494,8 +508,13 @@ class TarificationService:
                 facturation.tarif_enqueteur_code = elements_code
                 facturation.tarif_enqueteur_montant = tarif_enqueteur.montant
                 facturation.resultat_enqueteur_montant = tarif_enqueteur.montant
+            elif not donnee.enqueteurId:
+                # Traitement INTERNE (Admin) -> Coût 0
+                facturation.tarif_enqueteur_code = "INTERNE"
+                facturation.tarif_enqueteur_montant = 0.0
+                facturation.resultat_enqueteur_montant = 0.0
             else:
-                # Valeur par défaut
+                # Valeur par défaut (enquêteur assigné mais pas de tarif trouvé)
                 facturation.tarif_enqueteur_code = elements_code
                 facturation.tarif_enqueteur_montant = 7.0
                 facturation.resultat_enqueteur_montant = 7.0

@@ -154,17 +154,20 @@ def format_montant_10(montant):
         format_montant_10(None) → "      0.00"
     """
     if montant is None:
-        montant = 0.0
+        return ' ' * 10
 
     try:
         montant_float = float(montant)
+        if montant_float == 0:
+            return ' ' * 10
+
         # Formater avec 2 décimales, POINT décimal
         montant_str = f"{montant_float:.2f}"
 
         # Right-justify avec espaces sur 10 chars
         return montant_str.rjust(10)
     except (ValueError, TypeError):
-        return "      0.00"
+        return ' ' * 10
 
 
 def format_int_8(value):
