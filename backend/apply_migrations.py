@@ -6,9 +6,9 @@ import os
 import sys
 
 # Définir DATABASE_URL AVANT tout import
-os.environ['DATABASE_URL'] = 'postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db'
+os.environ['DATABASE_URL'] = 'postgresql+psycopg2://postgres:postgres@localhost:5432/eos_db'
 
-print("✓ DATABASE_URL définie")
+print("[OK] DATABASE_URL definie")
 print(f"  {os.environ['DATABASE_URL'][:50]}...")
 print()
 
@@ -22,7 +22,7 @@ app = create_app()
 
 # Appliquer les migrations dans le contexte de l'application
 with app.app_context():
-    print("📦 Vérification de l'état des migrations...")
+    print("[INFO] Verification de l'etat des migrations...")
     
     try:
         # Vérifier si la table alembic_version existe
@@ -31,44 +31,44 @@ with app.app_context():
         tables = inspector.get_table_names()
         
         if 'alembic_version' not in tables:
-            print("⚠️  Table alembic_version manquante")
-            print("📝 Vérification de l'état de la base de données...")
+            print("[WARNING] Table alembic_version manquante")
+            print("[INFO] Verification de l'etat de la base de donnees...")
             
             # Vérifier si la table fichiers existe
             if 'fichiers' in tables:
-                print("✓ La table fichiers existe déjà")
+                print("[OK] La table fichiers existe deja")
                 
                 # Vérifier si la colonne client_id existe déjà
                 columns = [col['name'] for col in inspector.get_columns('fichiers')]
                 
                 if 'client_id' in columns:
-                    print("✓ La colonne client_id existe déjà")
-                    print("📝 Marquage de toutes les migrations comme appliquées...")
+                    print("[OK] La colonne client_id existe deja")
+                    print("[INFO] Marquage de toutes les migrations comme appliquees...")
                     stamp(revision='002_multi_client', directory='migrations')
-                    print("✅ Base de données déjà à jour !")
+                    print("[DONE] Base de donnees deja a jour !")
                 else:
-                    print("⚠️  La colonne client_id n'existe pas")
-                    print("📝 Marquage de la migration 001 comme appliquée...")
+                    print("[WARNING] La colonne client_id n'existe pas")
+                    print("[INFO] Marquage de la migration 001 comme appliquee...")
                     stamp(revision='001_initial', directory='migrations')
-                    print("📦 Application de la migration 002 (ajout support multi-client)...")
+                    print("[INFO] Application de la migration 002 (ajout support multi-client)...")
                     upgrade(directory='migrations')
-                    print("✅ Migration 002 appliquée avec succès !")
+                    print("[DONE] Migration 002 appliquee avec succes !")
             else:
-                print("ℹ️  Base de données vide, application de toutes les migrations...")
+                print("[INFO] Base de donnees vide, application de toutes les migrations...")
                 upgrade(directory='migrations')
-                print("✅ Toutes les migrations appliquées !")
+                print("[DONE] Toutes les migrations appliquees !")
         else:
-            print("ℹ️  Table alembic_version trouvée")
-            print("📦 Application des migrations manquantes...")
+            print("[INFO] Table alembic_version trouvee")
+            print("[INFO] Application des migrations manquantes...")
             upgrade(directory='migrations')
-            print("✅ Migrations appliquées avec succès !")
+            print("[DONE] Migrations appliquees avec succes !")
             
     except Exception as e:
-        print(f"❌ Erreur lors de l'application des migrations : {e}")
+        print(f"[ERROR] Erreur lors de l'application des migrations : {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
 
-print("\n🎉 Base de données mise à jour avec succès !")
+print("\n[SUCCESS] Base de donnees mise a jour avec succes !")
 print("Vous pouvez maintenant lancer l'application avec : python start_with_postgresql.py")
 
