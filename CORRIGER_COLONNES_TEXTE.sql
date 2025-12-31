@@ -55,6 +55,6 @@ WHERE table_name = 'donnees_enqueteur'
 \echo '╚═══════════════════════════════════════════════════════════╝'
 \echo ''
 \echo 'Maintenant, marquez la migration 007 comme appliquée :'
-\echo 'UPDATE alembic_version SET version_num = '\''007_enlarge_donnees_enqueteur_columns'\'';'
+\echo 'UPDATE alembic_version SET version_num = '\''007_enq_cols'\'';'
 \echo ''
 

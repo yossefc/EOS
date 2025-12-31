@@ -106,5 +106,6 @@ Cette approche contourne Alembic pour cette migration spécifique, mais marque c
 ---
 
 **Date de création** : 31 décembre 2025  
-**Migration concernée** : `007_enlarge_donnees_enqueteur_columns`
+**Migration concernée** : `007_enq_cols` (anciennement `007_enlarge_donnees_enqueteur_columns`)  
+**Note** : Nom raccourci pour éviter dépassement limite 32 caractères dans `alembic_version.version_num`
 

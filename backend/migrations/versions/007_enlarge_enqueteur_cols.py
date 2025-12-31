@@ -1,17 +1,17 @@
 """Agrandir colonnes text dans donnees_enqueteur
 
-Revision ID: 007_enlarge_donnees_enqueteur_columns
+Revision ID: 007_enq_cols
 Revises: 006_add_confirmation_options
 Create Date: 2025-12-31 22:10:00
 
-Agrandir les colonnes de texte qui sont trop petites (VARCHAR(10) -> VARCHAR(255))
+Agrandir les colonnes de texte qui sont trop petites (VARCHAR(10) -> TEXT)
 """
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '007_enlarge_donnees_enqueteur_columns'
+revision = '007_enq_cols'
 down_revision = '006_add_confirmation_options'
 branch_labels = None
 depends_on = None

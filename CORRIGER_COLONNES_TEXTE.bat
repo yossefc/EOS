@@ -35,7 +35,7 @@ echo.
 echo [2/2] Marquage de la migration 007 comme appliquee...
 echo.
 
-psql -U postgres -d eos_db -c "UPDATE alembic_version SET version_num = '007_enlarge_donnees_enqueteur_columns';"
+psql -U postgres -d eos_db -c "UPDATE alembic_version SET version_num = '007_enq_cols';"
 
 if errorlevel 1 (
     echo.
