@@ -286,11 +286,23 @@ def export_enquetes():
                 'error': 'python-docx n\'est pas installé'
             }), 500
         
+        # MULTI-CLIENT: Récupérer le client (par défaut EOS)
+        from client_utils import get_client_or_default
+        data = request.get_json() or {}
+        client_id_param = data.get('client_id')
+        
+        client = get_client_or_default(client_id=client_id_param)
+        if not client:
+            return jsonify({"success": False, "error": "Client introuvable"}), 404
+
+        logger.info(f"Export Word demandé pour client: {client.code} (ID: {client.id})")
+
         # Limite maximale pour un seul export (performance et mémoire)
         MAX_EXPORT_LIMIT = 1000
         
-        # Compter d'abord le nombre total d'enquêtes à exporter
+        # Compter d'abord le nombre total d'enquêtes à exporter POUR CE CLIENT
         total_count = Donnee.query.filter(
+            Donnee.client_id == client.id,
             Donnee.statut_validation.notin_(['validee', 'archivee']),
             Donnee.exported == False
         ).count()
@@ -298,19 +310,18 @@ def export_enquetes():
         if total_count == 0:
             return jsonify({
                 "success": False,
-                "message": "Aucune nouvelle enquête à exporter. Toutes les enquêtes ont déjà été exportées."
+                "message": f"Aucune nouvelle enquête à exporter pour {client.nom}. Toutes les enquêtes ont déjà été exportées."
             }), 200
         
         # Avertir si dépassement de la limite
         if total_count > MAX_EXPORT_LIMIT:
             logger.warning(f"Export limité : {total_count} enquêtes disponibles, mais limite fixée à {MAX_EXPORT_LIMIT}")
         
-        # Récupérer les enquêtes non exportées de l'onglet Données (AVEC LIMITE)
-        # (statut en_attente ou confirmee, non validees ni archivees)
-        # Charger aussi la relation avec fichier pour extraire la date du nom du fichier
+        # Récupérer les enquêtes non exportées POUR CE CLIENT (AVEC LIMITE)
         donnees = Donnee.query.options(
             db.joinedload(Donnee.fichier)
         ).filter(
+            Donnee.client_id == client.id,
             Donnee.statut_validation.notin_(['validee', 'archivee']),
             Donnee.exported == False
         ).order_by(Donnee.created_at.asc()).limit(MAX_EXPORT_LIMIT).all()
@@ -656,7 +667,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
     titre.paragraph_format.space_after = Pt(4)  # Espacement réduit
     for run in titre.runs:
-        run.font.size = Pt(14)  # Plus petit
+        run.font.size = Pt(16)  # Plus petit
         run.font.bold = True
     
     # Informations récapitulatives EN HAUT DE CHAQUE PAGE - COMPACT
@@ -664,11 +675,11 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     recap_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     recap_para.paragraph_format.space_after = Pt(4)  # Espacement réduit
     run1 = recap_para.add_run(f"Date: {date_reception.strftime('%d/%m/%Y') if date_reception else 'N/A'}")
-    run1.font.size = Pt(14)  # Plus petit
+    run1.font.size = Pt(16)  # Plus petit
     run1.font.bold = True
     recap_para.add_run(" | ")
     run2 = recap_para.add_run(f"Dossiers: {nombre_dossiers}")
-    run2.font.size = Pt(14)  # Plus petit
+    run2.font.size = Pt(16)  # Plus petit
     run2.font.bold = True
     run2.font.color.rgb = RGBColor(0, 102, 204)
     
@@ -677,7 +688,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
         """Ajoute une section avec un tableau de données - Format compact"""
         doc.add_heading(title, level=2)
         for run in doc.paragraphs[-1].runs:
-            run.font.size = Pt(14)  # Titre plus petit
+            run.font.size = Pt(16)  # Titre plus petit
         
         table = doc.add_table(rows=1, cols=2)
         table.style = 'Light Grid Accent 1'
@@ -690,7 +701,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
             for paragraph in cell.paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(14)  # Police plus petite
+                    run.font.size = Pt(16)  # Police plus petite
         
         # Données
         has_data = False
@@ -704,10 +715,10 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
                 for paragraph in row[0].paragraphs:
                     for run in paragraph.runs:
                         run.font.bold = True
-                        run.font.size = Pt(14)
+                        run.font.size = Pt(16)
                 for paragraph in row[1].paragraphs:
                     for run in paragraph.runs:
-                        run.font.size = Pt(14)
+                        run.font.size = Pt(16)
         
         if not has_data:
             row = table.add_row().cells
@@ -734,7 +745,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.bold = True
-                run.font.size = Pt(14)
+                run.font.size = Pt(16)
     
     # Fonction pour ajouter une ligne
     def add_row(label, value):
@@ -745,10 +756,10 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
             for paragraph in row[0].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(14)
+                    run.font.size = Pt(16)
             for paragraph in row[1].paragraphs:
                 for run in paragraph.runs:
-                    run.font.size = Pt(14)
+                    run.font.size = Pt(16)
     
     # TOUTES LES DONNÉES DU FICHIER (Format compact pour 1 page)
     
@@ -796,7 +807,12 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
 
     
     # 6. Éléments demandés
-    add_row('Éléments Demandés', donnee.elementDemandes)
+    if donnee.client and donnee.client.code == 'PARTNER':
+        add_row('Éléments Demandés ', donnee.recherche)
+        add_row('Instructions ', donnee.instructions)
+    else:
+        add_row('Éléments Demandés', donnee.elementDemandes)
+    
     add_row('Éléments Obligatoires', donnee.elementObligatoires)
     add_row('Éléments Contestés', donnee.elementContestes)
     add_row('Code Motif', donnee.codeMotif)
@@ -897,7 +913,7 @@ def generate_word_document(donnees):
             for paragraph in cell.paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
-                    run.font.size = Pt(14)
+                    run.font.size = Pt(16)
         
         # Données
         has_data = False
@@ -911,10 +927,10 @@ def generate_word_document(donnees):
                 for paragraph in row[0].paragraphs:
                     for run in paragraph.runs:
                         run.font.bold = True
-                        run.font.size = Pt(14)
+                        run.font.size = Pt(16)
                 for paragraph in row[1].paragraphs:
                     for run in paragraph.runs:
-                        run.font.size = Pt(14)
+                        run.font.size = Pt(16)
         
         if not has_data:
             row = table.add_row().cells
@@ -952,7 +968,7 @@ def generate_word_document(donnees):
         sous_titre = doc.add_paragraph(f"Dernière mise à jour : {date_str} | Enquêteur : {enqueteur_str} | Statut : {statut_str}")
         sous_titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in sous_titre.runs:
-            run.font.size = Pt(14)
+            run.font.size = Pt(16)
             run.font.color.rgb = RGBColor(64, 64, 64)
         
         doc.add_paragraph()
@@ -1040,7 +1056,7 @@ def generate_word_document(donnees):
             doc.add_heading('8. Commentaire Initial', level=2)
             para = doc.add_paragraph(donnee.commentaire)
             for run in para.runs:
-                run.font.size = Pt(14)
+                run.font.size = Pt(16)
             doc.add_paragraph()
         
         # ========== SECTIONS ENQUÊTEUR (SI DONNÉES DISPONIBLES) ==========
@@ -1176,7 +1192,7 @@ def generate_word_document(donnees):
         footer_para = doc.add_paragraph(f"Document généré le {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}")
         footer_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         for run in footer_para.runs:
-            run.font.size = Pt(14)
+            run.font.size = Pt(16)
             run.font.color.rgb = RGBColor(128, 128, 128)
             run.font.italic = True
     

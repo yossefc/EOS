@@ -37,6 +37,13 @@ def valider_enquete(enquete_id):
                 'success': False,
                 'error': 'Cette enquête n\'a pas de réponse d\'enquêteur'
             }), 400
+
+        # Vérifier qu'un enquêteur est assigné
+        if not donnee.enqueteurId:
+            return jsonify({
+                'success': False,
+                'error': 'Impossible de valider : aucun enquêteur n\'est assigné à cette enquête'
+            }), 400
         
         # Vérifier que l'enquête est confirmée par l'enquêteur
         if donnee.statut_validation != 'confirmee':

@@ -258,14 +258,52 @@ def register_legacy_routes(app):
 
     @app.route('/api/stats', methods=['GET', 'OPTIONS'])
     def get_stats():
-        """Récupère les statistiques globales"""
+        """Récupère les statistiques globales et détaillées par client"""
         if request.method == 'OPTIONS':
             return '', 200
             
         try:
+            from models.client import Client
+            from models.models_enqueteur import DonneeEnqueteur
+            from sqlalchemy import func
+
             total_fichiers = Fichier.query.count()
             total_donnees = Donnee.query.count()
             
+            # Statistiques par client
+            clients = Client.query.all()
+            clients_stats = []
+            
+            for client in clients:
+                # Nombre total importé pour ce client
+                imported = Donnee.query.filter_by(client_id=client.id).count()
+                
+                # Nombre traité (ayant une réponse d'enquêteur)
+                treated = (db.session.query(func.count(Donnee.id))
+                          .join(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id)
+                          .filter(Donnee.client_id == client.id)
+                          .scalar())
+                
+                # Nombre archivé (validé)
+                archived = Donnee.query.filter_by(client_id=client.id, statut_validation='validee').count()
+                
+                # Nombre de dossiers "Bon" (Positif - code 'P')
+                bon = (db.session.query(func.count(Donnee.id))
+                      .join(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id)
+                      .filter(Donnee.client_id == client.id, DonneeEnqueteur.code_resultat == 'P')
+                      .scalar())
+                
+                clients_stats.append({
+                    "id": client.id,
+                    "nom": client.nom,
+                    "code": client.code,
+                    "imported": imported,
+                    "treated": treated,
+                    "archived": archived,
+                    "bon": bon,
+                    "success_rate": round((bon / treated * 100), 1) if treated > 0 else 0
+                })
+
             derniers_fichiers = (Fichier.query
                             .order_by(Fichier.date_upload.desc())
                             .limit(10)
@@ -275,13 +313,15 @@ def register_legacy_routes(app):
                 "id": f.id,
                 "nom": f.nom,
                 "date_upload": f.date_upload.strftime('%Y-%m-%d %H:%M:%S'),
-                "nombre_donnees": Donnee.query.filter_by(fichier_id=f.id).count()
+                "nombre_donnees": Donnee.query.filter_by(fichier_id=f.id).count(),
+                "client_nom": f.client.nom if f.client else "Inconnu"
             } for f in derniers_fichiers]
             
             return jsonify({
                 "success": True,
                 "total_fichiers": total_fichiers,
                 "total_donnees": total_donnees,
+                "clients_stats": clients_stats,
                 "derniers_fichiers": fichiers_info
             })
             
@@ -599,16 +639,28 @@ def register_legacy_routes(app):
 
     @app.route('/api/donnees/non-exportees/count', methods=['GET'])
     def get_non_exportees_count():
-        """Compte le nombre d'enquêtes non encore exportées"""
+        """Compte le nombre d'enquêtes non encore exportées (filtré par client)"""
         try:
+            # MULTI-CLIENT: Récupérer le client (par défaut EOS)
+            from client_utils import get_client_or_default
+            client_id_param = request.args.get('client_id', type=int)
+            client_code_param = request.args.get('client_code', type=str)
+            
+            client = get_client_or_default(client_id=client_id_param, client_code=client_code_param)
+            if not client:
+                return jsonify({"success": False, "error": "Client introuvable"}), 404
+
             count = Donnee.query.filter(
+                Donnee.client_id == client.id,  # Filtrer par client
                 Donnee.statut_validation.notin_(['validee', 'archivee']),
                 Donnee.exported == False
             ).count()
             
             return jsonify({
                 "success": True,
-                "count": count
+                "count": count,
+                "client_id": client.id,
+                "client_code": client.code
             })
         except Exception as e:
             logger.error(f"Erreur lors du comptage: {str(e)}")

@@ -32,11 +32,11 @@ const Tabs = () => {
     // You can implement logic to refresh data after an import
     console.log('Import complete, refreshing data...');
   };
-  
+
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
   };
-  
+
   const tabs = [
     {
       id: 'stats',
@@ -50,12 +50,12 @@ const Tabs = () => {
       icon: <FileUp className="w-4 h-4" />,
       component: <ImportHandler onImportComplete={handleImportComplete} />
     },
-    {
-      id: 'enqueteur-interface',
-      label: 'Interface Enquêteur',
-      icon: <User className="w-4 h-4" />,
-      component: <EnqueteurDashboard onLogout={() => console.log('Logout clicked')} />
-    },
+    /* {
+       id: 'enqueteur-interface',
+       label: 'Interface Enquêteur',
+       icon: <User className="w-4 h-4" />,
+       component: <EnqueteurDashboard onLogout={() => console.log('Logout clicked')} />
+     },*/
     {
       id: 'data',
       label: 'Données',
@@ -113,29 +113,34 @@ const Tabs = () => {
   };
 
   return (
-    <div className="w-full">
-      <div className="border-b border-gray-200">
-        <nav className="flex overflow-x-auto hide-scrollbar" aria-label="Tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                flex items-center gap-2 px-4 py-2 text-sm font-medium whitespace-nowrap
-                border-b-2 transition-colors duration-200
-                ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-              `}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
+    <div className="w-full max-w-[1600px] mx-auto px-8 py-4">
+      <div className="sticky top-4 z-50 mb-10 pointer-events-none">
+        <nav className="flex items-center gap-2 p-1.5 bg-white/70 backdrop-blur-xl rounded-[24px] border border-white/40 shadow-xl shadow-slate-200/40 overflow-x-auto hide-scrollbar pointer-events-auto" aria-label="Tabs">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2.5 px-5 py-2.5 text-sm font-semibold whitespace-nowrap
+                  rounded-xl transition-all duration-300
+                  ${isActive
+                    ? 'bg-slate-800 text-white shadow-md shadow-slate-200 translate-y-[-1px]'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:border-slate-200/50 hover:shadow-sm'}
+                `}
+              >
+                <span className={`${isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                  {tab.icon}
+                </span>
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      <div className="mt-4">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {renderActiveComponent()}
       </div>
     </div>

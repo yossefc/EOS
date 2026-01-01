@@ -34,6 +34,7 @@ class ExportBatch(db.Model):
         """Convertit l'objet en dictionnaire pour l'API"""
         return {
             'id': self.id,
+            'client_id': self.client_id,
             'filename': self.filename,
             'filepath': self.filepath,
             'file_size': self.file_size,
