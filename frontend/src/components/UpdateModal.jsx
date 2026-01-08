@@ -1,9 +1,10 @@
-import  { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
   User, MapPin, Calendar, Info,
   MessageSquare, Briefcase, CircleDollarSign,
-  Check, AlertCircle, X, Building, StickyNote, HelpCircle, Baby
+  Check, AlertCircle, X, Building, StickyNote, HelpCircle, Baby,
+  CheckCircle, History, Database
 } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 import config from '../config';
@@ -96,12 +97,12 @@ const getTabsForClient = (isPartner) => {
     { id: 'commentaires', label: 'Commentaires', icon: MessageSquare },
     { id: 'notes', label: 'Notes perso', icon: StickyNote }
   ];
-  
+
   // Ajouter les onglets spécifiques PARTNER
   if (isPartner) {
     baseTabs.splice(2, 0, { id: 'naissance', label: 'Naissance', icon: Baby });
   }
-  
+
   return baseTabs;
 };
 
@@ -109,14 +110,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [clientCode, setClientCode] = useState('EOS'); // Code du client pour ce dossier
   const [clientId, setClientId] = useState(null); // ID du client
   const [confirmationOptions, setConfirmationOptions] = useState([]); // Options de confirmation dynamiques
-  
+
   // Feature flag PARTNER
   const isPartner = clientCode === 'PARTNER';
-  
+
   const [formData, setFormData] = useState({
     // Assignation enquêteur
     enqueteurId: null,
-    
+
     // Résultat enquête
     code_resultat: 'P',
     elements_retrouves: 'A',
@@ -191,10 +192,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     memo3: '',
     memo4: '',
     memo5: '',
-    
+
     // Notes personnelles
     notes_personnelles: '',
-    
+
     // PARTNER : Date et lieu de naissance retrouvés
     dateNaissance_maj: '',
     lieuNaissance_maj: ''
@@ -212,16 +213,17 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   });
 
   const [activeTab, setActiveTab] = useState('infos');
+  const [showOriginalData, setShowOriginalData] = useState(false); // Par défaut masqué pour gagner de la place
   const [showDeathInfo, setShowDeathInfo] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
   const [showEtatCivilHelp, setShowEtatCivilHelp] = useState(false);
   const [enqueteurs, setEnqueteurs] = useState([]);
-  
+
   // Ref pour rafraîchir les demandes PARTNER automatiquement
   const demandesHeaderRef = useRef(null);
-  
+
   // Charger les enquêteurs
   useEffect(() => {
     const fetchEnqueteurs = async () => {
@@ -234,12 +236,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         console.error("Erreur lors de la récupération des enquêteurs:", error);
       }
     };
-    
+
     if (isOpen) {
       fetchEnqueteurs();
     }
   }, [isOpen]);
-  
+
   // Sauvegarde automatique de l'enquêteur
   const handleEnqueteurChange = async (newEnqueteurId) => {
     try {
@@ -252,10 +254,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           }
         }
       );
-      
+
       // Mettre à jour le formData local
       setFormData(prev => ({ ...prev, enqueteurId: newEnqueteurId }));
-      
+
       // Afficher un message de succès temporaire
       setSuccess("Enquêteur assigné avec succès");
       setTimeout(() => setSuccess(null), 2000);
@@ -269,7 +271,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   // Initialiser le formulaire avec les données du dossier
   const initializeWithDossierData = useCallback(() => {
     if (!data) return;
-  
+
     setFormData(prev => ({
       ...prev,
       enqueteurId: data.enqueteurId || null,
@@ -328,7 +330,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             const clientData = response.data.data.client;
             setClientCode(clientData.code || 'EOS');
             setClientId(clientData.id);
-            
+
             // Charger les options de confirmation pour ce client
             if (clientData.code !== 'EOS') {
               try {
@@ -346,17 +348,17 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           setClientCode('EOS'); // Par défaut
         }
       };
-      
+
       const fetchEnqueteurData = async () => {
         try {
           const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${data.id}`);
-          
+
           if (response.data.success && response.data.data) {
             const enqueteurData = response.data.data;
-            
+
             // Stocker les données sauvegardées
             setDonneesSauvegardees(enqueteurData);
-            
+
             // Mise à jour du formulaire avec les données
             // Pour PARTNER : gérer les valeurs personnalisées
             const optionsPredefinies = [
@@ -370,10 +372,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
               'Confirmé sur place',
               'A', 'AT', 'D', 'AB', 'AE', 'ATB', 'ATE', 'ATBE', 'ATBER' // Options EOS
             ];
-            
+
             const elementsRetrouvesValue = enqueteurData.elements_retrouves || data.elementDemandes || 'A';
             const isOptionPredefinie = optionsPredefinies.includes(elementsRetrouvesValue);
-            
+
             setFormData({
               // Valeurs par défaut
               code_resultat: enqueteurData.code_resultat || 'P',
@@ -430,12 +432,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
               montant_revenu1: enqueteurData.montant_revenu1 || '',
               periode_versement_revenu1: enqueteurData.periode_versement_revenu1 || '',
               frequence_versement_revenu1: enqueteurData.frequence_versement_revenu1 || '',
-              
+
               nature_revenu2: enqueteurData.nature_revenu2 || '',
               montant_revenu2: enqueteurData.montant_revenu2 || '',
               periode_versement_revenu2: enqueteurData.periode_versement_revenu2 || '',
               frequence_versement_revenu2: enqueteurData.frequence_versement_revenu2 || '',
-              
+
               nature_revenu3: enqueteurData.nature_revenu3 || '',
               montant_revenu3: enqueteurData.montant_revenu3 || '',
               periode_versement_revenu3: enqueteurData.periode_versement_revenu3 || '',
@@ -447,20 +449,20 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
               memo3: enqueteurData.memo3 || '',
               memo4: enqueteurData.memo4 || '',
               memo5: enqueteurData.memo5 || '',
-              
+
               // Notes personnelles
               notes_personnelles: enqueteurData.notes_personnelles || '',
-              
+
               // PARTNER : Date et lieu de naissance mis à jour
               dateNaissance_maj: data.dateNaissance_maj || '',
               lieuNaissance_maj: data.lieuNaissance_maj || ''
             });
-            
+
             // Mettre à jour l'onglet de décès si nécessaire
             if (enqueteurData.date_deces || enqueteurData.elements_retrouves?.includes('D')) {
               setShowDeathInfo(true);
             }
-            
+
             // Si le code résultat est déjà 'I' (intraitable), s'assurer que les zones d'état civil
             // contiennent les valeurs d'origine ou sont vides
             if (enqueteurData.code_resultat === 'I') {
@@ -486,7 +488,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           initializeWithDossierData();
         }
       };
-  
+
       fetchClientData();
       fetchEnqueteurData();
     }
@@ -573,7 +575,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         }));
         return;
       }
-      
+
       // Si le code résultat change à 'I' (intraitable), rétablir les zones d'état civil d'origine
       // conformément au cahier des charges
       if (value === 'I') {
@@ -603,10 +605,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           [name]: value,
           code_resultat: 'P'
         }));
-        
+
         // Afficher l'aide sur les états civils erronés
         setShowEtatCivilHelp(true);
-        
+
         // Afficher un message d'information
         setError("N'oubliez pas de documenter dans les mémos (onglet Commentaires) les différences d'état civil. Vous ne devez utiliser le flag 'E' que pour les cas prévus par le cahier des charges.");
         return;
@@ -646,7 +648,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     setIsLoading(prev => ({ ...prev, submit: true }));
     setError(null);
     setSuccess(null);
-  
+
     try {
       // Validation des données selon le code résultat
       let errorMsg = validateFormData();
@@ -655,14 +657,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         setIsLoading(prev => ({ ...prev, submit: false }));
         return;
       }
-  
+
       // Préparer les données à envoyer
       // Pour PARTNER : si "AUTRE" est sélectionné, utiliser la saisie libre
       let elementsRetrouvesValue = formData.elements_retrouves;
       if (isPartner && formData.elements_retrouves === 'AUTRE' && formData.elements_retrouves_autre) {
         elementsRetrouvesValue = formData.elements_retrouves_autre;
       }
-      
+
       let dataToSend = {
         donnee_id: data.id,
         code_resultat: formData.code_resultat,
@@ -670,7 +672,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         flag_etat_civil_errone: formData.flag_etat_civil_errone,
         date_retour: formData.date_retour,
       };
-  
+
       // Gérer les données d'état civil corrigées
       if (formData.flag_etat_civil_errone === 'E') {
         dataToSend = {
@@ -683,7 +685,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           pays_naissance_corrige: formData.pays_naissance_corrige || null,
           type_divergence: formData.type_divergence || null,
         };
-        
+
         // Log des données d'état civil pour débogage
         console.log("Données d'état civil envoyées au backend:", {
           flag_etat_civil_errone: formData.flag_etat_civil_errone,
@@ -713,7 +715,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           // Pour les cas intraitables, on n'envoie pas d'éléments retrouvés
           elements_retrouves: ''
         };
-        
+
         // On vide également tous les autres champs d'information
         dataToSend = {
           ...dataToSend,
@@ -765,18 +767,18 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           montant_revenu1: null,
           periode_versement_revenu1: null,
           frequence_versement_revenu1: '',
-          
+
           nature_revenu2: '',
           montant_revenu2: null,
           periode_versement_revenu2: null,
           frequence_versement_revenu2: '',
-          
+
           nature_revenu3: '',
           montant_revenu3: null,
           periode_versement_revenu3: null,
           frequence_versement_revenu3: ''
         };
-        
+
         // Préserver les mémos et notes personnelles car ils peuvent contenir des informations utiles
         dataToSend = {
           ...dataToSend,
@@ -854,11 +856,11 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           memo3: formData.memo3,
           memo4: formData.memo4,
           memo5: formData.memo5,
-          
+
           // Notes personnelles
           notes_personnelles: formData.notes_personnelles
         };
-        
+
         // Pour les clients non-EOS (PARTNER), ajouter les champs spécifiques
         if (isPartner) {
           // Pour PARTNER : ajouter les champs de naissance mis à jour
@@ -867,7 +869,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             dateNaissance_maj: formData.dateNaissance_maj || null,
             lieuNaissance_maj: formData.lieuNaissance_maj || null
           };
-          
+
           // Sauvegarder la nouvelle option si "Autre" a été utilisé
           if (formData.elements_retrouves === 'AUTRE' && formData.elements_retrouves_autre && clientId) {
             try {
@@ -885,7 +887,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
       // L'enquêteur est déjà sauvegardé automatiquement au changement
       // On ne le sauvegarde plus ici
-      
+
       const response = await axios.post(
         `${API_URL}/api/donnees-enqueteur/${data.id}`,
         dataToSend,
@@ -895,7 +897,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           }
         }
       );
-  
+
       if (response.data.success) {
         // Après avoir enregistré les données enquêteur, mettre le statut à "confirmee"
         // Cela indique que l'enquêteur a terminé et confirmé son travail
@@ -913,17 +915,17 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           console.warn('Erreur lors de la mise à jour du statut:', statutError);
           // Ne pas bloquer le processus si la mise à jour du statut échoue
         }
-        
+
         setSuccess("Données enregistrées avec succès - Enquête confirmée et prête pour validation par l'administrateur");
         setDonneesSauvegardees(response.data.data);
-        
+
         // Pour PARTNER : Rafraîchir automatiquement les demandes après l'enregistrement
         if (isPartner && demandesHeaderRef.current) {
           setTimeout(() => {
             demandesHeaderRef.current.refresh();
           }, 300); // Petit délai pour que le backend ait le temps de recalculer
         }
-        
+
         // Attendre un peu avant de fermer pour montrer le message de succès
         setTimeout(() => {
           onClose(true); // Fermer le modal avec refresh = true
@@ -943,12 +945,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const validateFormData = () => {
     // Pour les clients non-EOS, saisie libre (pas de contraintes)
     const isNonEOS = clientCode !== 'EOS';
-    
+
     // Pour les clients non-EOS, aucune validation stricte
     if (isNonEOS) {
       return null; // Pas de validation, saisie libre
     }
-    
+
     // Pour EOS uniquement, appliquer les validations strictes
     // Vérifier selon le code résultat
     if (formData.code_resultat === 'P') {
@@ -989,7 +991,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           return "Le nom de l'employeur est obligatoire";
         }
       }
-      
+
       // Si le flag état civil erroné est 'E', vérifier que les mémos contiennent des explications
       if (formData.flag_etat_civil_errone === 'E') {
         if (!formData.memo1 && !formData.memo2 && !formData.memo3 && !formData.memo4 && !formData.memo5) {
@@ -1018,101 +1020,74 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto">
       <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-        {/* En-tête */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 sm:p-6 rounded-t-xl sticky top-0 z-10">
-  <div className="flex items-start gap-4">
-    {/* CONTENU PRINCIPAL */}
-    <div className="flex-1 text-white">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-start">
-        {/* Colonne 1 : Dossier */}
-        <div className="space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-extrabold">
-            Dossier n° {data?.numeroDossier}
-          </h2>
-          <p className="inline-flex items-center px-3 py-1 rounded-full bg-black/15 text-sm sm:text-base font-semibold">
-            {data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'}
-          </p>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-6 py-4 sticky top-0 z-50 flex items-center justify-between text-slate-800 shadow-sm">
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-0.5">Dossier</span>
+              <span className="text-xl font-black text-slate-900 leading-tight">{data?.numeroDossier}</span>
+            </div>
+
+            <div className="h-10 w-px bg-blue-200/50" />
+
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-0.5">Cible</span>
+              <span className="text-lg font-bold text-slate-900 truncate max-w-[220px] leading-tight">{data?.nom} {data?.prenom}</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase shadow-sm ${data?.typeDemande === 'ENQ' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'}`}>
+                {data?.typeDemande === 'ENQ' ? 'Enquête' : 'Contestation'}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setShowOriginalData(!showOriginalData)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm border
+                  ${showOriginalData
+                    ? 'bg-white text-blue-600 border-blue-200'
+                    : 'bg-blue-600 text-white border-transparent hover:bg-blue-700'}`}
+              >
+                <Info className="w-3.5 h-3.5" />
+                {showOriginalData ? 'Masquer Détails' : 'Voir Détails'}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-blue-100 shadow-sm">
+              <User className="w-4 h-4 text-blue-600" />
+              <select
+                name="enqueteurId"
+                value={formData.enqueteurId || ''}
+                onChange={(e) => handleEnqueteurChange(e.target.value)}
+                className="bg-transparent text-sm font-bold text-slate-700 border-none focus:ring-0 p-0 pr-8 cursor-pointer appearance-none outline-none"
+              >
+                <option value="">Sélectionner Enquêteur</option>
+                {enqueteurs.map((enq) => (
+                  <option key={enq.id} value={enq.id}>
+                    {enq.nom} {enq.prenom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => onClose(false)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-red-100 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all shadow-sm group"
+            >
+              <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            </button>
+          </div>
         </div>
 
-        {/* Colonne 2 : Éléments demandés (EOS uniquement) */}
-        {!isPartner && (
-          <div className="space-y-2">
-            <p className="text-sm sm:text-base font-semibold">
-              Éléments demandés
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {elementsDemandes.map(code => (
-                <span
-                  key={code}
-                  className="px-3 py-1 rounded-full text-sm sm:text-base bg-white/15 border border-white/30 shadow-sm"
-                >
-                  {TYPE_RECHERCHE[code] || code}
-                </span>
-              ))}
+        {/* En-tête des demandes PARTNER (Compact) */}
+        {isPartner && (
+          <div className="bg-slate-50 border-b border-slate-200">
+            <div className="px-6 py-2">
+              <PartnerDemandesHeader ref={demandesHeaderRef} donneeId={data.id} />
             </div>
           </div>
         )}
-
-        {/* Colonne 3 : Éléments obligatoires (EOS uniquement) */}
-        {!isPartner && elementsObligatoires.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm sm:text-base font-semibold">
-              Éléments obligatoires
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {elementsObligatoires.map(code => (
-                <span
-                  key={code}
-                  className="px-3 py-1 rounded-full text-sm sm:text-base flex items-center gap-1 bg-red-500/30 border border-red-200/70 shadow-sm"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  {TYPE_RECHERCHE[code] || code}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Colonne 4 : Assignation Enquêteur */}
-        <div className="space-y-2">
-          <p className="text-sm sm:text-base font-semibold">
-            👨‍💼 Enquêteur assigné
-          </p>
-          <select
-            name="enqueteurId"
-            value={formData.enqueteurId || ''}
-            onChange={(e) => handleEnqueteurChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-white/90 text-gray-800 font-medium text-sm border border-white/30 shadow-sm focus:ring-2 focus:ring-white focus:outline-none"
-          >
-            <option value="">Non assigné</option>
-            {enqueteurs.map((enq) => (
-              <option key={enq.id} value={enq.id}>
-                {enq.nom} {enq.prenom}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </div>
-
-    {/* BOUTON FERMETURE */}
-    <button
-      onClick={() => onClose(false)}
-      className="text-white/70 hover:text-white ml-2 mt-1"
-    >
-      <X className="w-6 h-6" />
-    </button>
-  </div>
-  
-  {/* En-tête des demandes PARTNER */}
-  {isPartner && (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-indigo-200">
-      <div className="px-6 py-4">
-        <PartnerDemandesHeader ref={demandesHeaderRef} donneeId={data.id} />
-      </div>
-    </div>
-  )}
-</div>
 
 
 
@@ -1131,57 +1106,47 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           </div>
         )}
 
-    
+
         <form onSubmit={handleSubmit}>
           {/* Bloc INSTRUCTIONS pour PARTNER */}
           {isPartner && <PartnerInstructions instructions={data.instructions} />}
-          
-          {/* Navigation par onglets */}
-          <div className="px-4 border-b overflow-x-auto">
-            <div className="flex space-x-2">
+
+          {/* Navigation par onglets (Design Clair & Aéré) */}
+          <div className="px-6 border-b border-slate-100 bg-slate-50/50 overflow-x-auto overflow-y-hidden">
+            <div className="flex space-x-1 pt-2">
               {getTabsForClient(isPartner).map(tab => {
-                // Pour EOS : Cacher certains onglets selon les éléments retrouvés
-                // Pour PARTNER : Afficher tous les onglets
+                const isSelected = activeTab === tab.id;
+
+                // Logique de visibilité pour EOS
                 if (!isPartner) {
-                  // Cacher l'onglet décès si pas nécessaire
-                  if (tab.id === 'deces' && !showDeathInfo && !formData.elements_retrouves.includes('D')) {
-                    return null;
-                  }
-                  
-                  // Cacher les onglets qui dépendent des éléments retrouvés
-                  if (
-                    (tab.id === 'employeur' && !formData.elements_retrouves.includes('E')) ||
-                    (tab.id === 'banque' && !formData.elements_retrouves.includes('B')) ||
-                    (tab.id === 'revenus' && !formData.elements_retrouves.includes('R'))
-                  ) {
-                    // Ne pas cacher ces onglets si on a des données dedans
-                    const hasBankData = formData.banque_domiciliation || formData.code_banque;
-                    const hasEmployerData = formData.nom_employeur;
-                    const hasRevenueData = formData.montant_salaire;
-                    
-                    if (
-                      (tab.id === 'employeur' && !hasEmployerData) ||
-                      (tab.id === 'banque' && !hasBankData) ||
-                      (tab.id === 'revenus' && !hasRevenueData)
-                    ) {
-                      return null;
-                    }
+                  if (tab.id === 'deces' && !showDeathInfo && !formData.elements_retrouves.includes('D')) return null;
+
+                  if (['employeur', 'banque', 'revenus'].includes(tab.id) && !formData.elements_retrouves.includes(tab.id[0].toUpperCase())) {
+                    const hasDataMap = {
+                      employeur: formData.nom_employeur,
+                      banque: formData.banque_domiciliation || formData.code_banque,
+                      revenus: formData.montant_salaire
+                    };
+                    if (!hasDataMap[tab.id]) return null;
                   }
                 }
-                
+
                 return (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-3 text-sm font-medium whitespace-nowrap inline-flex items-center gap-1
-                      ${activeTab === tab.id
-                        ? 'border-b-2 border-blue-500 text-blue-600'
-                        : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    className={`px-6 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-t-2xl relative
+                      ${isSelected
+                        ? 'bg-white text-blue-600 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] border-x border-t border-slate-100 z-10'
+                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'
                       }`}
                   >
-                    {tab.icon && <tab.icon className="w-4 h-4" />}
-                    {tab.label}
+                    <div className="flex items-center gap-2">
+                      {tab.icon && <tab.icon className={`w-4 h-4 ${isSelected ? 'text-blue-500' : 'text-slate-400 opacity-60'}`} />}
+                      {tab.label}
+                    </div>
+                    {isSelected && <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full" />}
                   </button>
                 );
               })}
@@ -1191,290 +1156,334 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           <div className="p-4">
             {/* Contenu des onglets */}
             {activeTab === 'infos' && (
-              <div className="space-y-4">
-                {/* Résultat de l'enquête */}
-                <div className="bg-gray-50 rounded-lg p-4 border">
-                  <h3 className="text-lg font-medium mb-4">Informations générales et résultat</h3>
-                  
-                  {data.typeDemande === 'CON' && (
-  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-    <h3 className="font-medium mb-2">Informations sur la contestation</h3>
-    {console.log("Données contestation:", data)}
-    {data.enqueteOriginale ? (
-      <div>
-        <p><span className="font-medium">Dossier contesté :</span> {data.enqueteOriginale.numeroDossier}</p>
-        <p><span className="font-medium">Enquêteur initial :</span> {data.enqueteOriginale.enqueteurNom}</p>
-        <p><span className="font-medium">Motif de contestation :</span> {data.motifDeContestation || 'Non précisé'}</p>
-      </div>
-    ) : (
-      <p className="text-yellow-600">Information sur l&apos;enquête originale non disponible</p>
-    )}
-  </div>
-)}
-                  {/* Informations personnelles organisées par catégorie */}
-                  <div className="space-y-4">
-                    
-
-
-                    {/* Identité */}
-                    {(data.nom || data.prenom) && (
-                      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
-                        <h4 className="font-semibold text-purple-800 mb-2 text-sm">👤 IDENTITÉ</h4>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                          {data.nom && (
-                            <div><span className="text-gray-600">Nom:</span> <span className="font-medium">{data.nom}</span></div>
-                          )}
-                          {data.prenom && (
-                            <div><span className="text-gray-600">Prénom:</span> <span className="font-medium">{data.prenom}</span></div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Naissance */}
-                    {(data.dateNaissance || data.lieuNaissance || data.paysNaissance || data.codePostalNaissance) && (
-                      <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                        <h4 className="font-semibold text-green-800 mb-2 text-sm">🎂 NAISSANCE</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
-                          {data.dateNaissance && (
-                            <div><span className="text-gray-600">Date:</span> <span className="font-medium">{data.dateNaissance}</span></div>
-                          )}
-                          {data.lieuNaissance && (
-                            <div><span className="text-gray-600">Lieu:</span> <span className="font-medium">{data.lieuNaissance}</span></div>
-                          )}
-                          {data.codePostalNaissance && (
-                            <div><span className="text-gray-600">Code postal:</span> <span className="font-medium">{data.codePostalNaissance}</span></div>
-                          )}
-                          {data.paysNaissance && (
-                            <div><span className="text-gray-600">Pays:</span> <span className="font-medium">{data.paysNaissance}</span></div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Adresse (du fichier importé) */}
-                    {(data.adresse1_origine || data.adresse2_origine || data.adresse3_origine || data.adresse4_origine || data.ville_origine || data.codePostal_origine || data.paysResidence_origine) && (
-                      <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-                        <h4 className="font-semibold text-orange-800 mb-2 text-sm">🏠 ADRESSE (fichier importé)</h4>
-                        <div className="text-sm space-y-1">
-                          {(data.adresse1_origine || data.adresse2_origine || data.adresse3_origine || data.adresse4_origine) && (
-                            <div className="font-medium">
-                              {data.adresse1_origine && <div>{data.adresse1_origine}</div>}
-                              {data.adresse2_origine && <div>{data.adresse2_origine}</div>}
-                              {data.adresse3_origine && <div>{data.adresse3_origine}</div>}
-                              {data.adresse4_origine && <div>{data.adresse4_origine}</div>}
-                            </div>
-                          )}
-                          <div className="grid grid-cols-3 gap-x-4 gap-y-1">
-                            {data.codePostal_origine && (
-                              <div><span className="text-gray-600">CP:</span> <span className="font-medium">{data.codePostal_origine}</span></div>
-                            )}
-                            {data.ville_origine && (
-                              <div><span className="text-gray-600">Ville:</span> <span className="font-medium">{data.ville_origine}</span></div>
-                            )}
-                            {data.paysResidence_origine && (
-                              <div><span className="text-gray-600">Pays:</span> <span className="font-medium">{data.paysResidence_origine}</span></div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Téléphones (du fichier importé) */}
-                    {(data.telephonePersonnel_origine || data.telephoneEmployeur_origine || data.telecopieEmployeur) && (
-                      <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
-                        <h4 className="font-semibold text-teal-800 mb-2 text-sm">📞 TÉLÉPHONES (fichier importé)</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
-                          {data.telephonePersonnel_origine && (
-                            <div><span className="text-gray-600">Personnel:</span> <span className="font-medium">{data.telephonePersonnel_origine}</span></div>
-                          )}
-                          {data.telephoneEmployeur_origine && (
-                            <div><span className="text-gray-600">Employeur:</span> <span className="font-medium">{data.telephoneEmployeur_origine}</span></div>
-                          )}
-                          {data.telecopieEmployeur && (
-                            <div><span className="text-gray-600">Télécopie:</span> <span className="font-medium">{data.telecopieEmployeur}</span></div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Employeur (du fichier importé) */}
-                    {data.nomEmployeur_origine && (
-                      <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
-                        <h4 className="font-semibold text-indigo-800 mb-2 text-sm">💼 EMPLOYEUR (fichier importé)</h4>
-                        <div className="text-sm">
-                          <span className="font-medium">{data.nomEmployeur_origine}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Banque (du fichier importé) */}
-                    {(data.banqueDomiciliation_origine || data.titulaireCompte_origine || data.codeBanque_origine || data.codeGuichet_origine || data.numeroCompte_origine || data.ribCompte_origine || data.libelleGuichet_origine) && (
-                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                        <h4 className="font-semibold text-yellow-800 mb-2 text-sm">🏦 BANQUE (fichier importé)</h4>
-                        <div className="space-y-1 text-sm">
-                          {data.banqueDomiciliation_origine && (
-                            <div><span className="text-gray-600">Banque:</span> <span className="font-medium">{data.banqueDomiciliation_origine}</span></div>
-                          )}
-                          {data.libelleGuichet_origine && (
-                            <div><span className="text-gray-600">Guichet:</span> <span className="font-medium">{data.libelleGuichet_origine}</span></div>
-                          )}
-                          {data.titulaireCompte_origine && (
-                            <div><span className="text-gray-600">Titulaire:</span> <span className="font-medium">{data.titulaireCompte_origine}</span></div>
-                          )}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
-                            {data.codeBanque_origine && (
-                              <div><span className="text-gray-600">Code banque:</span> <span className="font-medium">{data.codeBanque_origine}</span></div>
-                            )}
-                            {data.codeGuichet_origine && (
-                              <div><span className="text-gray-600">Code guichet:</span> <span className="font-medium">{data.codeGuichet_origine}</span></div>
-                            )}
-                            {data.numeroCompte_origine && (
-                              <div><span className="text-gray-600">N° compte:</span> <span className="font-medium">{data.numeroCompte_origine}</span></div>
-                            )}
-                            {data.ribCompte_origine && (
-                              <div><span className="text-gray-600">Clé RIB:</span> <span className="font-medium">{data.ribCompte_origine}</span></div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Informations complémentaires */}
-                    {(data.datedenvoie || data.cumulMontantsPrecedents || data.commentaire) && (
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <h4 className="font-semibold text-gray-800 mb-2 text-sm">📋 AUTRES INFORMATIONS</h4>
-                        <div className="space-y-1 text-sm">
-                          {data.datedenvoie && (
-                            <div><span className="text-gray-600">Date d&apos;envoi:</span> <span className="font-medium">{data.datedenvoie}</span></div>
-                          )}
-                          {data.cumulMontantsPrecedents && (
-                            <div><span className="text-gray-600">Cumul montants précédents:</span> <span className="font-medium">{data.cumulMontantsPrecedents} €</span></div>
-                          )}
-                          {data.commentaire && (
-                            <div>
-                              <span className="text-gray-600">Commentaire:</span>
-                              <div className="font-medium italic mt-1 bg-white p-2 rounded border">{data.commentaire}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Informations PARTNER */}
-
+              <div className="space-y-6">
+                {/* 1. RÉSULTAT DE L'ENQUÊTE (EN HAUT - DESIGN CLAIR) */}
+                <div className="bg-white rounded-2xl p-6 border border-blue-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+                    <CheckCircle className="w-24 h-24 text-blue-600" />
                   </div>
-                  
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium mb-3">Résultat de l&apos;enquête</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">Code résultat</label>
-                        <select
-                          name="code_resultat"
-                          value={formData.code_resultat}
-                          onChange={handleInputChange}
-                          className="w-full p-2 border rounded"
-                        >
-                          {CODES_RESULTAT.map(({ code, libelle }) => (
-                            <option key={code} value={code}>{code} - {libelle}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">
-                          {clientCode !== 'EOS' ? 'Confirmation par qui' : 'Éléments retrouvés'}
-                        </label>
-                        {clientCode !== 'EOS' ? (
-                          <div className="space-y-2">
-                            <select
-                              name="elements_retrouves"
-                              value={formData.elements_retrouves || ''}
-                              onChange={handleInputChange}
-                              className="w-full p-2 border rounded"
-                              disabled={formData.code_resultat === 'D' || formData.code_resultat === 'I'}
-                            >
-                              <option value="">Sélectionner...</option>
-                              {confirmationOptions.map((option, index) => (
-                                <option key={index} value={option}>{option}</option>
-                              ))}
-                              <option value="AUTRE">Autre (saisir ci-dessous)</option>
-                            </select>
-                            {formData.elements_retrouves === 'AUTRE' && (
-                              <input
-                                type="text"
-                                name="elements_retrouves_autre"
-                                value={formData.elements_retrouves_autre || ''}
-                                onChange={handleInputChange}
-                                placeholder="Précisez la confirmation..."
-                                className="w-full p-2 border rounded border-blue-300 focus:ring-2 focus:ring-blue-500"
-                              />
-                            )}
-                          </div>
-                        ) : (
+
+                  <h4 className="text-blue-600 font-black uppercase tracking-[0.2em] text-[10px] mb-6 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    Saisie du résultat de l'enquête
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Code résultat</label>
+                      <select
+                        name="code_resultat"
+                        value={formData.code_resultat}
+                        onChange={handleInputChange}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                      >
+                        {CODES_RESULTAT.map(({ code, libelle }) => (
+                          <option key={code} value={code}>{code} - {libelle}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {clientCode !== 'EOS' ? 'Confirmation par qui' : 'Éléments retrouvés'}
+                      </label>
+                      {clientCode !== 'EOS' ? (
+                        <div className="space-y-2">
                           <select
                             name="elements_retrouves"
-                            value={formData.elements_retrouves}
+                            value={formData.elements_retrouves || ''}
                             onChange={handleInputChange}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                             disabled={formData.code_resultat === 'D' || formData.code_resultat === 'I'}
                           >
-                            <option value="A">A - Adresse</option>
-                            <option value="AT">AT - Adresse et téléphone</option>
-                            <option value="D">D - Décès</option>
-                            <option value="AB">AB - Adresse et banque</option>
-                            <option value="AE">AE - Adresse et employeur</option>
-                            <option value="ATB">ATB - Adresse, téléphone et banque</option>
-                            <option value="ATE">ATE - Adresse, téléphone et employeur</option>
-                            <option value="ATBE">ATBE - Adresse, téléphone, banque et employeur</option>
-                            <option value="ATBER">ATBER - Adresse, téléphone, banque, employeur et revenus</option>
+                            <option value="">Sélectionner...</option>
+                            {confirmationOptions.map((option, index) => (
+                              <option key={index} value={option}>{option}</option>
+                            ))}
+                            <option value="AUTRE">Autre (saisir ci-dessous)</option>
                           </select>
-                        )}
+                          {formData.elements_retrouves === 'AUTRE' && (
+                            <input
+                              type="text"
+                              name="elements_retrouves_autre"
+                              value={formData.elements_retrouves_autre || ''}
+                              onChange={handleInputChange}
+                              placeholder="Précisez la confirmation..."
+                              className="w-full p-3 bg-blue-50 border border-blue-200 rounded-xl font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/10 outline-none animate-in slide-in-from-top-2 duration-200"
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <select
+                          name="elements_retrouves"
+                          value={formData.elements_retrouves}
+                          onChange={handleInputChange}
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                          disabled={formData.code_resultat === 'D' || formData.code_resultat === 'I'}
+                        >
+                          <option value="A">A - Adresse</option>
+                          <option value="AT">AT - Adresse et téléphone</option>
+                          <option value="D">D - Décès</option>
+                          <option value="AB">AB - Adresse et banque</option>
+                          <option value="AE">AE - Adresse et employeur</option>
+                          <option value="ATB">ATB - Adresse, téléphone et banque</option>
+                          <option value="ATE">ATE - Adresse, téléphone et employeur</option>
+                          <option value="ATBE">ATBE - Adresse, téléphone, banque et employeur</option>
+                          <option value="ATBER">ATBER - Adresse, téléphone, banque, employeur et revenus</option>
+                        </select>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        État civil erroné ?
+                        <button
+                          type="button"
+                          onClick={() => setShowEtatCivilHelp(!showEtatCivilHelp)}
+                          className="text-blue-500 hover:text-blue-700 transition-colors"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </label>
+                      <select
+                        name="flag_etat_civil_errone"
+                        value={formData.flag_etat_civil_errone}
+                        onChange={handleInputChange}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                        disabled={formData.code_resultat === 'I'}
+                      >
+                        <option value="">Non</option>
+                        <option value="E">Oui (E)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. STATUT RÉCENT (DESIGN DOUX) */}
+                {donneesSauvegardees && (
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-blue-100/50 flex items-center justify-center border border-blue-100">
+                        <History className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <label className="flex items-center gap-1 text-sm text-gray-600 mb-1">
-                          État civil erroné ?
-                          <button 
-                            type="button" 
-                            onClick={() => setShowEtatCivilHelp(!showEtatCivilHelp)}
-                            className="text-blue-500 hover:text-blue-700"
-                          >
-                            <HelpCircle className="w-4 h-4" />
-                          </button>
-                        </label>
-                        <select
-                          name="flag_etat_civil_errone"
-                          value={formData.flag_etat_civil_errone}
-                          onChange={handleInputChange}
-                          className="w-full p-2 border rounded"
-                          disabled={formData.code_resultat === 'I'}
-                        >
-                          <option value="">Non</option>
-                          <option value="E">Oui (E)</option>
-                        </select>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dernière sauvegarde</p>
+                        <p className="text-sm font-bold text-slate-700">
+                          {STATUS_LABELS[donneesSauvegardees.code_resultat] || 'N/A'} <span className="mx-2 text-slate-300">•</span> {donneesSauvegardees.elements_retrouves || '-'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Modifié le</div>
+                      <div className="text-[10px] font-black text-slate-500 bg-white px-2 py-1 rounded-lg border border-slate-100 inline-block">
+                        {new Date(donneesSauvegardees.updated_at).toLocaleString()}
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {/* Afficher les données sauvegardées précédemment */}
-                  {donneesSauvegardees && (
-                    <div className="mt-4 border-t pt-4">
-                      <h4 className="font-medium mb-3">Dernières modifications enregistrées</h4>
-                      <div className="text-sm text-gray-700">
-                        <p><span className="font-medium">Statut:</span> {STATUS_LABELS[donneesSauvegardees.code_resultat] || '-'}</p>
-                        <p><span className="font-medium">Éléments retrouvés:</span> {donneesSauvegardees.elements_retrouves || '-'}</p>
-                        <p><span className="font-medium">Date de modification:</span> {new Date(donneesSauvegardees.updated_at).toLocaleString()}</p>
+                {/* 3. INFORMATIONS D'ORIGINE (COLLAPSIBLE - TOUTES LES DONNÉES) */}
+                {showOriginalData && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-400">
+                    <div className="flex items-center gap-4">
+                      <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em] whitespace-nowrap">
+                        Document d'import original
+                      </h4>
+                      <div className="h-px w-full bg-gradient-to-r from-slate-200 to-transparent" />
+                    </div>
+
+                    {data.typeDemande === 'CON' && (
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
+                        <h5 className="text-xs font-bold text-amber-900 mb-2 uppercase">Informations Contestation</h5>
+                        {data.enqueteOriginale ? (
+                          <div className="text-xs space-y-1 text-amber-800">
+                            <p><span className="opacity-60">Dossier contesté :</span> {data.enqueteOriginale.numeroDossier}</p>
+                            <p><span className="opacity-60">Enquêteur initial :</span> {data.enqueteOriginale.enqueteurNom}</p>
+                            <p><span className="opacity-60">Motif :</span> {data.motifDeContestation || 'Non précisé'}</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs italic text-amber-600">Données originales non liées</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {/* Identité */}
+                      <div className="bg-purple-50/50 rounded-2xl p-5 border border-purple-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-2 mb-4">
+                          <User className="w-4 h-4 text-purple-600" />
+                          <div className="text-[10px] font-black text-purple-800 uppercase tracking-widest">Identité</div>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[9px] font-bold text-purple-400 uppercase tracking-tighter leading-none mb-1">Nom Complet</p>
+                            <p className="text-sm font-black text-slate-800">{data.nom || '-'} {data.prenom || '-'}</p>
+                          </div>
+                          {data.nomPatronymique && (
+                            <div>
+                              <p className="text-[9px] font-bold text-purple-400 uppercase tracking-tighter leading-none mb-1">Nom Patronymique</p>
+                              <p className="text-xs font-bold text-slate-700">{data.nomPatronymique}</p>
+                            </div>
+                          )}
+                          {data.qualite && (
+                            <div>
+                              <p className="text-[9px] font-bold text-purple-400 uppercase tracking-tighter leading-none mb-1">Qualité</p>
+                              <p className="text-xs font-bold text-slate-700">{data.qualite}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Naissance */}
+                      <div className="bg-emerald-50/50 rounded-2xl p-5 border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Baby className="w-4 h-4 text-emerald-600" />
+                          <div className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Naissance</div>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter leading-none mb-1">Date</p>
+                            <p className="text-sm font-black text-slate-800">{data.dateNaissance || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter leading-none mb-1">Lieu</p>
+                            <p className="text-xs font-bold text-slate-700">{data.codePostalNaissance || ''} {data.lieuNaissance || '-'}</p>
+                          </div>
+                          {data.paysNaissance && (
+                            <div>
+                              <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter leading-none mb-1">Pays</p>
+                              <p className="text-xs font-bold text-slate-700">{data.paysNaissance}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Adresse */}
+                      <div className="bg-orange-50/50 rounded-2xl p-5 border border-orange-100 shadow-sm hover:shadow-md transition-shadow lg:row-span-2">
+                        <div className="flex items-center gap-2 mb-4">
+                          <MapPin className="w-4 h-4 text-orange-600" />
+                          <div className="text-[10px] font-black text-orange-800 uppercase tracking-widest">Dernière Adresse</div>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter leading-none mb-1">Rues / Lieux-dits</p>
+                            <p className="text-sm font-black text-slate-800 leading-tight">{data.adresse1_origine || '-'}</p>
+                            {data.adresse2_origine && <p className="text-sm font-black text-slate-800 leading-tight">{data.adresse2_origine}</p>}
+                            {data.adresse3_origine && <p className="text-sm font-black text-slate-800 leading-tight">{data.adresse3_origine}</p>}
+                            {data.adresse4_origine && <p className="text-sm font-black text-slate-800 leading-tight">{data.adresse4_origine}</p>}
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter leading-none mb-1">Ville</p>
+                            <p className="text-sm font-black text-slate-800">{data.codePostal_origine || ''} {data.ville_origine || '-'}</p>
+                          </div>
+                          {data.paysResidence_origine && (
+                            <div>
+                              <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter leading-none mb-1">Pays de Résidence</p>
+                              <p className="text-xs font-extrabold text-slate-700">{data.paysResidence_origine}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Téléphones */}
+                      <div className="bg-teal-50/50 rounded-2xl p-5 border border-teal-100 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <HelpCircle className="w-4 h-4 text-teal-600" />
+                          <div className="text-[10px] font-black text-teal-800 uppercase tracking-widest">Coordonnées</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[9px] font-bold text-teal-400 uppercase tracking-tighter leading-none mb-1">Portable / Perso</p>
+                            <p className="text-xs font-black text-slate-800">{data.telephonePersonnel_origine || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-teal-400 uppercase tracking-tighter leading-none mb-1">Employeur / Pro</p>
+                            <p className="text-xs font-black text-slate-800">{data.telephoneEmployeur_origine || '-'}</p>
+                          </div>
+                          {data.telecopieEmployeur && (
+                            <div className="col-span-2">
+                              <p className="text-[9px] font-bold text-teal-400 uppercase tracking-tighter leading-none mb-1">Télécopie</p>
+                              <p className="text-xs font-bold text-slate-700">{data.telecopieEmployeur}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Banque */}
+                      <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-100 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Database className="w-4 h-4 text-blue-600" />
+                          <div className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Informations Bancaires</div>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter leading-none mb-1">Établissement</p>
+                            <p className="text-xs font-black text-slate-800 truncate" title={data.banqueDomiciliation_origine}>{data.banqueDomiciliation_origine || '-'}</p>
+                          </div>
+                          {data.titulaireCompte_origine && (
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter leading-none mb-1">Titulaire</p>
+                              <p className="text-xs font-bold text-slate-700">{data.titulaireCompte_origine}</p>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter leading-none mb-1">Banque</p>
+                              <p className="text-xs font-bold text-slate-700">{data.codeBanque_origine || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter leading-none mb-1">Guichet</p>
+                              <p className="text-xs font-bold text-slate-700">{data.codeGuichet_origine || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter leading-none mb-1">Compte</p>
+                              <p className="text-xs font-bold text-slate-700">{data.numeroCompte_origine || '-'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Commentaire et Divers */}
+                      <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 md:col-span-2 shadow-sm">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Commentaires & Divers</div>
+                          <div className="h-px w-full bg-slate-200" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {data.commentaire && (
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter leading-none mb-2">Note d'Import</p>
+                              <div className="text-xs italic font-medium leading-relaxed bg-white p-3 rounded-xl border border-slate-100 shadow-inner">
+                                "{data.commentaire}"
+                              </div>
+                            </div>
+                          )}
+                          <div className="space-y-3">
+                            {data.datedenvoie && (
+                              <div className="flex justify-between items-center border-b border-slate-100 pb-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Date d'Envoi</span>
+                                <span className="text-xs font-bold text-slate-700">{data.datedenvoie}</span>
+                              </div>
+                            )}
+                            {data.cumulMontantsPrecedents > 0 && (
+                              <div className="flex justify-between items-center border-b border-slate-100 pb-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Cumul Montants</span>
+                                <span className="text-xs font-black text-blue-600">{data.cumulMontantsPrecedents} €</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
             {/* Onglet État civil */}
             {activeTab === 'etat-civil' && (
               <div className="space-y-4">
                 <EtatCivilPanel
-                    originalData={{
+                  originalData={{
                     qualite: data?.qualite,
                     nom: data?.nom,
                     prenom: data?.prenom,
@@ -1483,30 +1492,30 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     codePostalNaissance: data?.codePostalNaissance,
                     paysNaissance: data?.paysNaissance,
                     nomPatronymique: data?.nomPatronymique
-                    }}
-                    formData={formData}
-                    setFormData={setFormData}
-                    onValidate={(correctedData, divergenceType) => {
+                  }}
+                  formData={formData}
+                  setFormData={setFormData}
+                  onValidate={(correctedData, divergenceType) => {
                     // Mise à jour des mémos et du flag
                     setFormData(prev => ({
-                        ...prev,
-                        flag_etat_civil_errone: 'E',
-                        // Stocker les informations corrigées
-                        qualite_corrigee: correctedData.qualite,
-                        nom_corrige: correctedData.nom,
-                        prenom_corrige: correctedData.prenom,
-                        nom_patronymique_corrige: correctedData.nomPatronymique,
-                        code_postal_naissance_corrige: correctedData.codePostalNaissance,
-                        pays_naissance_corrige: correctedData.paysNaissance,
-                        type_divergence: divergenceType,
-                        // Ajouter une explication dans le mémo
-                        memo5: `${prev.memo5 ? prev.memo5 + '\n\n' : ''}État civil corrigé (${divergenceType}):\n` +
-                            `Nom: ${correctedData.nom || '-'}\n` +
-                            `Prénom: ${correctedData.prenom || '-'}`
+                      ...prev,
+                      flag_etat_civil_errone: 'E',
+                      // Stocker les informations corrigées
+                      qualite_corrigee: correctedData.qualite,
+                      nom_corrige: correctedData.nom,
+                      prenom_corrige: correctedData.prenom,
+                      nom_patronymique_corrige: correctedData.nomPatronymique,
+                      code_postal_naissance_corrige: correctedData.codePostalNaissance,
+                      pays_naissance_corrige: correctedData.paysNaissance,
+                      type_divergence: divergenceType,
+                      // Ajouter une explication dans le mémo
+                      memo5: `${prev.memo5 ? prev.memo5 + '\n\n' : ''}État civil corrigé (${divergenceType}):\n` +
+                        `Nom: ${correctedData.nom || '-'}\n` +
+                        `Prénom: ${correctedData.prenom || '-'}`
                     }));
-                    }}
+                  }}
                 />
-                
+
                 {/* Section PARTNER : Date et lieu de naissance retrouvés */}
                 {clientCode !== 'EOS' && (
                   <div className="bg-white border rounded-lg p-4 mt-4">
@@ -2169,7 +2178,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h4 className="text-sm font-medium mb-3">Autre revenu 2</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2228,7 +2237,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h4 className="text-sm font-medium mb-3">Autre revenu 3</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2290,7 +2299,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 </div>
               </div>
             )}
-            
+
             {/* Onglet Commentaires */}
             {activeTab === 'commentaires' && (
               <div className="bg-white border rounded-lg p-4">
@@ -2421,15 +2430,15 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 </div>
               </div>
             )}
-            
+
             {/* Onglet Naissance (PARTNER uniquement) */}
             {activeTab === 'naissance' && isPartner && (
-              <PartnerNaissanceTab 
+              <PartnerNaissanceTab
                 formData={formData}
                 handleInputChange={handleInputChange}
               />
             )}
-            
+
             {/* Onglet Notes personnelles */}
             {activeTab === 'notes' && (
               <div className="bg-white border rounded-lg p-4">

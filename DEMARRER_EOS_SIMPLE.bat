@@ -15,7 +15,7 @@ echo.
 
 REM Demarrer le backend dans une nouvelle fenetre
 echo [+] Demarrage du backend...
-start "EOS Backend - Flask" cmd /k "cd /d D:\EOS\backend && call venv\Scripts\activate.bat && set DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/eos_db && python start_with_postgresql.py"
+start "EOS Backend - Flask" cmd /k "cd /d D:\EOS\backend && call venv\Scripts\activate.bat && set DATABASE_URL=postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db && python start_with_postgresql.py"
 
 REM Attendre 3 secondes que le backend demarre
 timeout /t 3 /nobreak >nul

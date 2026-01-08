@@ -91,61 +91,58 @@ const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
   const negCount = requests.filter(r => r.status === 'NEG').length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Résumé global */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-base font-bold text-indigo-900">
-            🔍 Demandes détectées ({requests.length})
+          <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
+            Demandes ({requests.length})
           </span>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-sm font-bold shadow-sm">
-              <CheckCircle className="w-4 h-4" />
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-lg text-[10px] font-black border border-green-200">
               {posCount} POS
             </span>
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-800 rounded-full text-sm font-bold shadow-sm">
-              <XCircle className="w-4 h-4" />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 rounded-lg text-[10px] font-black border border-red-200">
               {negCount} NEG
             </span>
           </div>
         </div>
-        
+
         <button
           onClick={handleRecalculate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
+          className="flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm"
           title="Recalculer les statuts POS/NEG"
         >
-          <RefreshCw className="w-4 h-4" />
-          Recalculer
+          <RefreshCw className="w-3 h-3" />
+          Mettre à jour
         </button>
       </div>
 
       {/* Liste des demandes */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {requests.map((request) => {
-          const info = REQUEST_INFO[request.request_code] || { 
-            label: request.request_code, 
-            icon: '❓', 
-            color: 'gray' 
+          const info = REQUEST_INFO[request.request_code] || {
+            label: request.request_code,
+            icon: '❓',
+            color: 'gray'
           };
           const isPositive = request.status === 'POS';
-          
+
           return (
             <div
               key={request.id}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all duration-200 shadow-sm hover:shadow-md ${
-                isPositive
-                  ? 'bg-green-50 border-green-400 hover:bg-green-100'
-                  : 'bg-red-50 border-red-400 hover:bg-red-100'
-              }`}
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all ${isPositive
+                  ? 'bg-green-50/30 border-green-200'
+                  : 'bg-red-50/30 border-red-200'
+                }`}
               title={!isPositive && request.memo ? request.memo : ''}
             >
-              <span className="text-lg">{info.icon}</span>
-              <span className="text-sm font-semibold text-gray-900">{info.label}</span>
+              <span className="text-sm">{info.icon}</span>
+              <span className="text-[10px] font-bold text-slate-700">{info.label}</span>
               {isPositive ? (
-                <CheckCircle className="w-5 h-5 text-green-600" />
+                <CheckCircle className="w-3 h-3 text-green-600" />
               ) : (
-                <XCircle className="w-5 h-5 text-red-600" />
+                <XCircle className="w-3 h-3 text-red-600" />
               )}
             </div>
           );
@@ -153,14 +150,16 @@ const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
       </div>
 
       {/* Info export */}
-      <div className="text-sm text-gray-700 bg-indigo-50 border-2 border-indigo-300 rounded-lg px-4 py-2.5 shadow-sm">
-        <span className="font-bold text-indigo-900">📄 Export :</span> 
+      <div className="text-[10px] text-slate-600 bg-slate-100/50 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2">
+        <span className="font-black text-slate-800 uppercase tracking-tighter">Export :</span>
         {posCount > 0 ? (
-          <span className="text-green-700 font-bold"> Global POS ✅</span>
+          <span className="text-green-700 font-bold">POS ✅</span>
         ) : (
-          <span className="text-red-700 font-bold"> Global NEG ❌</span>
+          <span className="text-red-700 font-bold">NEG ❌</span>
         )}
-        <span className="text-gray-600"> · {posCount > 0 ? `Au moins 1 demande trouvée` : `Toutes les demandes non trouvées`}</span>
+        <span className="opacity-60 italic">
+          ({posCount > 0 ? `Au moins 1 trouvée` : `Aucune trouvée`})
+        </span>
       </div>
     </div>
   );
