@@ -9,6 +9,8 @@ import logging
 import os
 import sys
 import codecs
+import pandas as pd
+import io
 
 # Configuration de l'encodage par défaut pour Windows
 if sys.stdout.encoding != 'utf-8':
@@ -36,12 +38,13 @@ def create_app(config_class=Config):
     init_extensions(app)
     
     # Configuration CORS unifiée
+    # En développement, autoriser toutes les origines du réseau local
     CORS(app, resources={
         r"/*": {
-            "origins": config_class.CORS_ORIGINS,
+            "origins": "*",  # Autoriser toutes les origines (développement)
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-            "supports_credentials": True
+            "supports_credentials": False  # Doit être False quand origins="*"
         }
     })
     
@@ -86,11 +89,13 @@ def register_blueprints(app):
     from routes.validation_v2 import register_validation_v2_routes
     from routes.maintenance import maintenance_bp
     from routes.archives import register_archives_routes
+    from routes.excel_export import register_excel_export_routes
     
     # Enregistrer les blueprints
     register_enqueteurs_routes(app)
     register_vpn_template_routes(app)
     register_export_routes(app)
+    register_excel_export_routes(app)
     app.register_blueprint(partner_export_bp)
     app.register_blueprint(partner_admin_bp)
     register_vpn_download_routes(app)
@@ -346,19 +351,49 @@ def register_legacy_routes(app):
             page = request.args.get('page', 1, type=int)
             per_page = request.args.get('per_page', 500, type=int)
             
-            # Filtre par client
-            pagination = Donnee.query.filter_by(client_id=client.id).paginate(
-                page=page, per_page=per_page, error_out=False
-            )
-            donnees = pagination.items
-            
+            # Logique spécifique pour Sherlock
+            if client.code == 'RG_SHERLOCK':
+                from models import SherlockDonnee
+                pagination = SherlockDonnee.query.filter_by(fichier_id=Fichier.id).join(Fichier).filter(Fichier.client_id == client.id).paginate(
+                    page=page, per_page=per_page, error_out=False
+                )
+                # Alternative simplifiée si on n'a pas besoin de jointure complexe (fichier_id est FK)
+                # Mais SherlockDonnee n'a pas direct client_id, il passe par fichier_id
+                # Ou on peut filtrer par fichier_id globaux du client.
+                
+                # Correction: SherlockDonnee a fichier_id. Fichier a client_id.
+                pagination = (db.session.query(SherlockDonnee)
+                             .join(Fichier, SherlockDonnee.fichier_id == Fichier.id)
+                             .filter(Fichier.client_id == client.id)
+                             .order_by(SherlockDonnee.id.desc())
+                             .paginate(page=page, per_page=per_page, error_out=False))
+                
+                items = pagination.items
+                data = []
+                for item in items:
+                    item_dict = item.to_dict()
+                    # Mapping pour le frontend (AssignmentViewer)
+                    item_dict['numeroDossier'] = item.dossier_id
+                    item_dict['nom'] = item.ec_nom_usage
+                    item_dict['prenom'] = item.ec_prenom
+                    item_dict['typeDemande'] = item.demande or 'ENQ'
+                    # Champs manquants pour éviter les erreurs prop-types
+                    item_dict['enqueteurId'] = None 
+                    data.append(item_dict)
+            else:
+                # Comportement standard
+                pagination = Donnee.query.filter_by(client_id=client.id).paginate(
+                    page=page, per_page=per_page, error_out=False
+                )
+                data = [donnee.to_dict() for donnee in pagination.items]
+
             return jsonify({
                 "success": True,
-                "data": [donnee.to_dict() for donnee in donnees],
+                "data": data,
                 "total": pagination.total,
                 "pages": pagination.pages,
                 "current_page": page,
-                "client_code": client.code  # Indiquer le client
+                "client_code": client.code
             })
         except Exception as e:
             logger.error(f"Erreur dans get_donnees: {str(e)}")
@@ -689,6 +724,93 @@ def register_legacy_routes(app):
             # Limiter per_page à 1000 max pour éviter les surcharges
             per_page = min(per_page, 1000)
             
+            # LOGIQUE SPÉCIFIQUE SHERLOCK
+            if client.code == 'RG_SHERLOCK':
+                from models import SherlockDonnee, Fichier
+                
+                # 1. Base Query
+                query = db.session.query(SherlockDonnee).join(
+                    Fichier, SherlockDonnee.fichier_id == Fichier.id
+                ).filter(
+                    Fichier.client_id == client.id
+                )
+                
+                # 2. Text Search
+                search = request.args.get('search')
+                if search:
+                    search_pattern = f"%{search}%"
+                    query = query.filter(
+                        db.or_(
+                            SherlockDonnee.dossier_id.ilike(search_pattern),
+                            SherlockDonnee.ec_nom_usage.ilike(search_pattern),
+                            SherlockDonnee.ec_prenom.ilike(search_pattern)
+                        )
+                    )
+                
+                # 3. Pagination
+                pagination = query.order_by(SherlockDonnee.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
+                
+                # 4. Construction de la réponse
+                result = []
+                for item in pagination.items:
+                    d = item.to_dict()
+                    
+                    # Mapping vers le schéma standard Donnee pour le frontend
+                    frontend_item = {
+                        'id': item.id,
+                        'numeroDossier': item.dossier_id,
+                        'nom': item.ec_nom_usage,
+                        'prenom': item.ec_prenom,
+                        'typeDemande': item.demande or 'ENQ',
+                        
+                        # Mapping Résultat -> Statut/Code Resultat
+                        'code_resultat': item.resultat if item.resultat else None,
+                        
+                        # Infos Enquêteur (Non applicable)
+                        'enqueteurId': None,
+                        'enqueteur_nom': None,
+                        'enqueteur_prenom': None,
+                        'has_response': True if item.resultat else False,
+                        'can_validate': False,
+                        'statut_validation': 'en_cours',
+                        
+                        # Dates
+                        'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else None,
+                        # Pas de date butoir réelle, on met null ou une valeur par défaut
+                        'date_butoir': None,
+                        
+                        # Autres champs pour compatibilité
+                        'elements_retrouves': None, # Pourrait être mappé depuis les colonnes AD-...
+                    }
+                    
+                    # Fusionner avec les données brutes d'abord
+                    final_item = d.copy()
+                    final_item.update(frontend_item)
+                    
+                    # Nettoyage des données (NaN -> None, "nan" -> None)
+                    import math
+                    cleaned_item = {}
+                    for k, v in final_item.items():
+                        if isinstance(v, float) and math.isnan(v):
+                            cleaned_item[k] = None
+                        elif isinstance(v, str) and v.lower() == 'nan':
+                            cleaned_item[k] = None
+                        else:
+                            cleaned_item[k] = v
+                    
+                    result.append(cleaned_item)
+                
+                return jsonify({
+                    "success": True,
+                    "data": result,
+                    "page": page,
+                    "per_page": per_page,
+                    "total": pagination.total,
+                    "pages": pagination.pages,
+                    "client_code": client.code
+                })
+
+            # LOGIQUE STANDARD (DONNEE)
             # Construire la requête de base AVEC FILTRAGE CLIENT
             query = db.session.query(Donnee).options(
                 db.joinedload(Donnee.donnee_enqueteur)
@@ -1155,16 +1277,24 @@ def register_legacy_routes(app):
             if not content:
                 return jsonify({"error": "Fichier vide"}), 400
 
-            # Déterminer le type de fichier
+            # Déterminer le type de fichier (base)
             file_extension = file.filename.lower().split('.')[-1]
-            file_type = 'EXCEL' if file_extension in ['xlsx', 'xls'] else 'TXT_FIXED'
+            base_file_type = 'EXCEL' if file_extension in ['xlsx', 'xls'] else 'TXT_FIXED'
             
             # Récupérer le profil d'import pour ce client
-            import_profile = get_import_profile_for_client(client.id, file_type)
+            # MULTI-CLIENT: On cherche d'abord s'il y a un profil spécifique comme EXCEL_VERTICAL
+            import_profile = None
+            if base_file_type == 'EXCEL':
+                import_profile = get_import_profile_for_client(client.id, 'EXCEL_VERTICAL')
+            
+            # Sinon on prend le profil standard
             if not import_profile:
-                logger.error(f"Aucun profil d'import {file_type} trouvé pour le client {client.code}")
+                import_profile = get_import_profile_for_client(client.id, base_file_type)
+
+            if not import_profile:
+                logger.error(f"Aucun profil d'import trouvé pour le client {client.code} (Extension: {file_extension})")
                 return jsonify({
-                    "error": f"Aucun profil d'import configuré pour ce type de fichier ({file_type})"
+                    "error": f"Aucun profil d'import configuré pour ce type de fichier ({file_extension})"
                 }), 400
 
             try:
@@ -1180,7 +1310,7 @@ def register_legacy_routes(app):
                 # Utiliser le moteur d'import générique
                 from import_engine import ImportEngine
                 
-                engine = ImportEngine(import_profile)
+                engine = ImportEngine(import_profile, filename=file.filename)
                 parsed_records = engine.parse_content(content)
                 
                 if not parsed_records:
@@ -1308,16 +1438,22 @@ def register_legacy_routes(app):
             if not content:
                 return jsonify({"error": "Fichier vide"}), 400
 
-            # Déterminer le type de fichier
+            # Déterminer le type de fichier (base)
             file_extension = file.filename.lower().split('.')[-1]
-            file_type = 'EXCEL' if file_extension in ['xlsx', 'xls'] else 'TXT_FIXED'
+            base_file_type = 'EXCEL' if file_extension in ['xlsx', 'xls'] else 'TXT_FIXED'
             
             # Récupérer le profil d'import
             from client_utils import get_import_profile_for_client
-            import_profile = get_import_profile_for_client(client.id, file_type)
+            import_profile = None
+            if base_file_type == 'EXCEL':
+                import_profile = get_import_profile_for_client(client.id, 'EXCEL_VERTICAL')
+                
+            if not import_profile:
+                import_profile = get_import_profile_for_client(client.id, base_file_type)
+                
             if not import_profile:
                 return jsonify({
-                    "error": f"Aucun profil d'import configuré pour ce type de fichier ({file_type})"
+                    "error": f"Aucun profil d'import configuré pour ce type de fichier ({file_extension})"
                 }), 400
 
             # Créer le nouveau fichier
@@ -1686,6 +1822,195 @@ def register_legacy_routes(app):
             return jsonify({"success": False, "error": str(e)}), 500
     
     logger.info("Routes legacy enregistrées")
+
+
+
+
+    # ===========================
+    # REMPLACER la route existante dans app.py par celle-ci:
+    # ===========================
+
+    @app.route('/api/export/sherlock', methods=['POST'])
+    def export_sherlock():
+        """Exporte les données Sherlock au format XLS vertical avec formatage"""
+        try:
+            from models import SherlockDonnee, Fichier
+            from flask import send_file
+            from datetime import datetime
+            import xlwt
+            import io
+            import math
+            
+            data = request.json or {}
+            client_id = data.get('client_id')
+            
+            # Construire la requête
+            query = db.session.query(SherlockDonnee).join(
+                Fichier, SherlockDonnee.fichier_id == Fichier.id
+            )
+            
+            if client_id:
+                query = query.filter(Fichier.client_id == client_id)
+            
+            # Récupérer les données triées par ID
+            items = query.order_by(SherlockDonnee.id.asc()).all()
+            
+            if not items:
+                return jsonify({"success": False, "error": "Aucune donnée à exporter"}), 404
+            
+            # Mapping des champs
+            FIELDS_MAPPING = [
+                ('Client', '_fixed_client', 'rg'),
+                ('Elements demandes', 'elements_demandes', ''),
+                ('Indexe LDM', 'indexe_ldm', ''),
+                ('Indexe client', '_fixed_indexe_client', '0'),
+                ('Date retour esperee', 'date_retour_esperee', ''),
+                ('DossierId', 'dossier_id', ''),
+                ('RéférenceInterne', 'reference_interne', ''),
+                ('EC-Nom Usage', 'ec_nom_usage', ''),
+                ('EC-Prénom', 'ec_prenom', ''),
+                ('EC-Nom Naissance', 'ec_nom_naissance', ''),
+                ('EC-Civilité', 'ec_civilite', ''),
+                ('Demande', 'demande', ''),
+                ('EC-Date Naissance', 'ec_date_naissance', ''),
+                ('EC-Localité Naissance', 'ec_localite_naissance', ''),
+                ('Naissance CP', 'naissance_cp', ''),
+                ('Client-Commentaire', 'client_commentaire', ''),
+                ('AD-L1', 'ad_l1', ''),
+                ('AD-L2', 'ad_l2', ''),
+                ('AD-L3', 'ad_l3', ''),
+                ('AD-L4 Numéro', 'ad_l4_numero', ''),
+                ('AD-L4 Type', 'ad_l4_type', ''),
+                ('AD-L4 Voie', 'ad_l4_voie', ''),
+                ('AD-L5', 'ad_l5', ''),
+                ('AD-L6 Cedex', 'ad_l6_cedex', ''),
+                ('AD-L6 CP', 'ad_l6_cp', ''),
+                ('AD-L6 INSEE', 'ad_l6_insee', ''),
+                ('AD-L6 Localité', 'ad_l6_localite', ''),
+                ('AD-L7 Pays', 'ad_l7_pays', ''),
+                ('AD-Téléphone', 'ad_telephone', ''),
+                ('AD-TéléphonePro', 'ad_telephone_pro', ''),
+                ('AD-TéléphoneMobile', 'ad_telephone_mobile', ''),
+                ('AD-Email', 'ad_email', ''),
+            ]
+            
+            def clean_value(val):
+                """Nettoie une valeur pour l'export"""
+                if val is None:
+                    return ''
+                if isinstance(val, float):
+                    try:
+                        if math.isnan(val):
+                            return ''
+                    except:
+                        pass
+                val_str = str(val).strip()
+                if val_str.lower() in ('nan', 'none'):
+                    return ''
+                return val_str
+            
+            def get_field_value(item, attr_name, default_value):
+                """Récupère la valeur d'un champ"""
+                if attr_name == '_fixed_client':
+                    return 'rg'
+                if attr_name == '_fixed_indexe_client':
+                    return '0'
+                if hasattr(item, attr_name):
+                    return clean_value(getattr(item, attr_name))
+                return default_value
+            
+            # Créer le Workbook
+            wb = xlwt.Workbook(encoding='utf-8')
+            ws = wb.add_sheet('rg')
+            
+            # === STYLES ===
+            # Style GRAS pour les noms de champs (colonne A)
+            style_field_name = xlwt.XFStyle()
+            font_bold = xlwt.Font()
+            font_bold.bold = True
+            font_bold.name = 'Arial'
+            font_bold.height = 220  # 11 points
+            style_field_name.font = font_bold
+            
+            # Style normal pour les valeurs (colonne B)
+            style_value = xlwt.XFStyle()
+            font_normal = xlwt.Font()
+            font_normal.name = 'Arial'
+            font_normal.height = 220  # 11 points
+            style_value.font = font_normal
+            
+            # === LARGEURS DE COLONNES ===
+            ws.col(0).width = 256 * 25  # Colonne A: 25 caractères
+            ws.col(1).width = 256 * 50  # Colonne B: 50 caractères
+            
+            # === CONSTANTES ===
+            ROWS_PER_RECORD = 40
+            FIELDS_COUNT = 32
+            ROW_HEIGHT = 300  # ~15 points
+            
+            # Ligne 0: En-tête vide
+            ws.write(0, 0, ' ')
+            ws.write(0, 1, ' ')
+            ws.row(0).height_mismatch = True
+            ws.row(0).height = ROW_HEIGHT
+            
+            # Pour chaque enregistrement
+            for idx, item in enumerate(items):
+                start_row = 1 + (idx * ROWS_PER_RECORD)
+                
+                # Écrire les 32 champs
+                for field_idx, (field_name, attr_name, default_value) in enumerate(FIELDS_MAPPING):
+                    row = start_row + field_idx
+                    value = get_field_value(item, attr_name, default_value)
+                    
+                    # Nom du champ en GRAS
+                    ws.write(row, 0, field_name, style_field_name)
+                    # Valeur en normal
+                    ws.write(row, 1, value, style_value)
+                    
+                    # Hauteur de ligne
+                    ws.row(row).height_mismatch = True
+                    ws.row(row).height = ROW_HEIGHT
+                
+                # Lignes vides de séparation
+                for empty_idx in range(FIELDS_COUNT, ROWS_PER_RECORD - 1):
+                    row = start_row + empty_idx
+                    ws.write(row, 0, '')
+                    ws.write(row, 1, '')
+                    ws.row(row).height_mismatch = True
+                    ws.row(row).height = ROW_HEIGHT
+                
+                # Ligne de séparation
+                if idx < len(items) - 1:
+                    separator_row = start_row + ROWS_PER_RECORD - 1
+                    ws.write(separator_row, 0, ' ')
+                    ws.write(separator_row, 1, ' ')
+                    ws.row(separator_row).height_mismatch = True
+                    ws.row(separator_row).height = ROW_HEIGHT
+            
+            # Sauvegarder
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            
+            # Nom du fichier
+            now = datetime.now()
+            filename = f"rg_IDS-L_DANS_SHERLOCK__{now.strftime('%d%m%Y_%H%M%S')}_{now.strftime('%d_%m_%Y_%H_%M_%S')}.xls"
+            
+            logger.info(f"Export Sherlock: {len(items)} enregistrements exportés avec formatage")
+            
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.ms-excel'
+            )
+            
+        except Exception as e:
+            logger.error(f"Erreur export Sherlock: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == '__main__':

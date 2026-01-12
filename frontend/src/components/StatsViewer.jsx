@@ -1,8 +1,13 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { BarChart2, RefreshCcw, TrendingUp, Archive, CheckCircle, Database, FileText, Calendar, Users } from 'lucide-react';
+import { RefreshCw, TrendingUp, Archive, CheckCircle, Database, FileText, Calendar, Users, AlertCircle, Loader } from 'lucide-react';
+import config from '../config';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = config.API_URL;
 
+/**
+ * StatsViewer - Tableau de bord des statistiques
+ * Design clair avec typographie soignée
+ */
 const StatsViewer = forwardRef((props, ref) => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -21,10 +26,7 @@ const StatsViewer = forwardRef((props, ref) => {
                 }
             });
 
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
             const data = await response.json();
             setStats(data);
         } catch (err) {
@@ -34,141 +36,162 @@ const StatsViewer = forwardRef((props, ref) => {
         }
     };
 
-    useImperativeHandle(ref, () => ({
-        fetchStats
-    }));
-
-    useEffect(() => {
-        fetchStats();
-    }, []);
+    useImperativeHandle(ref, () => ({ fetchStats }));
+    useEffect(() => { fetchStats(); }, []);
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-20 gap-4">
-                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Analyse des données en cours...</p>
+            <div className="flex flex-col items-center justify-center p-16 gap-3">
+                <Loader className="w-6 h-6 text-blue-500 animate-spin" />
+                <p className="text-slate-500 text-sm">Chargement des statistiques...</p>
             </div>
         );
     }
 
+    const totalArchived = stats?.clients_stats?.reduce((acc, c) => acc + c.archived, 0) || 0;
+    const totalPositifs = stats?.clients_stats?.reduce((acc, c) => acc + c.bon, 0) || 0;
+    const priorityClient = stats?.clients_stats?.length > 0
+        ? stats.clients_stats.sort((a, b) => (b.imported - b.treated) - (a.imported - a.treated))[0]
+        : null;
+
     return (
-        <div className="space-y-10 max-w-7xl mx-auto pb-10">
-            {/* Header Performance */}
-            <div className="flex justify-between items-end">
+        <div className="max-w-7xl mx-auto p-6 space-y-6">
+
+            {/* Header */}
+            <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                        <TrendingUp className="w-6 h-6 text-blue-500" />
-                        Tableau de Bord Performance
-                    </h2>
-                    <p className="text-slate-500 font-medium mt-1">Surveillance en temps réel de l&apos;activité par client</p>
+                    <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-blue-500" />
+                        Tableau de bord
+                    </h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Vue d'ensemble des performances</p>
                 </div>
                 <button
                     onClick={fetchStats}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95 group"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 
+                     bg-white border border-slate-200 rounded-lg hover:bg-slate-50 
+                     transition-colors shadow-sm"
                 >
-                    <RefreshCcw className="w-3.5 h-3.5 group-active:rotate-180 transition-transform duration-500" />
+                    <RefreshCw className="w-4 h-4" />
                     Actualiser
                 </button>
             </div>
 
+            {/* Error */}
             {error && (
-                <div className="bg-rose-50 border border-rose-100 text-rose-700 p-6 rounded-3xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
-                    <CheckCircle className="w-6 h-6 text-rose-500 rotate-180" />
-                    <p className="font-bold">{error}</p>
+                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    <p className="text-sm font-medium text-red-700">{error}</p>
                 </div>
             )}
 
-            {/* Global KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300">
-                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
-                        <Database className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Total Dossiers</p>
-                    <div className="flex items-baseline gap-2">
-                        <p className="text-3xl font-extrabold text-slate-800 leading-none">{stats?.total_donnees || 0}</p>
-                        <span className="text-emerald-500 text-xs font-semibold leading-none">+ {stats?.total_fichiers || 0} fichiers</span>
-                    </div>
-                </div>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                <div className="bg-white p-8 rounded-[32px] border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300">
-                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
-                        <Archive className="w-6 h-6 text-indigo-600" />
+                {/* Total Dossiers */}
+                <div className="bg-white rounded-lg border border-slate-200 p-5 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                            <Database className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            +{stats?.total_fichiers || 0} fichiers
+                        </span>
                     </div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Archivés</p>
-                    <p className="text-4xl font-[900] text-slate-900 leading-none">
-                        {stats?.clients_stats?.reduce((acc, c) => acc + c.archived, 0) || 0}
+                    <p className="text-sm font-medium text-slate-500 mb-1">Total dossiers</p>
+                    <p className="text-3xl font-bold text-slate-800 tracking-tight">
+                        {stats?.total_donnees?.toLocaleString() || 0}
                     </p>
                 </div>
 
-                <div className="bg-white p-8 rounded-[32px] border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6">
-                        <CheckCircle className="w-6 h-6 text-emerald-600" />
+                {/* Archivés */}
+                <div className="bg-white rounded-lg border border-slate-200 p-5 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                            <Archive className="w-5 h-5 text-slate-600" />
+                        </div>
                     </div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Dossiers Positifs</p>
-                    <p className="text-4xl font-[900] text-slate-900 leading-none">
-                        {stats?.clients_stats?.reduce((acc, c) => acc + c.bon, 0) || 0}
+                    <p className="text-sm font-medium text-slate-500 mb-1">Dossiers archivés</p>
+                    <p className="text-3xl font-bold text-slate-800 tracking-tight">
+                        {totalArchived.toLocaleString()}
+                    </p>
+                </div>
+
+                {/* Positifs */}
+                <div className="bg-white rounded-lg border border-slate-200 p-5 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                        </div>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500 mb-1">Résultats positifs</p>
+                    <p className="text-3xl font-bold text-green-600 tracking-tight">
+                        {totalPositifs.toLocaleString()}
                     </p>
                 </div>
             </div>
 
-            {/* Client Breakdown Section */}
-            <div className="bg-white rounded-[40px] border border-slate-200/60 shadow-sm overflow-hidden">
-                <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                        <Users className="w-6 h-6 text-blue-500" />
-                        Performance par Client
-                    </h3>
-                    <div className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-black uppercase tracking-widest">
-                        {stats?.clients_stats?.length || 0} Clients Actifs
-                    </div>
+            {/* Performance par Client */}
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-500" />
+                        Performance par client
+                    </h2>
+                    <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">
+                        {stats?.clients_stats?.length || 0} clients
+                    </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full">
                         <thead>
-                            <tr className="bg-slate-50/30 text-slate-400">
-                                <th className="px-10 py-5 text-xs font-black uppercase tracking-widest">Client</th>
-                                <th className="px-6 py-5 text-xs font-black uppercase tracking-widest">Importés</th>
-                                <th className="px-6 py-5 text-xs font-black uppercase tracking-widest">Traités</th>
-                                <th className="px-6 py-5 text-xs font-black uppercase tracking-widest">Archivés</th>
-                                <th className="px-6 py-5 text-xs font-black uppercase tracking-widest text-emerald-600">Bons (P)</th>
-                                <th className="px-10 py-5 text-xs font-black uppercase tracking-widest text-right">Taux de Réussite</th>
+                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Client</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Importés</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Traités</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Archivés</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-green-600 uppercase tracking-wide">Positifs</th>
+                                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Taux réussite</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {stats?.clients_stats?.map((client) => (
-                                <tr key={client.id} className="hover:bg-slate-50 group transition-colors">
-                                    <td className="px-10 py-6">
+                                <tr key={client.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200">
-                                                {client.code}
+                                            <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center">
+                                                <span className="text-xs font-bold text-slate-600">{client.code}</span>
                                             </div>
-                                            <span className="font-semibold text-slate-800">{client.nom}</span>
+                                            <span className="font-medium text-slate-800">{client.nom}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-6 font-bold text-slate-700">{client.imported}</td>
-                                    <td className="px-6 py-6">
-                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-xs">
+                                    <td className="px-4 py-4 text-center">
+                                        <span className="text-sm font-semibold text-slate-700">{client.imported}</span>
+                                    </td>
+                                    <td className="px-4 py-4 text-center">
+                                        <span className="inline-flex px-2.5 py-1 bg-blue-50 text-blue-700 rounded text-xs font-semibold">
                                             {client.treated}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-6 font-bold text-slate-400">{client.archived}</td>
-                                    <td className="px-6 py-6">
-                                        <div className="flex items-center gap-2 text-emerald-600 font-black">
-                                            <CheckCircle className="w-4 h-4" />
-                                            {client.bon}
-                                        </div>
+                                    <td className="px-4 py-4 text-center">
+                                        <span className="text-sm text-slate-500">{client.archived}</span>
                                     </td>
-                                    <td className="px-10 py-6 text-right">
-                                        <div className="inline-flex flex-col items-end">
-                                            <span className={`text-xl font-bold ${client.success_rate > 50 ? 'text-blue-600' : 'text-slate-800'}`}>
+                                    <td className="px-4 py-4 text-center">
+                                        <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-sm">
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                            {client.bon}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-4 text-right">
+                                        <div className="inline-flex flex-col items-end gap-1.5">
+                                            <span className={`text-sm font-bold ${client.success_rate >= 50 ? 'text-green-600' : 'text-slate-600'}`}>
                                                 {client.success_rate}%
                                             </span>
-                                            <div className="w-24 h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                                 <div
-                                                    className={`h-full rounded-full ${client.success_rate > 50 ? 'bg-blue-600' : 'bg-slate-400'}`}
-                                                    style={{ width: `${client.success_rate}%` }}
+                                                    className={`h-full rounded-full transition-all ${client.success_rate >= 50 ? 'bg-green-500' : 'bg-slate-400'}`}
+                                                    style={{ width: `${Math.min(client.success_rate, 100)}%` }}
                                                 />
                                             </div>
                                         </div>
@@ -180,68 +203,81 @@ const StatsViewer = forwardRef((props, ref) => {
                 </div>
             </div>
 
-            {/* Bottom Grid: Recent Activity & Global Health */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Last Files */}
-                <div className="lg:col-span-8 bg-white rounded-[40px] border border-slate-200/60 shadow-sm overflow-hidden">
-                    <div className="px-10 py-6 border-b border-slate-100 flex justify-between items-center">
-                        <h3 className="font-black text-slate-900 text-sm uppercase tracking-widest flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-slate-400" />
-                            Derniers Imports
-                        </h3>
+            {/* Bottom Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                {/* Derniers Imports */}
+                <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                        <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-slate-500" />
+                            Derniers imports
+                        </h2>
                     </div>
                     <div className="divide-y divide-slate-100">
-                        {stats?.derniers_fichiers?.map((fichier) => (
-                            <div key={fichier.id} className="px-10 py-5 hover:bg-slate-50 flex justify-between items-center transition-colors group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-white transition-colors">
-                                        <FileText className="w-5 h-5 text-slate-400" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-slate-900">{fichier.nom}</p>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{fichier.client_nom}</span>
-                                            <div className="w-1 h-1 bg-slate-300 rounded-full" />
-                                            <span className="text-[10px] font-black text-slate-400 flex items-center gap-1">
-                                                <Calendar className="w-3 h-3" />
-                                                {fichier.date_upload}
-                                            </span>
+                        {stats?.derniers_fichiers?.length > 0 ? (
+                            stats.derniers_fichiers.map((fichier) => (
+                                <div key={fichier.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 bg-slate-50 rounded-lg flex items-center justify-center">
+                                            <FileText className="w-4 h-4 text-slate-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-800">{fichier.nom}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-xs text-slate-400">{fichier.client_nom}</span>
+                                                <span className="text-slate-300">•</span>
+                                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {fichier.date_upload}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-bold text-slate-800">{fichier.nombre_donnees}</p>
+                                        <p className="text-xs text-slate-400">entrées</p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="font-black text-slate-900">{fichier.nombre_donnees}</p>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrées</p>
-                                </div>
+                            ))
+                        ) : (
+                            <div className="px-5 py-8 text-center">
+                                <p className="text-sm text-slate-400">Aucun fichier importé récemment</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
 
-                {/* Priority Alert Box */}
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-white rounded-3xl p-8 text-slate-800 border border-slate-200 shadow-sm">
-                        <h3 className="text-lg font-bold mb-6 tracking-tight flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-blue-500" />
+                {/* Recommandation */}
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                        <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-blue-500" />
                             Recommandation
-                        </h3>
-                        <div className="space-y-6">
-                            {stats?.clients_stats?.length > 0 && (
-                                <>
-                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Priorité d&apos;action</p>
-                                        <p className="text-xl font-bold text-slate-800">
-                                            {stats.clients_stats.sort((a, b) => (a.imported - a.treated) - (b.imported - b.treated))[0].nom}
-                                        </p>
-                                        <p className="text-sm text-slate-500 mt-2 font-medium italic">Accumulation de dossiers non traités détectée.</p>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-emerald-400 text-sm font-bold">
-                                        <CheckCircle className="w-5 h-5" />
-                                        Système optimisé à 100%
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                        </h2>
+                    </div>
+                    <div className="p-5 space-y-4">
+                        {priorityClient ? (
+                            <>
+                                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
+                                        Priorité d'action
+                                    </p>
+                                    <p className="text-lg font-bold text-slate-800">{priorityClient.nom}</p>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        {priorityClient.imported - priorityClient.treated} dossier(s) en attente
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                    <span className="text-sm font-medium text-green-700">Système opérationnel</span>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="py-6 text-center">
+                                <p className="text-sm text-slate-400">Aucune donnée disponible</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

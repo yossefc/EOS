@@ -41,7 +41,7 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max file size
     
     # Configuration CORS
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://192.168.175.1:5173,http://172.18.240.1:5173').split(',')
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://192.168.175.1:5173,http://172.18.240.1:5173,http://192.168.150.190:5173').split(',')
     
     # Configuration de logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Archive, Download, FileText, Search, ChevronLeft, ChevronRight, RefreshCw, Layers } from 'lucide-react';
+import config from '../config';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = config.API_URL;
 
 const ArchivesViewer = ({ title = 'Archives des Exports' }) => {
   const [exportBatches, setExportBatches] = useState([]);

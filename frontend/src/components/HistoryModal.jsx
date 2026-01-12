@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    X, Clock, AlertCircle, FileText, 
+import {
+    X, Clock, AlertCircle, FileText,
     RefreshCw, Archive, User, Hash, History,
     Users
 } from 'lucide-react';
 import PropTypes from 'prop-types';
+import config from '../config';
 
-// Configuration API - remplacez par votre URL d'API
-const API_URL = 'http://localhost:5000';
+const API_URL = config.API_URL;
 
 const HistoryModal = ({ isOpen, onClose, donneeId, donnee }) => {
     const [loading, setLoading] = useState(true);
