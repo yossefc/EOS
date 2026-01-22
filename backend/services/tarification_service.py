@@ -125,6 +125,7 @@ class TarificationService:
                 logger.error(f"Donnee {donnee_enqueteur.donnee_id} non trouvé")
                 return None
 
+
             # 3. Vérifier si c'est une contestation
             is_contestation = donnee.est_contestation and donnee.enquete_originale_id
             logger.info(f"Traitement de {donnee.id}: est_contestation={is_contestation}, code_resultat={donnee_enqueteur.code_resultat}")

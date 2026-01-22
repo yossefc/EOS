@@ -52,21 +52,8 @@ const FinanceManager = () => {
       case 'gains':
         return (
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">
-                💰 Rapports Financiers - Vue Administrateur
-              </h3>
-              <p className="text-blue-700 text-sm mb-4">
-                Visualisez les revenus totaux (prix facturés aux clients) et les coûts (montants versés aux enquêteurs).
-                Filtrez par client (EOS / PARTNER) pour voir la rentabilité de chaque activité.
-              </p>
-              <ul className="text-sm text-blue-700 space-y-1 ml-4 list-disc">
-                <li><strong>Total Facturé</strong> : Montant total facturé aux clients (EOS ou PARTNER)</li>
-                <li><strong>Total Enquêteurs</strong> : Montant total versé aux enquêteurs</li>
-                <li><strong>Marge</strong> : Différence entre facturé et versé = profit</li>
-              </ul>
-            </div>
-            
+
+
             <Suspense fallback={<LoadingComponent />}>
               <FinancialReports />
             </Suspense>
@@ -76,21 +63,8 @@ const FinanceManager = () => {
       case 'paiements':
         return (
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-green-900 mb-2">
-                👥 Gestion des Paiements Enquêteurs
-              </h3>
-              <p className="text-green-700 text-sm mb-4">
-                Consultez les gains de chaque enquêteur et effectuez les paiements.
-                Vous pouvez filtrer par client pour voir les gains EOS ou PARTNER séparément.
-              </p>
-              <ul className="text-sm text-green-700 space-y-1 ml-4 list-disc">
-                <li><strong>Total Gagné</strong> : Montant total des enquêtes confirmées</li>
-                <li><strong>Déjà Payé</strong> : Montants déjà versés à l'enquêteur</li>
-                <li><strong>Reste à Payer</strong> : Ce qu'il faut encore verser</li>
-              </ul>
-            </div>
-            
+
+
             <Suspense fallback={<LoadingComponent />}>
               <PaiementManager />
             </Suspense>
@@ -100,19 +74,7 @@ const FinanceManager = () => {
       case 'tarifs':
         return (
           <div className="space-y-4">
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-purple-900 mb-2">
-                ⚙️ Configuration des Tarifs
-              </h3>
-              <p className="text-purple-700 text-sm mb-4">
-                Gérez les grilles tarifaires pour EOS, les enquêteurs et les clients PARTNER.
-              </p>
-              <ul className="text-sm text-purple-700 space-y-1 ml-4 list-disc">
-                <li><strong>Tarifs EOS</strong> : Prix facturés aux clients EOS (A, AT, ATB, etc.)</li>
-                <li><strong>Tarifs Enquêteur</strong> : Montants versés aux enquêteurs</li>
-                <li><strong>Tarifs PARTNER</strong> : Mapping lettres → prix pour clients PARTNER</li>
-              </ul>
-            </div>
+
 
             {/* Composant de tarification complet */}
             <div className="-mt-2">

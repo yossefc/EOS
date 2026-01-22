@@ -118,7 +118,7 @@ class EnqueteFacturation(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relations
-    donnee = db.relationship('Donnee', backref='facturations', lazy=True)
+    donnee = db.relationship('Donnee', backref=db.backref('facturations', cascade='all, delete-orphan'))
     donnee_enqueteur = db.relationship('DonneeEnqueteur', backref='facturations', lazy=True)
     client = db.relationship('Client', backref='facturations', lazy=True)
     

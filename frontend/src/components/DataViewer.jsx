@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import axios from 'axios';
 import {
   Database, Search, Filter, RefreshCw,
-  AlertCircle, X,
+  AlertCircle, X, Trash2,
   History, FileDown, Pencil, Download, CalendarDays,
   CheckCircle, XCircle
 } from 'lucide-react';
@@ -69,7 +69,10 @@ const DataViewer = () => {
     show: false,
     enqueteId: null,
     title: '',
-    message: ''
+    message: '',
+    action: null,
+    confirmLabel: 'Confirmer',
+    confirmColor: 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
   });
 
   // MULTI-CLIENT: Récupérer la liste des clients
@@ -121,6 +124,9 @@ const DataViewer = () => {
       if (filters.showOnlyUnassigned) params.append('enqueteurId', 'unassigned');
 
       const response = await axios.get(`${API_URL}/api/donnees-complete?${params.toString()}`);
+
+      console.log("🔍 API Response:", response);
+      console.log("🔍 API Data:", response.data);
 
       if (response.data.success) {
         setDonnees(response.data.data);
@@ -220,8 +226,48 @@ const DataViewer = () => {
       show: true,
       enqueteId: enqueteId,
       title: 'Validation de l\'enquête',
-      message: 'Êtes-vous sûr de vouloir valider cette enquête ? Elle sera archivée et apparaîtra dans l\'onglet Export des résultats.'
+      message: 'Êtes-vous sûr de vouloir valider cette enquête ? Elle sera archivée et apparaîtra dans l\'onglet Export des résultats.',
+      action: executeValiderEnquete,
+      confirmLabel: 'Valider',
+      confirmColor: 'bg-green-600 hover:bg-green-700 shadow-green-200'
     });
+  };
+
+  const handleSupprimerEnquete = (enqueteId) => {
+    setConfirmModal({
+      show: true,
+      enqueteId: enqueteId,
+      title: 'Suppression de l\'enquête',
+      message: 'Attention : cette action est irréversible. Êtes-vous sûr de vouloir supprimer définitivement cette enquête ?',
+      action: executeSupprimerEnquete,
+      confirmLabel: 'Supprimer',
+      confirmColor: 'bg-red-600 hover:bg-red-700 shadow-red-200'
+    });
+  };
+
+  const executeSupprimerEnquete = async (enqueteId) => {
+    try {
+      setConfirmModal(prev => ({ ...prev, show: false }));
+      setValidating(true);
+      setError(null);
+
+      const response = await axios.delete(`${API_URL}/api/enquetes/${enqueteId}`);
+
+      if (response.data.success) {
+        setSuccessMessage('Enquête supprimée définitivement.');
+        // Retirer l'enquête du tableau local
+        setDonnees(prev => prev.filter(d => d.id !== enqueteId));
+        setFilteredDonnees(prev => prev.filter(d => d.id !== enqueteId));
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        throw new Error(response.data.error || 'Erreur lors de la suppression');
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      setError(error.response?.data?.error || error.message || 'Erreur lors de la suppression');
+    } finally {
+      setValidating(false);
+    }
   };
 
   // Fonction réelle de validation appelée par la modale
@@ -411,37 +457,58 @@ const DataViewer = () => {
     }
   };
 
-  // Handle export to Word
-  const handleExportWord = async () => {
+  // Handle generic export
+  const handleExport = async () => {
     try {
+      const client = clients.find(c => c.id === selectedClientId);
+      const isSherlock = client?.code === 'RG_SHERLOCK';
+
       setExportingData(true);
 
-      const response = await axios.post(`${API_URL}/api/export-enquetes`, {
-        client_id: selectedClientId
-      }, {
-        responseType: 'blob'
-      });
+      if (isSherlock) {
+        // Export Excel pour Sherlock
+        const response = await axios.post(`${API_URL}/api/export/sherlock`, {
+          client_id: selectedClientId
+        }, {
+          responseType: 'blob'
+        });
 
-      // Vérifier si c'est un message JSON (aucune enquête à exporter)
-      if (response.data.type === 'application/json') {
-        const text = await response.data.text();
-        const json = JSON.parse(text);
-        alert(json.message || "Aucune nouvelle enquête à exporter");
-        return;
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Export_Sherlock_${new Date().toISOString().split('T')[0]}.xls`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Export Word legacy
+        const response = await axios.post(`${API_URL}/api/export-enquetes`, {
+          client_id: selectedClientId
+        }, {
+          responseType: 'blob'
+        });
+
+        if (response.data.type === 'application/json') {
+          const text = await response.data.text();
+          const json = JSON.parse(text);
+          alert(json.message || "Aucune nouvelle enquête à exporter");
+          return;
+        }
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Export_Nouvelles_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        // Rafraîchir le compteur après export
+        await fetchNonExporteesCount();
+        await fetchData(currentPage);
       }
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Export_Nouvelles_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      // Rafraîchir le compteur après export
-      await fetchNonExporteesCount();
-      await fetchData(currentPage);
 
     } catch (error) {
       console.error("Erreur lors de l'export:", error);
@@ -485,19 +552,26 @@ const DataViewer = () => {
         </div>
 
         <div className="flex gap-2">
-          <button
-            onClick={handleExportWord}
-            disabled={exportingData || nonExporteesCount === 0}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm transition-all"
-            title={`Exporter les ${nonExporteesCount} nouvelles enquêtes non encore exportées`}
-          >
-            {exportingData ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            <span>Export Word ({nonExporteesCount} nouvelles)</span>
-          </button>
+          {(() => {
+            const client = clients.find(c => c.id === selectedClientId);
+            const isSherlock = client?.code === 'RG_SHERLOCK';
+
+            return (
+              <button
+                onClick={handleExport}
+                disabled={exportingData || (!isSherlock && nonExporteesCount === 0)}
+                className={`flex items-center gap-1.5 px-4 py-2 text-white rounded-xl font-semibold disabled:opacity-30 disabled:cursor-not-allowed shadow-sm transition-all ${isSherlock ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                title={isSherlock ? "Exporter toutes les données Sherlock" : `Exporter les ${nonExporteesCount} nouvelles enquêtes non encore exportées`}
+              >
+                {exportingData ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span>{isSherlock ? 'Export Excel' : `Export Word (${nonExporteesCount})`}</span>
+              </button>
+            );
+          })()}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50"
@@ -901,11 +975,11 @@ const DataViewer = () => {
                               <History className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => window.open(`${API_URL}/api/export/${donnee.id}`, '_blank')}
-                              className="text-green-600 hover:text-green-900"
-                              title="Exporter"
+                              onClick={() => handleSupprimerEnquete(donnee.id)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Supprimer l'enquête"
                             >
-                              <FileDown className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1097,10 +1171,10 @@ const DataViewer = () => {
                   Annuler
                 </button>
                 <button
-                  onClick={() => executeValiderEnquete(confirmModal.enqueteId)}
-                  className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+                  onClick={() => confirmModal.action(confirmModal.enqueteId)}
+                  className={`flex-1 py-3.5 text-white rounded-xl font-bold shadow-lg transition-all active:scale-[0.98] ${confirmModal.confirmColor}`}
                 >
-                  Valider
+                  {confirmModal.confirmLabel}
                 </button>
               </div>
             </div>

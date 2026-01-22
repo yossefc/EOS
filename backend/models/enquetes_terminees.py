@@ -11,7 +11,7 @@ class EnqueteTerminee(db.Model):
     confirmed_by = db.Column(db.String(100), nullable=False)
     
     # Relation avec Donnee
-    donnee = db.relationship('Donnee', backref='validation', lazy=True)
+    donnee = db.relationship('Donnee', backref=db.backref('validation', cascade='all, delete-orphan'))
     
     def to_dict(self):
         """Convertit l'objet en dictionnaire"""

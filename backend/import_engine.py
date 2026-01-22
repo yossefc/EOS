@@ -1,12 +1,11 @@
-"""
-Moteur d'import générique pour traiter les fichiers selon les profils clients
-Supporte TXT à positions fixes et Excel
-"""
 import logging
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
-from models import ImportProfile, ImportFieldMapping, Donnee, DonneeEnqueteur
+import re
+import yaml
+import os
+from models import ImportProfile, ImportFieldMapping, Donnee, DonneeEnqueteur, Client, SherlockDonnee
 from extensions import db
 
 logger = logging.getLogger(__name__)
@@ -15,24 +14,55 @@ logger = logging.getLogger(__name__)
 class ImportEngine:
     """Moteur d'import générique basé sur les profils clients"""
     
-    def __init__(self, import_profile):
+    def __init__(self, import_profile, filename=None):
         """
         Initialise le moteur d'import
         
         Args:
             import_profile (ImportProfile): Profil d'import à utiliser
+            filename (str, optional): Nom du fichier importé
         """
         self.profile = import_profile
+        self.filename = filename
         self.file_type = import_profile.file_type
         self.mappings = ImportFieldMapping.query.filter_by(
             import_profile_id=import_profile.id
         ).all()
         
-        if not self.mappings:
+        # Chargement de la config client spécifique (YAML) si existante
+        self.client_config = self._load_client_config()
+        
+        for m in self.mappings:
+            logger.info(f"Mapping: internal={m.internal_field}, external={m.column_name}, index={m.column_index}, required={m.is_required}")
+        
+        if not self.mappings and not self.client_config:
             raise ValueError(f"Aucun mapping trouvé pour le profil d'import {import_profile.id}")
         
         logger.info(f"Moteur d'import initialisé pour {import_profile.name} ({self.file_type})")
-        logger.info(f"{len(self.mappings)} mappings de champs chargés")
+        if self.client_config:
+            logger.info(f"Config spécifique client chargée depuis YAML")
+        else:
+            logger.info(f"{len(self.mappings)} mappings de champs chargés depuis la base")
+            
+    def _load_client_config(self):
+        """Charge la configuration YAML du client si elle existe"""
+        client = db.session.get(Client, self.profile.client_id)
+        if not client:
+            return None
+            
+        # Chercher dans backend/clients/<client_code>/mapping_import.yaml
+        client_code = client.code.lower()
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        yaml_path = os.path.join(base_dir, 'clients', client_code, 'mapping_import.yaml')
+        
+        if os.path.exists(yaml_path):
+            try:
+                with open(yaml_path, 'r', encoding='utf-8') as f:
+                    return yaml.safe_load(f)
+            except Exception as e:
+                logger.error(f"Erreur lors du chargement du YAML {yaml_path}: {e}")
+                
+        return None
     
     def parse_content(self, content):
         """
@@ -48,6 +78,8 @@ class ImportEngine:
             return self._parse_txt_fixed(content)
         elif self.file_type == 'EXCEL':
             return self._parse_excel(content)
+        elif self.file_type == 'EXCEL_VERTICAL':
+            return self._parse_excel_vertical(content)
         else:
             raise ValueError(f"Type de fichier non supporté: {self.file_type}")
     
@@ -103,14 +135,29 @@ class ImportEngine:
         """
         try:
             # Lire le fichier Excel avec pandas
-            excel_file = BytesIO(content)
+            excel_data = BytesIO(content)
             
-            if self.profile.sheet_name:
-                df = pd.read_excel(excel_file, sheet_name=self.profile.sheet_name)
+            # Charger le fichier pour inspecter les feuilles
+            excel_obj = pd.ExcelFile(excel_data)
+            available_sheets = excel_obj.sheet_names
+            
+            target_sheet = self.profile.sheet_name
+            
+            if target_sheet:
+                if target_sheet in available_sheets:
+                    df = pd.read_excel(excel_obj, sheet_name=target_sheet)
+                else:
+                    logger.warning(f"Feuille '{target_sheet}' introuvable dans {available_sheets}. Utilisation de la première feuille.")
+                    df = pd.read_excel(excel_obj, sheet_name=0)
             else:
-                df = pd.read_excel(excel_file)
+                df = pd.read_excel(excel_obj, sheet_name=0)
             
             logger.info(f"Traitement de {len(df)} lignes (EXCEL)")
+            logger.info(f"Colonnes disponibles: {list(df.columns)}")
+            
+            # Créer un dictionnaire de mapping pour les colonnes Excel (insensible à la casse/espaces)
+            # Pour chaque colonne réelle, on stocke une clé normalisée
+            col_map = {str(col).strip().upper(): col for col in df.columns}
             
             parsed_records = []
             
@@ -123,7 +170,7 @@ class ImportEngine:
                     record = {}
                     
                     for mapping in self.mappings:
-                        value = mapping.extract_value(row, 'EXCEL')
+                        value = mapping.extract_value(row, 'EXCEL', col_map=col_map)
                         record[mapping.internal_field] = value
                     
                     # Vérifier les champs requis
@@ -134,6 +181,7 @@ class ImportEngine:
                     
                 except Exception as e:
                     logger.error(f"Erreur ligne {row_number + 2}: {e}")
+                    logger.error(f"Contenu de la ligne: {row.to_dict()}")
                     continue
             
             logger.info(f"{len(parsed_records)} enregistrements parsés avec succès")
@@ -142,6 +190,159 @@ class ImportEngine:
         except Exception as e:
             logger.error(f"Erreur lors de la lecture du fichier Excel: {e}")
             raise ValueError(f"Impossible de lire le fichier Excel: {e}")
+            
+    def _parse_excel_vertical(self, content):
+        """
+        Parse un fichier Excel vertical (format 2 colonnes Key/Value)
+        
+        Args:
+            content (bytes): Contenu du fichier
+            
+        Returns:
+            list[dict]: Liste d'enregistrements (avec champs internes)
+        """
+        try:
+            excel_data = BytesIO(content)
+            # Pas d'entête car format 2 colonnes Verticales
+            df = pd.read_excel(excel_data, header=None)
+            
+            logger.info(f"Traitement d'un fichier Excel vertical ({len(df)} lignes)")
+            
+            # Récupérer les clés connues pour détecter un en-tête horizontal par erreur
+            known_keys = set()
+            if self.client_config and 'mappings' in self.client_config:
+                known_keys = {m.get('source_key') for m in self.client_config['mappings']}
+            
+            # 1. Grouper en blocs (Raw Records)
+            raw_records = []
+            current_raw = {}
+            split_key = "DossierId"
+            
+            for i, row in df.iterrows():
+                if len(row) < 2:
+                    continue
+                    
+                key = str(row[0]).strip() if pd.notna(row[0]) else ""
+                if not key:
+                    continue
+                
+                value = row[1]
+                if pd.isna(value) or str(value).strip().lower() in ["", "nan", "none"]:
+                    value = None
+                else:
+                    value = str(value).strip()
+                
+                # Robustesse : Détection de header horizontal (si i=0, key est split_key mais value est un champ connu)
+                if i == 0 and key == split_key and value in known_keys:
+                    logger.warning(f"⚠️ Ligne 0 détectée comme en-tête horizontal ({key} | {value}). Sautée.")
+                    continue
+                
+                # Détection de nouveau dossier
+                if key == split_key and split_key in current_raw:
+                    raw_records.append(current_raw)
+                    current_raw = {}
+                
+                current_raw[key] = value
+                
+            if current_raw:
+                raw_records.append(current_raw)
+                
+            logger.info(f"{len(raw_records)} dossiers bruts détectés dans le fichier vertical")
+            
+            # 2. Mapper vers les champs internes en appliquant les transformations
+            parsed_records = []
+            for idx, raw in enumerate(raw_records, 1):
+                record = self._apply_client_mapping(raw)
+                
+                # Vérifier les champs requis
+                if not self._validate_required_fields(record, idx):
+                    continue
+                    
+                parsed_records.append(record)
+                
+            logger.info(f"{len(parsed_records)} enregistrements verticaux mappés avec succès")
+            return parsed_records
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du parsing Excel vertical: {e}")
+            raise
+
+    def _apply_client_mapping(self, raw_record):
+        """Applique le mapping défini dans le YAML si présent, sinon mapping DB classique"""
+        if not self.client_config or 'mappings' not in self.client_config:
+            record = {}
+            for mapping in self.mappings:
+                val = raw_record.get(mapping.column_name)
+                record[mapping.internal_field] = val
+            return record
+
+        record = {}
+        for m in self.client_config['mappings']:
+            source_key = m.get('source_key')
+            
+            # Valeur source
+            if source_key == "__COMPUTED_AD_L4__":
+                value = self._compute_ad_l4(raw_record)
+            else:
+                value = raw_record.get(source_key)
+            
+            # Transformation
+            transform_name = m.get('transform')
+            if transform_name:
+                value = self._execute_transform(value, transform_name)
+            
+            # Attribution au premier champ candidat
+            for field in m.get('candidate_fields', []):
+                if hasattr(Donnee, field):
+                    record[field] = value
+                    break
+        
+        return record
+
+    def _execute_transform(self, value, transform_name):
+        """Exécute une transformation spécifiée sur une valeur"""
+        if value is None:
+            return None
+            
+        t = str(transform_name).lower()
+        
+        if t == "to_string":
+            return str(value)
+        elif t == "trim":
+            return str(value).strip()
+        elif t == "trim_upper":
+            return str(value).strip().upper()
+        elif t == "trim_lower":
+            return str(value).strip().lower()
+        elif t == "email_trim_lower":
+            return str(value).strip().lower()
+        elif t == "cp_string":
+            # Garder les 5 premiers caractères num
+            res = re.sub(r'[^0-9]', '', str(value))
+            return res[:5] if res else None
+        elif t == "phone_sanitize":
+            # Garder uniquement les chiffres
+            return re.sub(r'[^0-9+]', '', str(value))
+        elif t == "parse_date_ddmmyyyy":
+            try:
+                # Gérer divers formats de date via pandas
+                return pd.to_datetime(value, dayfirst=True).date()
+            except:
+                return None
+        elif "concat_ad_l4" in t:
+            # Déjà géré par _compute_ad_l4 car c'est un computed field complet
+            return value
+            
+        return value
+
+    def _compute_ad_l4(self, raw_record):
+        """Calcule l'adresse ligne 4 à partir des composants num, type, voie"""
+        num = raw_record.get("AD-L4 Numéro", "")
+        type_voie = raw_record.get("AD-L4 Type", "")
+        voie = raw_record.get("AD-L4 Voie", "")
+        
+        parts = [p for p in [num, type_voie, voie] if p and str(p).strip()]
+        return " ".join(parts) if parts else None
     
     def _decode_content(self, content):
         """
@@ -193,10 +394,16 @@ class ImportEngine:
         
         for mapping in required_mappings:
             value = record.get(mapping.internal_field)
-            if not value or not str(value).strip():
+            if not value or not str(value).strip() or str(value).lower() == 'nan':
+                # Pour numeroDossier, on peut être indulgent pour les contestations
+                if mapping.internal_field == 'numeroDossier':
+                    logger.info(f"Ligne {line_number}: 'numeroDossier' absent, continué...")
+                    continue
+                    
                 logger.warning(
                     f"Ligne {line_number}: Champ requis manquant '{mapping.internal_field}'"
                 )
+                logger.info(f"Record content: {record}")
                 return False
         
         return True
@@ -219,6 +426,26 @@ class ImportEngine:
         # Traitement spécial pour CLIENT_X
         record = self._preprocess_client_x_record(record, client_id)
         
+        if client_id:
+            from models.client import Client
+            client = db.session.get(Client, client_id)
+            if client and client.code == 'RG_SHERLOCK':
+                return self._create_sherlock_donnee(record, fichier_id)
+
+        # Détection automatique de contestation (PARTNER)
+        type_demande = record.get('typeDemande', '')
+        # Si on n'a pas de type ou si c'est le défaut ENQ, on essaie de détecter CON
+        if (not type_demande or type_demande == 'ENQ') and client_id:
+            if client and client.code in ['CLIENT_X', 'PARTNER']:
+                # Critère 1: Nom de fichier contient CONTESTATION
+                if self.filename and 'CONTESTATION' in self.filename.upper():
+                    type_demande = 'CON'
+                    logger.info(f"Détection CON via Nom Fichier: {self.filename}")
+                # Critère 2: Le champ instructions/motif est rempli
+                elif record.get('instructions') or record.get('motif'):
+                    type_demande = 'CON'
+                    logger.info("Détection CON via présence de Motif/Instructions")
+        
         nouvelle_donnee = Donnee(
             client_id=client_id,
             fichier_id=fichier_id,
@@ -226,7 +453,7 @@ class ImportEngine:
             referenceDossier=record.get('referenceDossier', ''),
             numeroInterlocuteur=record.get('numeroInterlocuteur', ''),
             guidInterlocuteur=record.get('guidInterlocuteur', ''),
-            typeDemande=record.get('typeDemande', ''),
+            typeDemande=type_demande,
             numeroDemande=record.get('numeroDemande', ''),
             numeroDemandeContestee=record.get('numeroDemandeContestee', ''),
             numeroDemandeInitiale=record.get('numeroDemandeInitiale', ''),
@@ -314,6 +541,29 @@ class ImportEngine:
                 client_id=client_id,
                 numeroDemande=contested_number
             ).first()
+            
+        # Fallback: Recherche par Nom/Prénom si toujours rien (et qu'on a un nom dans le record)
+        if not enquete_originale and record.get('nom'):
+            from services.partner_request_parser import PartnerRequestParser
+            nom_norm = PartnerRequestParser.normalize_text(record.get('nom'))
+            prenom_norm = PartnerRequestParser.normalize_text(record.get('prenom'))
+            
+            # Chercher dans les enquêtes non-contestations du même client
+            # On utilise une recherche insensible à la casse et sans accents via normalisation simple
+            # Pour la performance, on cherche d'abord les correspondances exactes (nom seulement par exemple)
+            all_candidats = Donnee.query.filter_by(
+                client_id=client_id,
+                est_contestation=False
+            ).filter(Donnee.nom.ilike(f"%{record.get('nom').strip()}%")).all()
+            
+            for candidat in all_candidats:
+                c_nom = PartnerRequestParser.normalize_text(candidat.nom)
+                c_prenom = PartnerRequestParser.normalize_text(candidat.prenom)
+                
+                if nom_norm == c_nom and (not prenom_norm or prenom_norm == c_prenom):
+                    enquete_originale = candidat
+                    logger.info(f"✅ Enquête originale trouvée via Fallback Nom/Prénom: {candidat.id}")
+                    break
         
         if enquete_originale:
             logger.info(f"Enquête originale trouvée: {enquete_originale.numeroDossier} (ID: {enquete_originale.id})")
@@ -485,5 +735,17 @@ class ImportEngine:
                 logger.info(f"  → PartnerCaseRequest créé: {request_code}")
             else:
                 logger.info(f"  → PartnerCaseRequest existe déjà: {request_code}")
+
+    def _create_sherlock_donnee(self, record, fichier_id):
+        """Crée une instance SherlockDonnee"""
+        # Mapper les champs record -> SherlockDonnee
+        # On suppose que les internal_fields dans le YAML correspondent aux attributs de SherlockDonnee
+        nouvelle_donnee = SherlockDonnee(
+            fichier_id=fichier_id,
+            **{k: v for k, v in record.items() if hasattr(SherlockDonnee, k)}
+        )
+        
+        db.session.add(nouvelle_donnee)
+        return nouvelle_donnee
 
 

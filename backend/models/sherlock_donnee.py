@@ -1,0 +1,88 @@
+from extensions import db
+from datetime import datetime
+
+class SherlockDonnee(db.Model):
+    __tablename__ = 'sherlock_donnees'
+
+    id = db.Column(db.Integer, primary_key=True)
+    fichier_id = db.Column(db.Integer, db.ForeignKey('fichiers.id', ondelete='CASCADE'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Données source
+    dossier_id = db.Column(db.String(50))
+    reference_interne = db.Column(db.String(50))
+    demande = db.Column(db.String(100))
+    ec_civilite = db.Column(db.String(10))
+    ec_prenom = db.Column(db.String(100))
+    ec_prenom2 = db.Column(db.String(100))
+    ec_prenom3 = db.Column(db.String(100))
+    ec_prenom4 = db.Column(db.String(100))
+    ec_nom_usage = db.Column(db.String(100))
+    ec_nom_naissance = db.Column(db.String(100))
+    ec_date_naissance = db.Column(db.String(20))
+    naissance_cp = db.Column(db.String(10))
+    ec_localite_naissance = db.Column(db.String(100))
+    naissance_insee = db.Column(db.String(10))
+    ec_pays_naissance = db.Column(db.String(100))
+    client_commentaire = db.Column(db.Text)
+    ad_l1 = db.Column(db.String(100))
+    ad_l2 = db.Column(db.String(100))
+    ad_l3 = db.Column(db.String(100))
+    ad_l4_numero = db.Column(db.String(10))
+    ad_l4_type = db.Column(db.String(50))
+    ad_l4_voie = db.Column(db.String(100))
+    ad_l5 = db.Column(db.String(100))
+    ad_l6_cedex = db.Column(db.String(10))
+    ad_l6_cp = db.Column(db.String(10))
+    ad_l6_insee = db.Column(db.String(10))
+    ad_l6_localite = db.Column(db.String(100))
+    ad_l7_pays = db.Column(db.String(100))
+    ad_telephone = db.Column(db.String(20))
+    ad_telephone_pro = db.Column(db.String(20))
+    ad_telephone_mobile = db.Column(db.String(20))
+    ad_email = db.Column(db.String(255))
+    
+    # Tarification
+    tarif_a = db.Column(db.String(50))
+    tarif_at = db.Column(db.String(50))
+    tarif_dcd = db.Column(db.String(50))
+    
+    # Résultats enquête
+    resultat = db.Column(db.String(50))
+    montant_ht = db.Column(db.Float)
+    
+    # Réponse enquêteur (Champs préfixés Rép-)
+    rep_ec_civilite = db.Column(db.String(10))
+    rep_ec_prenom = db.Column(db.String(100))
+    rep_ec_prenom2 = db.Column(db.String(100))
+    rep_ec_prenom3 = db.Column(db.String(100))
+    rep_ec_prenom4 = db.Column(db.String(100))
+    rep_ec_nom_usage = db.Column(db.String(100))
+    rep_ec_nom_naissance = db.Column(db.String(100))
+    rep_ec_date_naissance = db.Column(db.String(20))
+    rep_naissance_cp = db.Column(db.String(10))
+    rep_ec_localite_naissance = db.Column(db.String(100))
+    rep_naissance_insee = db.Column(db.String(10))
+    rep_ec_pays_naissance = db.Column(db.String(100))
+    rep_dcd_date = db.Column(db.String(20))
+    rep_dcd_numero_acte = db.Column(db.String(50))
+    rep_dcd_localite = db.Column(db.String(100))
+    rep_dcd_cp = db.Column(db.String(10))
+    rep_dcd_insee = db.Column(db.String(10))
+    rep_dcd_pays = db.Column(db.String(100))
+    rep_ad_l1 = db.Column(db.String(100))
+    rep_ad_l2 = db.Column(db.String(100))
+    rep_ad_l3 = db.Column(db.String(100))
+    rep_ad_l4_numero = db.Column(db.String(10))
+    rep_ad_l4_type = db.Column(db.String(50))
+    rep_ad_l4_voie = db.Column(db.String(100))
+    rep_ad_l5 = db.Column(db.String(100))
+    rep_ad_l6_cedex = db.Column(db.String(10))
+    rep_ad_l6_cp = db.Column(db.String(10))
+    rep_ad_l6_insee = db.Column(db.String(10))
+    rep_ad_l6_localite = db.Column(db.String(100))
+    rep_ad_l7_pays = db.Column(db.String(100))
+    rep_ad_telephone = db.Column(db.String(20))
+
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

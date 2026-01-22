@@ -1,10 +1,209 @@
-import  { useState } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { AlertCircle, Save, X } from 'lucide-react';
+import { AlertCircle, Check, RotateCcw, HelpCircle, ChevronRight } from 'lucide-react';
 import { COUNTRIES } from './countryData';
 
-// Définition des PropTypes séparément, avant d'utiliser le composant
-const EtatCivilPanelPropTypes = {
+/**
+ * Panel de comparaison/correction de l'état civil
+ * Design compact avec 2 colonnes : Origine | Corrigé
+ */
+const EtatCivilPanel = ({ originalData, formData, onValidate }) => {
+  const [correctedData, setCorrectedData] = useState({
+    qualite: formData.qualite_corrigee || '',
+    nom: formData.nom_corrige || '',
+    prenom: formData.prenom_corrige || '',
+    codePostalNaissance: formData.code_postal_naissance_corrige || '',
+    paysNaissance: formData.pays_naissance_corrige || '',
+    nomPatronymique: formData.nom_patronymique_corrige || ''
+  });
+
+  const [divergenceType, setDivergenceType] = useState(formData.type_divergence || '');
+  const [showHelp, setShowHelp] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setCorrectedData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleValidate = () => {
+    if (onValidate) {
+      onValidate(correctedData, divergenceType);
+    }
+  };
+
+  const handleReset = () => {
+    setCorrectedData({
+      qualite: '', nom: '', prenom: '',
+      codePostalNaissance: '', paysNaissance: '', nomPatronymique: ''
+    });
+    setDivergenceType('');
+  };
+
+  // Champs à afficher
+  const fields = [
+    { key: 'qualite', label: 'Qualité', type: 'text' },
+    { key: 'nom', label: 'Nom', type: 'text' },
+    { key: 'prenom', label: 'Prénom', type: 'text' },
+    { key: 'nomPatronymique', label: 'Nom patronymique', type: 'text' },
+    { key: 'codePostalNaissance', label: 'CP naissance', type: 'text' },
+    { key: 'paysNaissance', label: 'Pays naissance', type: 'select' },
+  ];
+
+  const divergenceOptions = [
+    { value: '', label: 'Sélectionner...' },
+    { value: 'Orthographe', label: 'Erreur d\'orthographe' },
+    { value: 'InversionPrenom', label: 'Inversion des prénoms' },
+    { value: 'DateNaissance', label: 'Date de naissance erronée' },
+    { value: 'LieuNaissance', label: 'Lieu de naissance erroné' },
+    { value: 'NomUsage', label: 'Différence nom d\'usage/naissance' },
+    { value: 'Autre', label: 'Autre divergence' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Header avec aide */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Comparaison état civil</h3>
+        <button
+          type="button"
+          onClick={() => setShowHelp(!showHelp)}
+          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          {showHelp ? 'Masquer l\'aide' : 'Aide'}
+        </button>
+      </div>
+
+      {/* Aide (collapsible) */}
+      {showHelp && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+          <p className="mb-2">Corrigez les champs si vous constatez des différences avec l'état civil retrouvé :</p>
+          <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+            <li>Ne modifiez que les champs nécessaires</li>
+            <li>Champs vides = valeurs d'origine conservées</li>
+            <li>Sélectionnez le type de divergence</li>
+            <li>Documentez dans les mémos</li>
+          </ul>
+        </div>
+      )}
+
+      {/* Tableau comparatif */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        {/* En-tête du tableau */}
+        <div className="grid grid-cols-[1fr,2fr,auto,2fr] bg-slate-100 border-b border-slate-200">
+          <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase">Champ</div>
+          <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase">Origine</div>
+          <div className="px-3 py-2"></div>
+          <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase">Corrigé</div>
+        </div>
+
+        {/* Lignes */}
+        {fields.map((field) => (
+          <div
+            key={field.key}
+            className="grid grid-cols-[1fr,2fr,auto,2fr] border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50"
+          >
+            {/* Label */}
+            <div className="px-3 py-2 text-xs font-medium text-slate-600 flex items-center">
+              {field.label}
+            </div>
+
+            {/* Valeur origine */}
+            <div className="px-3 py-2 text-sm font-semibold text-slate-800 flex items-center bg-slate-50/50">
+              {originalData[field.key] || <span className="text-slate-400">-</span>}
+            </div>
+
+            {/* Flèche */}
+            <div className="px-2 py-2 flex items-center">
+              <ChevronRight className="w-4 h-4 text-slate-300" />
+            </div>
+
+            {/* Input corrigé */}
+            <div className="px-3 py-1.5 flex items-center">
+              {field.type === 'select' ? (
+                <select
+                  name={field.key}
+                  value={correctedData[field.key]}
+                  onChange={handleChange}
+                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded bg-white 
+                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">—</option>
+                  {COUNTRIES.map(country => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  name={field.key}
+                  value={correctedData[field.key]}
+                  onChange={handleChange}
+                  placeholder={originalData[field.key] || ''}
+                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded bg-white 
+                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                             placeholder:text-slate-300"
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer : Type divergence + Actions */}
+      <div className="flex items-center gap-4 bg-slate-50 rounded-lg p-3 border border-slate-200">
+        {/* Type de divergence */}
+        <div className="flex items-center gap-2 flex-1">
+          <label className="text-xs font-medium text-slate-600 whitespace-nowrap">Type de divergence :</label>
+          <select
+            value={divergenceType}
+            onChange={(e) => setDivergenceType(e.target.value)}
+            className="flex-1 px-2 py-1.5 text-sm border border-slate-200 rounded bg-white 
+                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {divergenceOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Boutons */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 
+                       bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Réinitialiser
+          </button>
+          <button
+            type="button"
+            onClick={handleValidate}
+            disabled={!divergenceType}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white 
+                       bg-blue-600 rounded hover:bg-blue-700 transition-colors
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Valider corrections
+          </button>
+        </div>
+      </div>
+
+      {/* Note importante (compacte) */}
+      <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+        <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-700">
+          <strong>Important :</strong> Documentez les divergences dans l'onglet Commentaires.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+EtatCivilPanel.propTypes = {
   originalData: PropTypes.shape({
     qualite: PropTypes.string,
     nom: PropTypes.string,
@@ -16,248 +215,8 @@ const EtatCivilPanelPropTypes = {
     nomPatronymique: PropTypes.string
   }).isRequired,
   formData: PropTypes.object.isRequired,
-  setFormData: PropTypes.func.isRequired,
+  setFormData: PropTypes.func,
   onValidate: PropTypes.func
 };
-
-const EtatCivilPanel = ({ originalData, formData,  onValidate }) => {
-  // État pour les champs corrigés
-  const [correctedData, setCorrectedData] = useState({
-    qualite: formData.qualite_corrigee || '',
-    nom: formData.nom_corrige || '',
-    prenom: formData.prenom_corrige || '',
-    codePostalNaissance: formData.code_postal_naissance_corrige || '',
-    paysNaissance: formData.pays_naissance_corrige || '',
-    nomPatronymique: formData.nom_patronymique_corrige || ''
-  });
-
-  // État pour le type de divergence
-  const [divergenceType, setDivergenceType] = useState(formData.type_divergence || '');
-  const [showHelp, setShowHelp] = useState(false);
-
-  // Gestion des changements
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setCorrectedData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Validation des corrections
-  const handleValidate = () => {
-    if (onValidate) {
-      onValidate(correctedData, divergenceType);
-    }
-  };
-
-  return (
-    <div className="bg-white border rounded-lg p-4">
-      <h3 className="font-medium mb-4 flex items-center justify-between">
-        <span>État civil d&apos;origine vs corrigé</span>
-        <button
-          type="button"
-          onClick={() => setShowHelp(!showHelp)}
-          className="text-blue-500 text-sm hover:underline"
-        >
-          {showHelp ? 'Masquer l\'aide' : 'Afficher l\'aide'}
-        </button>
-      </h3>
-
-      {showHelp && (
-        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-4">
-          <h4 className="font-medium text-blue-800 mb-2">Aide sur les corrections d&apos;état civil</h4>
-          <p className="text-sm text-blue-700 mb-2">
-            Ce panneau vous permet de corriger les informations d&apos;état civil lorsque vous constatez de légères différences
-            entre l&apos;état civil fourni et celui que vous avez retrouvé.
-          </p>
-          <ul className="list-disc list-inside text-sm text-blue-700 space-y-1 ml-2">
-            <li>Utilisez le champ &quot;Type de divergence&quot; pour indiquer la nature des corrections</li>
-            <li>Ne modifiez que les champs qui nécessitent une correction</li>
-            <li>Les champs laissés vides conserveront les valeurs d&apos;origine</li>
-            <li>Validez vos corrections avec le bouton &quot;Valider les corrections&quot;</li>
-            <li>N&apos;oubliez pas d&apos;indiquer les différences constatées dans les mémos</li>
-          </ul>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Colonne État civil d'origine */}
-        <div className="border rounded-lg p-4 bg-gray-50">
-          <h4 className="font-medium mb-3">État civil d&apos;origine</h4>
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Qualité</p>
-              <p className="font-medium">{originalData.qualite || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Nom</p>
-              <p className="font-medium">{originalData.nom || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Prénom</p>
-              <p className="font-medium">{originalData.prenom || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Nom patronymique</p>
-              <p className="font-medium">{originalData.nomPatronymique || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Code postal naissance</p>
-              <p className="font-medium">{originalData.codePostalNaissance || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Pays de naissance</p>
-              <p className="font-medium">{originalData.paysNaissance || '-'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Colonne État civil corrigé */}
-        <div className="border rounded-lg p-4">
-          <h4 className="font-medium mb-3">État civil corrigé</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Qualité</label>
-              <input
-                type="text"
-                name="qualite"
-                value={correctedData.qualite}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.qualite || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Nom</label>
-              <input
-                type="text"
-                name="nom"
-                value={correctedData.nom}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.nom || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Prénom</label>
-              <input
-                type="text"
-                name="prenom"
-                value={correctedData.prenom}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.prenom || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Nom patronymique</label>
-              <input
-                type="text"
-                name="nomPatronymique"
-                value={correctedData.nomPatronymique}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.nomPatronymique || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Code postal naissance</label>
-              <input
-                type="text"
-                name="codePostalNaissance"
-                value={correctedData.codePostalNaissance}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-                placeholder={originalData.codePostalNaissance || ""}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">Pays de naissance</label>
-              <select
-                name="paysNaissance"
-                value={correctedData.paysNaissance}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md"
-              >
-                <option value="">Sélectionner un pays</option>
-                {COUNTRIES.map(country => (
-                  <option key={country} value={country}>{country}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Type de divergence */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Type de divergence
-        </label>
-        <select
-          value={divergenceType}
-          onChange={(e) => setDivergenceType(e.target.value)}
-          className="w-full p-2 border rounded-md"
-        >
-          <option value="">Sélectionner le type de divergence</option>
-          <option value="Orthographe">Erreur d&apos;orthographe</option>
-          <option value="InversionPrenom">Inversion des prénoms</option>
-          <option value="DateNaissance">Date de naissance erronée</option>
-          <option value="LieuNaissance">Lieu de naissance erroné</option>
-          <option value="NomUsage">Différence nom d&apos;usage/nom de naissance</option>
-          <option value="Autre">Autre divergence</option>
-        </select>
-      </div>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-        <div className="flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-yellow-700 mb-1">Important</h4>
-            <p className="text-sm text-yellow-600">
-              Les modifications d&apos;état civil doivent être justifiées dans les mémos. Assurez-vous de bien documenter
-              les divergences constatées entre l&apos;état civil fourni et celui que vous avez retrouvé.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-between">
-        <button
-          type="button"
-          onClick={() => {
-            setCorrectedData({
-              qualite: '',
-              nom: '',
-              prenom: '',
-              codePostalNaissance: '',
-              paysNaissance: '',
-              nomPatronymique: ''
-            });
-            setDivergenceType('');
-          }}
-          className="flex items-center gap-1 px-4 py-2 text-red-600 bg-red-50 rounded-md hover:bg-red-100"
-        >
-          <X className="w-4 h-4" />
-          <span>Réinitialiser</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleValidate}
-          className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          disabled={!divergenceType}
-        >
-          <Save className="w-4 h-4" />
-          <span>Valider les corrections</span>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// Assigner les propTypes après la définition du composant
-EtatCivilPanel.propTypes = EtatCivilPanelPropTypes;
 
 export default EtatCivilPanel;

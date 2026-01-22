@@ -65,7 +65,7 @@ class PartnerCaseRequest(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relations
-    donnee = db.relationship('Donnee', backref='partner_requests')
+    donnee = db.relationship('Donnee', backref=db.backref('partner_requests', cascade='all, delete-orphan'))
     
     def to_dict(self):
         """Convertit l'objet en dictionnaire"""

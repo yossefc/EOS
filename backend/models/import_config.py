@@ -85,13 +85,14 @@ class ImportFieldMapping(db.Model):
             'date_creation': self.date_creation.strftime('%Y-%m-%d %H:%M:%S') if self.date_creation else None
         }
     
-    def extract_value(self, line_or_row, file_type):
+    def extract_value(self, line_or_row, file_type, col_map=None):
         """
         Extrait la valeur depuis une ligne (TXT) ou une row pandas (EXCEL)
         
         Args:
             line_or_row: str pour TXT_FIXED, pandas.Series pour EXCEL
             file_type: 'TXT_FIXED' ou 'EXCEL'
+            col_map: dict pour mapping des colonnes Excel normalisées
             
         Returns:
             La valeur extraite (str)
@@ -104,10 +105,30 @@ class ImportFieldMapping(db.Model):
         
         elif file_type == 'EXCEL':
             if self.column_name:
-                try:
-                    value = str(line_or_row[self.column_name]) if line_or_row[self.column_name] is not None else None
-                except (KeyError, IndexError):
-                    value = None
+                # Support des alias séparés par '|'
+                aliases = [a.strip() for a in str(self.column_name).split('|')]
+                
+                target_col = None
+                # Essayer chaque alias
+                for alias in aliases:
+                    if alias in line_or_row:
+                        target_col = alias
+                        break
+                
+                # Si aucun alias exact n'est trouvé, essayer via col_map (insensible à la casse)
+                if not target_col and col_map:
+                    for alias in aliases:
+                        norm_target = alias.strip().upper()
+                        real_col_name = col_map.get(norm_target)
+                        if real_col_name and real_col_name in line_or_row:
+                            target_col = real_col_name
+                            break
+                
+                if target_col:
+                    value = line_or_row[target_col]
+                
+                value = str(value) if value is not None else None
+                
             elif self.column_index is not None:
                 try:
                     value = str(line_or_row.iloc[self.column_index]) if line_or_row.iloc[self.column_index] is not None else None

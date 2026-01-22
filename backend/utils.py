@@ -403,7 +403,7 @@ def convert_date(date_str):
     except ValueError:
         try:
             # Essayer d'autres formats courants
-            formats = ['%Y-%m-%d', '%d-%m-%Y', '%d.%m.%Y', '%m/%d/%Y']
+            formats = ['%Y-%m-%d', '%d-%m-%Y', '%d.%m.%Y', '%m/%d/%Y', '%d %m %Y']
             for fmt in formats:
                 try:
                     return datetime.strptime(date_str, fmt)

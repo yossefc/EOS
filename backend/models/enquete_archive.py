@@ -17,7 +17,7 @@ class EnqueteArchive(db.Model):
     utilisateur = db.Column(db.String(100), nullable=True)
     
     # Relation avec la table Donnee
-    enquete = db.relationship('Donnee', backref='archives', lazy=True)
+    enquete = db.relationship('Donnee', backref=db.backref('archives', cascade='all, delete-orphan'))
     
     def __repr__(self):
         return f'<EnqueteArchive {self.id} - Enquête {self.enquete_id}>'

@@ -1,0 +1,277 @@
+client_code: RG_SHERLOCK
+file_type: EXCEL
+# Pas de record_split_key car c'est un import horizontal standard (une ligne = un dossier)
+
+mappings:
+  - source_key: "DossierId"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["dossier_id"]
+    required: true
+
+  - source_key: "RéférenceInterne"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["reference_interne"]
+
+  - source_key: "Demande"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["demande"]
+
+  - source_key: "EC-Civilité"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_civilite"]
+
+  - source_key: "EC-Prénom"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_prenom"]
+
+  - source_key: "EC-Prénom2"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_prenom2"]
+
+  - source_key: "EC-Prénom3"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_prenom3"]
+
+  - source_key: "EC-Prénom4"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_prenom4"]
+
+  - source_key: "EC-Nom Usage"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_nom_usage"]
+
+  - source_key: "EC-Nom Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_nom_naissance"]
+
+  - source_key: "EC-Date Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_date_naissance"]
+
+  - source_key: "Naissance CP"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["naissance_cp"]
+
+  - source_key: "EC-Localité Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_localite_naissance"]
+
+  - source_key: "Naissance INSEE"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["naissance_insee"]
+
+  - source_key: "EC-Pays Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ec_pays_naissance"]
+
+  - source_key: "Client-Commentaire"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["client_commentaire"]
+
+  - source_key: "AD-L1"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l1"]
+
+  - source_key: "AD-L2"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l2"]
+
+  - source_key: "AD-L3"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l3"]
+
+  - source_key: "AD-L4 Numéro"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l4_numero"]
+
+  - source_key: "AD-L4 Type"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l4_type"]
+
+  - source_key: "AD-L4 Voie"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l4_voie"]
+
+  - source_key: "AD-L5"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l5"]
+
+  - source_key: "AD-L6 Cedex"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l6_cedex"]
+
+  - source_key: "AD-L6 CP"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l6_cp"]
+
+  - source_key: "AD-L6 INSEE"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l6_insee"]
+
+  - source_key: "AD-L6 Localité"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l6_localite"]
+
+  - source_key: "AD-L7 Pays"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_l7_pays"]
+
+  - source_key: "AD-Téléphone"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_telephone"]
+
+  - source_key: "AD-TéléphonePro"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_telephone_pro"]
+
+  - source_key: "AD-TéléphoneMobile"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_telephone_mobile"]
+
+  - source_key: "AD-Email"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["ad_email"]
+
+  - source_key: "Tarif A"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["tarif_a"]
+
+  - source_key: "Tarif AT"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["tarif_at"]
+
+  - source_key: "Tarif DCD"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["tarif_dcd"]
+
+  - source_key: "Résultat"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["resultat"]
+
+  - source_key: "Montant HT"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["montant_ht"]
+
+  - source_key: "Rép-EC-Civilité"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_civilite"]
+
+  - source_key: "Rép-EC-Prénom"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_prenom"]
+
+  - source_key: "Rép-EC-Prénom2"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_prenom2"]
+
+  - source_key: "Rép-EC-Prénom3"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_prenom3"]
+
+  - source_key: "Rép-EC-Prénom4"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_prenom4"]
+
+  - source_key: "Rép-EC-Nom Usage"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_nom_usage"]
+
+  - source_key: "Rép-EC-Nom Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_nom_naissance"]
+
+  - source_key: "Rép-EC-Date Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_date_naissance"]
+
+  - source_key: "Rép-Naissance CP"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_naissance_cp"]
+
+  - source_key: "Rép-EC-Localité Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_localite_naissance"]
+
+  - source_key: "Rép-Naissance INSEE"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_naissance_insee"]
+
+  - source_key: "Rép-EC-Pays Naissance"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ec_pays_naissance"]
+
+  - source_key: "Rép-DCD-Date"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_dcd_date"]
+
+  - source_key: "Rép-DCD-Numéro_Acte"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_dcd_numero_acte"]
+
+  - source_key: "Rép-DCD-Localité"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_dcd_localite"]
+
+  - source_key: "Rép-DCD-CP"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_dcd_cp"]
+
+  - source_key: "Rép-DCD-INSEE"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_dcd_insee"]
+
+  - source_key: "Rép-DCD-Pays"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_dcd_pays"]
+
+  - source_key: "Rép-AD-L1"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l1"]
+
+  - source_key: "Rép-AD-L2"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l2"]
+
+  - source_key: "Rép-AD-L3"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l3"]
+
+  - source_key: "Rép-AD-L4 Numéro"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l4_numero"]
+
+  - source_key: "Rép-AD-L4 Type"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l4_type"]
+
+  - source_key: "Rép-AD-L4 Voie"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l4_voie"]
+
+  - source_key: "Rép-AD-L5"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l5"]
+
+  - source_key: "Rép-AD-L6 Cedex"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l6_cedex"]
+
+  - source_key: "Rép-AD-L6 CP"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l6_cp"]
+
+  - source_key: "Rép-AD-L6 INSEE"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l6_insee"]
+
+  - source_key: "Rép-AD-L6 Localité"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l6_localite"]
+
+  - source_key: "Rép-AD-L7 Pays"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_l7_pays"]
+
+  - source_key: "Rép-AD-Téléphone"
+    target_model: "SherlockDonnee"
+    candidate_fields: ["rep_ad_telephone"]

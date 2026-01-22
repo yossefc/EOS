@@ -5,6 +5,7 @@ from .enqueteur import Enqueteur
 from .enquete_archive import EnqueteArchive
 from .client import Client
 from .import_config import ImportProfile, ImportFieldMapping
+from .sherlock_donnee import SherlockDonnee
 
 __all__ = ['db', 'Donnee', 'Fichier', 'DonneeEnqueteur', 'Enqueteur', 'EnqueteArchive', 
-           'Client', 'ImportProfile', 'ImportFieldMapping']
+           'Client', 'ImportProfile', 'ImportFieldMapping', 'SherlockDonnee']

@@ -7,20 +7,21 @@ import config from '../config';
 const API_URL = config.API_URL;
 
 /**
- * Affichage compact des demandes PARTNER dans l'en-tête du modal
- * Expose une méthode refresh() pour recharger les demandes depuis le parent
+ * Affichage des demandes PARTNER
+ * Mode compact: uniquement les badges
+ * Mode normal: badges + résumé + bouton refresh + info export
  */
-const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
+const PartnerDemandesHeader = forwardRef(({ donneeId, compact = false }, ref) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const REQUEST_INFO = {
-    ADDRESS: { label: 'Adresse', icon: '🏠', color: 'blue' },
-    PHONE: { label: 'Tél', icon: '📞', color: 'green' },
-    EMPLOYER: { label: 'Employeur', icon: '🏢', color: 'purple' },
-    BANK: { label: 'Banque', icon: '🏦', color: 'indigo' },
-    BIRTH: { label: 'Naissance', icon: '🎂', color: 'pink' }
+    ADDRESS: { label: 'Adresse', icon: '🏠' },
+    PHONE: { label: 'Tél', icon: '📞' },
+    EMPLOYER: { label: 'Employeur', icon: '🏢' },
+    BANK: { label: 'Banque', icon: '🏦' },
+    BIRTH: { label: 'Naissance', icon: '🎂' }
   };
 
   const fetchRequests = async () => {
@@ -39,7 +40,6 @@ const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
     }
   };
 
-  // Exposer la méthode refresh au parent via ref
   useImperativeHandle(ref, () => ({
     refresh: fetchRequests
   }));
@@ -61,35 +61,68 @@ const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
     }
   };
 
+  // Loading state
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Loader className="w-4 h-4 animate-spin" />
-        <span>Chargement demandes...</span>
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <Loader className="w-3 h-3 animate-spin" />
+        <span>Chargement...</span>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-sm text-red-600">
-        <AlertCircle className="w-4 h-4" />
+      <div className="flex items-center gap-2 text-xs text-red-600">
+        <AlertCircle className="w-3 h-3" />
         <span>{error}</span>
       </div>
     );
   }
 
+  // Empty state
   if (requests.length === 0) {
     return (
-      <div className="text-sm text-gray-500 italic">
-        Aucune demande détectée dans RECHERCHE
-      </div>
+      <span className="text-xs text-slate-400 italic">Aucune demande</span>
     );
   }
 
   const posCount = requests.filter(r => r.status === 'POS').length;
   const negCount = requests.filter(r => r.status === 'NEG').length;
 
+  // ==================== MODE COMPACT ====================
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {requests.map((request) => {
+          const info = REQUEST_INFO[request.request_code] || { label: request.request_code, icon: '❓' };
+          const isPositive = request.status === 'POS';
+
+          return (
+            <span
+              key={request.id}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border
+                ${isPositive
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-red-50 text-red-700 border-red-200'}`}
+              title={request.memo || ''}
+            >
+              <span>{info.icon}</span>
+              <span>{info.label}</span>
+              {isPositive ? (
+                <CheckCircle className="w-3 h-3" />
+              ) : (
+                <XCircle className="w-3 h-3" />
+              )}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ==================== MODE NORMAL (complet) ====================
   return (
     <div className="space-y-2">
       {/* Résumé global */}
@@ -121,19 +154,15 @@ const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
       {/* Liste des demandes */}
       <div className="flex flex-wrap gap-1.5">
         {requests.map((request) => {
-          const info = REQUEST_INFO[request.request_code] || {
-            label: request.request_code,
-            icon: '❓',
-            color: 'gray'
-          };
+          const info = REQUEST_INFO[request.request_code] || { label: request.request_code, icon: '❓' };
           const isPositive = request.status === 'POS';
 
           return (
             <div
               key={request.id}
               className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all ${isPositive
-                  ? 'bg-green-50/30 border-green-200'
-                  : 'bg-red-50/30 border-red-200'
+                ? 'bg-green-50/30 border-green-200'
+                : 'bg-red-50/30 border-red-200'
                 }`}
               title={!isPositive && request.memo ? request.memo : ''}
             >
@@ -168,8 +197,8 @@ const PartnerDemandesHeader = forwardRef(({ donneeId }, ref) => {
 PartnerDemandesHeader.displayName = 'PartnerDemandesHeader';
 
 PartnerDemandesHeader.propTypes = {
-  donneeId: PropTypes.number.isRequired
+  donneeId: PropTypes.number.isRequired,
+  compact: PropTypes.bool
 };
 
 export default PartnerDemandesHeader;
-
