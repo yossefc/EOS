@@ -1751,13 +1751,16 @@ def register_legacy_routes(app):
                 'Confirmé sur place'
             ]
             
-            # Options personnalisées du client
-            options_custom = ConfirmationOption.query.filter_by(
-                client_id=client_id
-            ).order_by(ConfirmationOption.usage_count.desc()).all()
-            
-            options_custom_list = [opt.option_text for opt in options_custom]
-            
+            # Options personnalisées du client (la table peut ne pas exister)
+            options_custom_list = []
+            try:
+                options_custom = ConfirmationOption.query.filter_by(
+                    client_id=client_id
+                ).order_by(ConfirmationOption.usage_count.desc()).all()
+                options_custom_list = [opt.option_text for opt in options_custom]
+            except Exception:
+                pass  # Table confirmation_options supprimée par migration, on continue avec les options de base
+
             return jsonify({
                 "success": True,
                 "options_base": options_base,

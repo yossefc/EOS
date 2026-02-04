@@ -422,7 +422,12 @@ class ImportEngine:
             Donnee: Instance de Donnee créée
         """
         from utils import convert_date, convert_float
-        
+
+        # Nettoyer les valeurs 'nan'/'None' de pandas sur tous les champs string
+        for key in list(record.keys()):
+            if isinstance(record[key], str) and record[key].strip().lower() in ('nan', 'none'):
+                record[key] = ''
+
         # Traitement spécial pour CLIENT_X
         record = self._preprocess_client_x_record(record, client_id)
         
