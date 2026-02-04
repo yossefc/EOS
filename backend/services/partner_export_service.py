@@ -248,10 +248,6 @@ class PartnerExportService:
                     if tel:
                         doc.add_paragraph(f"Tel: {tel}")
 
-                    # Texte de confirmation (proximité, etc.)
-                    if donnee_enqueteur.elements_retrouves:
-                        doc.add_paragraph(donnee_enqueteur.elements_retrouves)
-
                 # Bloc employeur
                 if has_employer:
                     if has_address:
