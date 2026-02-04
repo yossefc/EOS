@@ -52,7 +52,12 @@ BEGIN
         (partner_profile_id, 'instructions', 'INSTRUCTIONS', true, false, NOW()),
         (partner_profile_id, 'motif', 'MOTIF', true, false, NOW()),
         (partner_profile_id, 'tarif_lettre', 'TARIF', true, false, NOW()),
-        (partner_profile_id, 'nom_complet', 'NOM', true, false, NOW());
+        (partner_profile_id, 'nom_complet', 'NOM', true, false, NOW()),
+        -- Mapping pour les contestations
+        (partner_profile_id, 'numeroDemandeContestee', 'NUM CONTESTE', true, false, NOW()),
+        (partner_profile_id, 'numeroDemandeContestee', 'NUMERO CONTESTE', true, false, NOW()),
+        (partner_profile_id, 'numeroDemandeContestee', 'NUM ENQUETE CONTESTEE', true, false, NOW()),
+        (partner_profile_id, 'numeroDemandeContestee', 'NUM CONTESTEE', true, false, NOW());
     
     RAISE NOTICE 'Configuration PARTNER terminée ! Profil ID: %', partner_profile_id;
 END $$;

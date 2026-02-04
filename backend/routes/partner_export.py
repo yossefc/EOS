@@ -700,6 +700,85 @@ def export_contestations_negatives_docx():
         }), 500
 
 
+@partner_export_bp.route('/api/partner/exports/contestations/positives/both', methods=['POST'])
+def export_contestations_positives_both():
+    """
+    Génère Word ET Excel pour les contestations positives en une seule fois
+    Archive seulement après avoir généré les 2 fichiers
+    """
+    try:
+        partner_id = get_partner_client_id()
+        service = PartnerExportService(partner_id)
+        
+        data = request.get_json() or {}
+        fichier_id = data.get('fichier_id')
+        
+        # Construire la requête
+        query = Donnee.query.filter(
+            Donnee.client_id == partner_id,
+            Donnee.est_contestation == True,
+            Donnee.statut_validation == 'validee',
+            Donnee.exported == False
+        )
+        
+        if fichier_id:
+            query = query.filter(Donnee.fichier_id == fichier_id)
+        
+        query = query.join(Donnee.donnee_enqueteur).filter(
+            db.or_(
+                db.text("donnees_enqueteur.code_resultat IN ('P', 'H')")
+            )
+        )
+        
+        contestations = query.all()
+        
+        if not contestations:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune contestation positive à exporter'
+            }), 404
+        
+        # Générer les 2 fichiers
+        word_output = service.generate_contestations_positives_word(contestations)
+        excel_output = service.generate_enquetes_positives_excel(contestations)
+        
+        # Créer un ZIP avec les 2 fichiers
+        zip_buffer = BytesIO()
+        timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr(f'crcont_{timestamp}.docx', word_output.getvalue())
+            zip_file.writestr(f'crcont_{timestamp}.xls', excel_output.getvalue())
+        
+        zip_buffer.seek(0)
+        
+        # Archiver MAINTENANT après avoir généré les 2 fichiers
+        enquete_ids = [c.id for c in contestations]
+        batch = service.create_export_batch(
+            enquete_ids=enquete_ids,
+            export_type='contestation_positive_both',
+            filename=f'export_contest_pos_{timestamp}.zip',
+            filepath=f'archives/partner/export_contest_pos_{timestamp}.zip',
+            file_size=len(zip_buffer.getvalue())
+        )
+        
+        logger.info(f"Export combiné contestations positives PARTNER: {len(contestations)} contestations, batch #{batch.id}")
+        
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'export_contest_pos_{timestamp}.zip'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export combiné contestations positives PARTNER: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @partner_export_bp.route('/api/partner/exports/contestations/positives', methods=['POST'])
 def export_contestations_positives():
     """
@@ -768,6 +847,85 @@ def export_contestations_positives():
         
     except Exception as e:
         logger.error(f"Erreur lors de l'export des contestations positives PARTNER: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@partner_export_bp.route('/api/partner/exports/contestations/negatives/both', methods=['POST'])
+def export_contestations_negatives_both():
+    """
+    Génère Word ET Excel pour les contestations négatives en une seule fois
+    Archive seulement après avoir généré les 2 fichiers
+    """
+    try:
+        partner_id = get_partner_client_id()
+        service = PartnerExportService(partner_id)
+        
+        data = request.get_json() or {}
+        fichier_id = data.get('fichier_id')
+        
+        # Construire la requête
+        query = Donnee.query.filter(
+            Donnee.client_id == partner_id,
+            Donnee.est_contestation == True,
+            Donnee.statut_validation == 'validee',
+            Donnee.exported == False
+        )
+        
+        if fichier_id:
+            query = query.filter(Donnee.fichier_id == fichier_id)
+        
+        query = query.join(Donnee.donnee_enqueteur).filter(
+            db.or_(
+                db.text("donnees_enqueteur.code_resultat IN ('N', 'I')")
+            )
+        )
+        
+        contestations = query.all()
+        
+        if not contestations:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune contestation négative à exporter'
+            }), 404
+        
+        # Générer les 2 fichiers
+        word_output = service.generate_contestations_positives_word(contestations)  # Réutilise le générateur Word
+        excel_output = service.generate_contestations_negatives_excel(contestations)
+        
+        # Créer un ZIP avec les 2 fichiers
+        zip_buffer = BytesIO()
+        timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr(f'crcont_{timestamp}.docx', word_output.getvalue())
+            zip_file.writestr(f'crcont_{timestamp}.xls', excel_output.getvalue())
+        
+        zip_buffer.seek(0)
+        
+        # Archiver MAINTENANT après avoir généré les 2 fichiers
+        enquete_ids = [c.id for c in contestations]
+        batch = service.create_export_batch(
+            enquete_ids=enquete_ids,
+            export_type='contestation_negative_both',
+            filename=f'export_contest_neg_{timestamp}.zip',
+            filepath=f'archives/partner/export_contest_neg_{timestamp}.zip',
+            file_size=len(zip_buffer.getvalue())
+        )
+        
+        logger.info(f"Export combiné contestations négatives PARTNER: {len(contestations)} contestations, batch #{batch.id}")
+        
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'export_contest_neg_{timestamp}.zip'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'export combiné contestations négatives PARTNER: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)

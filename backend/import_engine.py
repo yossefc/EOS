@@ -440,11 +440,13 @@ class ImportEngine:
                 # Critère 1: Nom de fichier contient CONTESTATION
                 if self.filename and 'CONTESTATION' in self.filename.upper():
                     type_demande = 'CON'
-                    logger.info(f"Détection CON via Nom Fichier: {self.filename}")
+                    record['typeDemande'] = 'CON'  # Forcer dans le record
+                    logger.info(f"✅ Détection CON via Nom Fichier: {self.filename}")
                 # Critère 2: Le champ instructions/motif est rempli
                 elif record.get('instructions') or record.get('motif'):
                     type_demande = 'CON'
-                    logger.info("Détection CON via présence de Motif/Instructions")
+                    record['typeDemande'] = 'CON'  # Forcer dans le record
+                    logger.info("✅ Détection CON via présence de Motif/Instructions")
         
         nouvelle_donnee = Donnee(
             client_id=client_id,
@@ -507,6 +509,9 @@ class ImportEngine:
         
         # Traiter les contestations
         if record.get('typeDemande') == 'CON':
+            # IMPORTANT : Marquer TOUJOURS comme contestation si typeDemande = CON
+            nouvelle_donnee.est_contestation = True
+            nouvelle_donnee.typeDemande = 'CON'
             self._handle_contestation(nouvelle_donnee, record, client_id)
         
         # IMPORTANT: Flush pour obtenir l'ID avant de créer les PartnerCaseRequest
@@ -545,8 +550,11 @@ class ImportEngine:
         # Fallback: Recherche par Nom/Prénom si toujours rien (et qu'on a un nom dans le record)
         if not enquete_originale and record.get('nom'):
             from services.partner_request_parser import PartnerRequestParser
+            from utils import convert_date
+            
             nom_norm = PartnerRequestParser.normalize_text(record.get('nom'))
-            prenom_norm = PartnerRequestParser.normalize_text(record.get('prenom'))
+            prenom_norm = PartnerRequestParser.normalize_text(record.get('prenom')) if record.get('prenom') else ''
+            date_naissance_record = convert_date(record.get('dateNaissance'))
             
             # Chercher dans les enquêtes non-contestations du même client
             # On utilise une recherche insensible à la casse et sans accents via normalisation simple
@@ -556,14 +564,43 @@ class ImportEngine:
                 est_contestation=False
             ).filter(Donnee.nom.ilike(f"%{record.get('nom').strip()}%")).all()
             
+            meilleur_match = None
+            meilleur_score = 0
+            
             for candidat in all_candidats:
                 c_nom = PartnerRequestParser.normalize_text(candidat.nom)
-                c_prenom = PartnerRequestParser.normalize_text(candidat.prenom)
+                c_prenom = PartnerRequestParser.normalize_text(candidat.prenom) if candidat.prenom else ''
                 
-                if nom_norm == c_nom and (not prenom_norm or prenom_norm == c_prenom):
-                    enquete_originale = candidat
-                    logger.info(f"✅ Enquête originale trouvée via Fallback Nom/Prénom: {candidat.id}")
-                    break
+                # Score de correspondance (plus élevé = meilleur match)
+                score = 0
+                
+                # Correspondance exacte du nom (obligatoire)
+                if nom_norm == c_nom:
+                    score += 10
+                else:
+                    continue  # Le nom doit correspondre
+                
+                # Correspondance du prénom (si disponible)
+                if prenom_norm and c_prenom:
+                    if prenom_norm == c_prenom:
+                        score += 10
+                    elif prenom_norm in c_prenom or c_prenom in prenom_norm:
+                        score += 5  # Correspondance partielle
+                
+                # Correspondance de la date de naissance (si disponible)
+                if date_naissance_record and candidat.dateNaissance:
+                    if date_naissance_record == candidat.dateNaissance:
+                        score += 10
+                
+                # Si on a un meilleur match, le garder
+                if score > meilleur_score:
+                    meilleur_score = score
+                    meilleur_match = candidat
+            
+            # Si on a trouvé un match avec un score suffisant (au moins le nom)
+            if meilleur_match and meilleur_score >= 10:
+                enquete_originale = meilleur_match
+                logger.info(f"✅ Enquête originale trouvée via Fallback Nom/Prénom/Date (score: {meilleur_score}): {meilleur_match.id} - {meilleur_match.numeroDossier}")
         
         if enquete_originale:
             logger.info(f"Enquête originale trouvée: {enquete_originale.numeroDossier} (ID: {enquete_originale.id})")
@@ -669,13 +706,19 @@ class ImportEngine:
             if tel == '0' or tel == '':
                 record['telephonePersonnel'] = None
         
-        # 4. Gérer l'urgence depuis PRENOM pour contestations
-        if record.get('typeDemande') == 'CON' and 'urgence' in record:
-            prenom_value = str(record.get('urgence', '')).strip().upper()
-            if prenom_value == 'URGENT':
-                record['urgence'] = '1'  # True
-            else:
-                record['urgence'] = '0'  # False
+        # 4. Gérer l'urgence pour contestations
+        # Note: L'urgence doit venir d'un champ dédié 'urgence', pas du prénom
+        if record.get('typeDemande') == 'CON':
+            # Si un champ 'urgence' existe explicitement, l'utiliser
+            if 'urgence' in record:
+                urgence_value = str(record.get('urgence', '')).strip().upper()
+                if urgence_value in ['URGENT', '1', 'O', 'OUI', 'YES']:
+                    record['urgence'] = '1'  # True
+                else:
+                    record['urgence'] = '0'  # False
+            # Sinon, laisser vide (pas d'urgence par défaut)
+            elif 'urgence' not in record:
+                record['urgence'] = '0'  # Pas d'urgence par défaut
         
         return record
     

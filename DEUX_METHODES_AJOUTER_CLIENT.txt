@@ -1,0 +1,264 @@
+╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║      DEUX MÉTHODES POUR AJOUTER UN CLIENT                         ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝
+
+
+Vous voulez ajouter un client (comme Sherlock) sur un autre ordinateur ?
+Il y a DEUX façons de faire :
+
+
+════════════════════════════════════════════════════════════════════
+MÉTHODE 1 : SYNCHRONISATION COMPLÈTE (Tout transférer)
+════════════════════════════════════════════════════════════════════
+
+✅ AVANTAGES :
+───────────────
+• Transfère TOUS les clients d'un coup
+• Transfère aussi les tarifs et règles tarifaires
+• Idéal pour la première installation
+• Garde tout synchronisé entre les deux PC
+
+❌ INCONVÉNIENTS :
+──────────────────
+• Nécessite l'accès aux deux ordinateurs
+• Plus long (plusieurs fichiers à copier)
+• Écrase les données existantes
+
+📂 FICHIERS À UTILISER :
+────────────────────────
+• SYNCHRONISER_VERS_AUTRE_ORDI.bat (sur PC source)
+• IMPORTER_DEPUIS_AUTRE_ORDI.bat (sur PC cible)
+• LISEZMOI_SYNCHRONISATION.txt (guide)
+
+⏱️ TEMPS : ~5-10 minutes
+
+
+🎯 QUAND UTILISER CETTE MÉTHODE ?
+──────────────────────────────────
+→ Première installation sur un nouvel ordinateur
+→ Vous voulez TOUS les clients (PARTNER, Sherlock, etc.)
+→ Vous voulez aussi les tarifs
+→ Les deux PC sont accessibles
+
+
+════════════════════════════════════════════════════════════════════
+MÉTHODE 2 : CRÉATION MANUELLE (Juste 1 client)
+════════════════════════════════════════════════════════════════════
+
+✅ AVANTAGES :
+───────────────
+• Très rapide (1 minute)
+• Pas besoin de l'autre ordinateur
+• N'écrase rien
+• Parfait pour ajouter 1 nouveau client
+
+❌ INCONVÉNIENTS :
+──────────────────
+• Ne transfère PAS les tarifs
+• Il faut le faire pour chaque client
+• Il faut connaître les mappings du client
+
+📂 FICHIERS À UTILISER :
+────────────────────────
+• CREER_CLIENT_SHERLOCK.bat (pour Sherlock)
+• GUIDE_CREER_CLIENT_MANUELLEMENT.md (pour autres clients)
+
+⏱️ TEMPS : ~1 minute
+
+
+🎯 QUAND UTILISER CETTE MÉTHODE ?
+──────────────────────────────────
+→ Vous voulez juste ajouter Sherlock
+→ Vous n'avez pas accès à l'autre ordinateur
+→ Le client n'a pas de tarifs complexes
+→ Vous voulez aller vite
+
+
+════════════════════════════════════════════════════════════════════
+COMPARAISON CÔTE À CÔTE
+════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────┬────────────────┬─────────────────────┐
+│ Critère                 │ Synchronisation│ Création Manuelle   │
+├─────────────────────────┼────────────────┼─────────────────────┤
+│ Nombre de clients       │ TOUS           │ 1 seul              │
+│ Transfère les tarifs    │ ✅ Oui         │ ❌ Non              │
+│ Besoin des 2 PC         │ ✅ Oui         │ ❌ Non              │
+│ Temps nécessaire        │ 5-10 min       │ 1 min               │
+│ Complexité              │ Moyenne        │ Facile              │
+│ Risque écrasement       │ ⚠️ Oui         │ ❌ Non              │
+└─────────────────────────┴────────────────┴─────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════
+🚀 GUIDE RAPIDE : MÉTHODE 1 (Synchronisation)
+════════════════════════════════════════════════════════════════════
+
+📤 SUR LE PC QUI A LES DONNÉES (PC A) :
+
+1. Ouvrez PowerShell dans D:\EOS
+
+2. Exécutez :
+   
+   .\SYNCHRONISER_VERS_AUTRE_ORDI.bat
+
+3. Copiez les 5 fichiers SQL créés sur une clé USB
+
+
+📥 SUR L'AUTRE PC (PC B) :
+
+1. Collez les 5 fichiers SQL dans D:\EOS
+
+2. Ouvrez PowerShell dans D:\EOS
+
+3. Exécutez :
+   
+   .\IMPORTER_DEPUIS_AUTRE_ORDI.bat
+
+4. Redémarrez l'application :
+   
+   .\DEMARRER_EOS_SIMPLE.bat
+
+
+✅ RÉSULTAT : Tous les clients sont maintenant sur PC B !
+
+
+════════════════════════════════════════════════════════════════════
+⚡ GUIDE RAPIDE : MÉTHODE 2 (Création Manuelle)
+════════════════════════════════════════════════════════════════════
+
+🔨 POUR CRÉER SHERLOCK :
+
+1. Ouvrez PowerShell dans D:\EOS
+
+2. Exécutez :
+   
+   .\CREER_CLIENT_SHERLOCK.bat
+
+3. Redémarrez l'application :
+   
+   .\DEMARRER_EOS_SIMPLE.bat
+
+
+✅ RÉSULTAT : Le client Sherlock est créé avec tous ses mappings !
+
+
+🔨 POUR CRÉER UN AUTRE CLIENT :
+
+1. Ouvrez : GUIDE_CREER_CLIENT_MANUELLEMENT.md
+
+2. Suivez les instructions pour créer votre propre script SQL
+
+3. Exécutez votre script :
+   
+   psql -U postgres -d eos_db -f CREER_CLIENT_MONNOM.sql
+
+
+════════════════════════════════════════════════════════════════════
+❓ QUELLE MÉTHODE CHOISIR ?
+════════════════════════════════════════════════════════════════════
+
+🤔 VOTRE SITUATION                          → MÉTHODE RECOMMANDÉE
+────────────────────────────────────────────────────────────────────
+
+Je veux juste ajouter Sherlock             → MÉTHODE 2 (Manuelle)
+rapidement                                    .\CREER_CLIENT_SHERLOCK.bat
+
+────────────────────────────────────────────────────────────────────
+
+Je veux TOUS les clients (PARTNER,         → MÉTHODE 1 (Synchro)
+Sherlock, etc.) d'un coup                     .\SYNCHRONISER_VERS_...
+
+────────────────────────────────────────────────────────────────────
+
+Je veux aussi les tarifs et règles         → MÉTHODE 1 (Synchro)
+tarifaires                                    Seule cette méthode
+                                              transfère les tarifs
+
+────────────────────────────────────────────────────────────────────
+
+Je n'ai pas accès à l'autre                → MÉTHODE 2 (Manuelle)
+ordinateur                                    Pas besoin de l'autre PC
+
+────────────────────────────────────────────────────────────────────
+
+C'est la première installation             → MÉTHODE 1 (Synchro)
+sur un nouvel ordinateur                      Pour tout avoir d'un coup
+
+────────────────────────────────────────────────────────────────────
+
+Je veux créer un nouveau client            → MÉTHODE 2 (Manuelle)
+qui n'existe nulle part                       Créez votre propre script
+
+────────────────────────────────────────────────────────────────────
+
+
+════════════════════════════════════════════════════════════════════
+💡 CONSEIL
+════════════════════════════════════════════════════════════════════
+
+Si vous hésitez :
+
+→ Utilisez la MÉTHODE 2 (Création Manuelle) pour Sherlock
+  C'est beaucoup plus rapide (1 minute vs 10 minutes)
+
+→ Utilisez la MÉTHODE 1 (Synchronisation) si vous voulez
+  tout synchroniser en même temps (clients + tarifs)
+
+
+════════════════════════════════════════════════════════════════════
+📚 FICHIERS DE DOCUMENTATION
+════════════════════════════════════════════════════════════════════
+
+POUR LA MÉTHODE 1 (Synchronisation) :
+───────────────────────────────────────
+✓ LISEZMOI_SYNCHRONISATION.txt (guide rapide)
+✓ SYNCHRONISATION_COMPLETE_MODE_EMPLOI.md (guide complet)
+✓ ___COMMENCER_ICI___.txt (point de départ)
+
+POUR LA MÉTHODE 2 (Création Manuelle) :
+────────────────────────────────────────
+✓ GUIDE_CREER_CLIENT_MANUELLEMENT.md (guide détaillé)
+✓ DEUX_METHODES_AJOUTER_CLIENT.txt (ce fichier)
+
+SCRIPTS PRÊTS À L'EMPLOI :
+──────────────────────────
+✓ SYNCHRONISER_VERS_AUTRE_ORDI.bat (Méthode 1)
+✓ IMPORTER_DEPUIS_AUTRE_ORDI.bat (Méthode 1)
+✓ CREER_CLIENT_SHERLOCK.bat (Méthode 2)
+
+
+════════════════════════════════════════════════════════════════════
+🆘 BESOIN D'AIDE ?
+════════════════════════════════════════════════════════════════════
+
+Pour la Méthode 1 : Lisez LISEZMOI_SYNCHRONISATION.txt
+
+Pour la Méthode 2 : Lisez GUIDE_CREER_CLIENT_MANUELLEMENT.md
+
+Pour l'accès réseau : Lisez GUIDE_ACCES_RESEAU.txt
+
+
+════════════════════════════════════════════════════════════════════
+✅ RÉCAPITULATIF
+════════════════════════════════════════════════════════════════════
+
+🔄 MÉTHODE 1 : Tout synchroniser
+   → .\SYNCHRONISER_VERS_AUTRE_ORDI.bat (sur PC source)
+   → Copier 5 fichiers SQL
+   → .\IMPORTER_DEPUIS_AUTRE_ORDI.bat (sur PC cible)
+   ⏱️ 5-10 minutes
+   ✨ Transfère clients + tarifs + règles
+
+
+⚡ MÉTHODE 2 : Créer juste 1 client
+   → .\CREER_CLIENT_SHERLOCK.bat
+   ⏱️ 1 minute
+   ✨ Rapide, pas besoin de l'autre PC
+
+
+════════════════════════════════════════════════════════════════════
+
+Choisissez la méthode qui vous convient ! 🚀
