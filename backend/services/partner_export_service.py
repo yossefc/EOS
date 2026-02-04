@@ -162,285 +162,120 @@ class PartnerExportService:
     def generate_enquetes_positives_word(self, enquetes):
         """
         Génère le document Word pour les enquêtes positives PARTNER
-        Format COMPACT: strictement 1 page par enquête, avec toutes les données
+        Format simple: paragraphes uniquement, titre+référence répétés par dossier
         """
         if not DOCX_AVAILABLE:
             raise Exception("python-docx n'est pas disponible")
-        
-        from docx.enum.text import WD_BREAK, WD_COLOR_INDEX
-        from docx.shared import RGBColor
-        
+
         doc = Document()
-        
-        # Configuration des marges RÉDUITES pour tenir sur 1 page
+
         section = doc.sections[0]
-        section.top_margin = Inches(0.5)
-        section.bottom_margin = Inches(0.5)
-        section.left_margin = Inches(0.5)
-        section.right_margin = Inches(0.5)
-        
+        section.top_margin = Inches(0.75)
+        section.bottom_margin = Inches(0.75)
+        section.left_margin = Inches(0.75)
+        section.right_margin = Inches(0.75)
+
         report_no = self._get_report_number('enquete_positive')
         date_export = datetime.now().strftime('%d/%m/%Y')
-        
+
         for idx, donnee in enumerate(enquetes):
             if idx > 0:
-                # Saut de page entre les enquêtes
-                doc.add_page_break()
-            
+                doc.add_paragraph()
+                doc.add_paragraph()
+
             donnee_enqueteur = donnee.donnee_enqueteur
             batch_total = self._get_batch_total(donnee)
-            
-            # ═══════════════════════════════════════════════════════════
-            # EN-TÊTE COMPACT
-            # ═══════════════════════════════════════════════════════════
-            titre = f"RAPPORT POSITIF N° {donnee.numeroDossier or 'N/A'}"
-            p_titre = doc.add_paragraph(titre)
+
+            # Titre (répété par dossier)
+            p_titre = doc.add_paragraph(f"Rapport positif du {date_export} no {report_no}")
             p_titre.runs[0].bold = True
-            p_titre.runs[0].font.size = Pt(11)
-            p_titre.runs[0].font.color.rgb = RGBColor(0, 51, 102)
-            p_titre.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_titre.space_after = Pt(2)
-            
-            # Date et référence (compact)
+
+            # Référence du batch
             reference = self._format_reference_enquete(donnee, batch_total)
-            p_ref = doc.add_paragraph(f"Date: {date_export} | Réf: {reference}")
-            p_ref.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_ref.runs[0].font.size = Pt(8)
-            p_ref.runs[0].font.color.rgb = RGBColor(100, 100, 100)
-            p_ref.space_after = Pt(4)
-            
-            # ═══════════════════════════════════════════════════════════
-            # TABLE PRINCIPALE - Format 2 colonnes pour économiser l'espace
-            # ═══════════════════════════════════════════════════════════
-            table = doc.add_table(rows=0, cols=2)
-            table.style = 'Light Grid Accent 1'
-            
-            def add_row(label, value, bold_label=True, span=False):
-                """Ajoute une ligne à la table"""
-                if not value and not span:
-                    return
-                row = table.add_row()
-                if span:
-                    # Fusionner les 2 colonnes pour les titres de section
-                    cell = row.cells[0].merge(row.cells[1])
-                    para = cell.paragraphs[0]
-                    run = para.add_run(label)
-                    run.font.size = Pt(9)
-                    run.font.bold = True
-                    run.font.color.rgb = RGBColor(0, 70, 127)
-                    cell.paragraphs[0].space_after = Pt(1)
-                else:
-                    # Label dans colonne 1, valeur dans colonne 2
-                    p1 = row.cells[0].paragraphs[0]
-                    r1 = p1.add_run(label)
-                    r1.font.size = Pt(8)
-                    if bold_label:
-                        r1.font.bold = True
-                    
-                    # Tronquer les valeurs très longues
-                    val_str = str(value)
-                    if len(val_str) > 150:
-                        val_str = val_str[:147] + "..."
-                    
-                    p2 = row.cells[1].paragraphs[0]
-                    r2 = p2.add_run(val_str)
-                    r2.font.size = Pt(8)
-            
-            # ═══════════════════════════════════════════════════════════
-            # SECTION 1 : DONNÉES IMPORTÉES
-            # ═══════════════════════════════════════════════════════════
-            add_row("═══ DONNÉES IMPORTÉES ═══", "", span=True)
-            
-            # Identité
-            nom = f"{donnee.nom or ''} {donnee.prenom or ''}".strip()
+            doc.add_paragraph(reference)
+
+            # Ligne identité: NOM  PRENOM (+ NJF) alignée avec NO numeroDossier
+            nom = (donnee.nom or '').strip()
+            prenom = (donnee.prenom or '').strip()
+            identity = f"{nom}  {prenom}"
             if donnee.nomPatronymique:
-                nom += f" (NJF: {donnee.nomPatronymique})"
-            add_row("Identité", nom)
-            
+                identity += f"  NJF {donnee.nomPatronymique}"
+            num = str(donnee.numeroDossier or '0')
+            doc.add_paragraph(identity.ljust(35) + f"NO {num}")
+
             # Naissance
             if donnee.dateNaissance:
-                try:
-                    dn = donnee.dateNaissance
-                    dn_str = f"{dn.day:02d}/{dn.month:02d}/{dn.year}"
-                except:
-                    dn_str = str(donnee.dateNaissance)
-                if donnee.lieuNaissance:
-                    dn_str += f" à {donnee.lieuNaissance}"
-                add_row("Naissance", dn_str)
-            
-            # Dossier
-            dossier_info = []
-            if donnee.datedenvoie:
-                dossier_info.append(f"Envoi: {donnee.datedenvoie.strftime('%d/%m/%Y')}")
-            if donnee.date_butoir:
-                dossier_info.append(f"Butoir: {donnee.date_butoir.strftime('%d/%m/%Y')}")
-            if donnee.tarif_lettre:
-                dossier_info.append(f"Tarif: {donnee.tarif_lettre}")
-            if dossier_info:
-                add_row("Dossier", " | ".join(dossier_info))
-            
-            # Adresse importée (compact)
-            if any([donnee.adresse1, donnee.adresse2, donnee.codePostal, donnee.ville]):
-                addr_parts = []
-                if donnee.adresse1:
-                    addr_parts.append(donnee.adresse1)
-                if donnee.adresse2:
-                    addr_parts.append(donnee.adresse2)
-                if donnee.codePostal or donnee.ville:
-                    addr_parts.append(f"{donnee.codePostal or ''} {donnee.ville or ''}".strip())
-                add_row("Adresse importée", ", ".join(addr_parts))
-            
-            # Téléphone importé
-            if donnee.telephonePersonnel:
-                add_row("Tél. importé", donnee.telephonePersonnel)
-            
-            # Instructions (tronqué)
-            if donnee.instructions:
-                add_row("Instructions", donnee.instructions[:100] + ("..." if len(donnee.instructions) > 100 else ""))
-            
-            # Recherche (tronqué)
-            if donnee.recherche:
-                add_row("Recherche", donnee.recherche[:80] + ("..." if len(donnee.recherche) > 80 else ""))
-            
-            # Employeur importé
-            if donnee.nomEmployeur:
-                add_row("Employeur (imp.)", donnee.nomEmployeur)
-            
-            # Banque importée
-            if donnee.banqueDomiciliation or donnee.codeBanque:
-                bank_imp = []
-                if donnee.banqueDomiciliation:
-                    bank_imp.append(donnee.banqueDomiciliation)
-                if donnee.codeBanque:
-                    bank_imp.append(f"Code: {donnee.codeBanque}")
-                if donnee.codeGuichet:
-                    bank_imp.append(f"Guichet: {donnee.codeGuichet}")
-                add_row("Banque (imp.)", " | ".join(bank_imp))
-            
-            # ═══════════════════════════════════════════════════════════
-            # SECTION 2 : RÉSULTATS ENQUÊTE
-            # ═══════════════════════════════════════════════════════════
-            add_row("═══ RÉSULTATS ENQUÊTE ═══", "", span=True)
-            
+                jour = donnee.dateNaissance.day
+                mois = donnee.dateNaissance.month
+                annee = donnee.dateNaissance.year
+                lieu = donnee.lieuNaissance or ''
+                doc.add_paragraph(f"Ne le {jour}/{mois}/{annee} a {lieu}".rstrip())
+
+            # Ligne vide avant bloc résultat
+            doc.add_paragraph()
+
             if donnee_enqueteur:
-                # Proximité (Confirmation par qui)
-                if donnee_enqueteur.elements_retrouves:
-                    add_row("Proximité", donnee_enqueteur.elements_retrouves[:120] + ("..." if len(donnee_enqueteur.elements_retrouves) > 120 else ""))
-                
-                # Code résultat
-                if donnee_enqueteur.code_resultat:
-                    add_row("Code résultat", donnee_enqueteur.code_resultat)
-                
-                # Date retour
-                if donnee_enqueteur.date_retour:
-                    add_row("Date retour", donnee_enqueteur.date_retour.strftime('%d/%m/%Y'))
-                
-                # Adresse résultat
-                if any([donnee_enqueteur.adresse1, donnee_enqueteur.adresse2, donnee_enqueteur.code_postal, donnee_enqueteur.ville]):
-                    # Déterminer si confirmation ou nouvelle
+                has_address = any([
+                    donnee_enqueteur.adresse1,
+                    donnee_enqueteur.adresse2,
+                    donnee_enqueteur.adresse3,
+                    donnee_enqueteur.adresse4
+                ])
+                has_employer = bool(donnee_enqueteur.nom_employeur)
+
+                # Bloc adresse résultat
+                if has_address:
                     is_confirmed = self._is_address_confirmed(donnee, donnee_enqueteur)
-                    addr_type = "Confirm. adr." if is_confirmed else "Nouvelle adr."
-                    
-                    # Cas décès
-                    if donnee_enqueteur.adresse1 and donnee_enqueteur.adresse1.upper().startswith('DECEDEE'):
-                        add_row("DÉCÈS", donnee_enqueteur.adresse1)
-                        if donnee_enqueteur.date_deces:
-                            add_row("Date décès", donnee_enqueteur.date_deces.strftime('%d/%m/%Y'))
-                    else:
-                        addr_res_parts = []
-                        if donnee_enqueteur.adresse1:
-                            addr_res_parts.append(donnee_enqueteur.adresse1)
-                        if donnee_enqueteur.adresse2:
-                            addr_res_parts.append(donnee_enqueteur.adresse2)
-                        if donnee_enqueteur.code_postal or donnee_enqueteur.ville:
-                            addr_res_parts.append(f"{donnee_enqueteur.code_postal or ''} {donnee_enqueteur.ville or ''}".strip())
-                        if donnee_enqueteur.pays_residence:
-                            addr_res_parts.append(donnee_enqueteur.pays_residence)
-                        add_row(addr_type, ", ".join(addr_res_parts))
-                
-                # Téléphones (compact)
-                tel_parts = []
-                if donnee_enqueteur.telephone_personnel:
-                    tel_parts.append(f"Pers: {donnee_enqueteur.telephone_personnel}")
-                if donnee_enqueteur.telephone_chez_employeur:
-                    tel_parts.append(f"Emp: {donnee_enqueteur.telephone_chez_employeur}")
-                if tel_parts:
-                    add_row("Téléphones", " | ".join(tel_parts))
-                
-                # Employeur trouvé (compact)
-                if any([donnee_enqueteur.nom_employeur, donnee_enqueteur.adresse1_employeur]):
-                    emp_parts = []
-                    if donnee_enqueteur.nom_employeur:
-                        emp_parts.append(donnee_enqueteur.nom_employeur)
+                    doc.add_paragraph("CONFIRMATION ADRESSE:" if is_confirmed else "NOUVELLE ADRESSE:")
+
+                    if donnee_enqueteur.adresse1:
+                        doc.add_paragraph(donnee_enqueteur.adresse1)
+                    if donnee_enqueteur.adresse2:
+                        doc.add_paragraph(donnee_enqueteur.adresse2)
+                    if donnee_enqueteur.adresse3:
+                        doc.add_paragraph(donnee_enqueteur.adresse3)
+                    if donnee_enqueteur.adresse4:
+                        doc.add_paragraph(donnee_enqueteur.adresse4)
+
+                    cp = (donnee_enqueteur.code_postal or '').strip()
+                    ville = (donnee_enqueteur.ville or '').strip()
+                    if cp or ville:
+                        doc.add_paragraph(f"{cp} {ville}".strip())
+
+                    tel = donnee_enqueteur.telephone_personnel or donnee_enqueteur.telephone_chez_employeur
+                    if tel:
+                        doc.add_paragraph(f"Tel: {tel}")
+
+                    # Texte de confirmation (proximité, etc.)
+                    if donnee_enqueteur.elements_retrouves:
+                        doc.add_paragraph(donnee_enqueteur.elements_retrouves)
+
+                # Bloc employeur
+                if has_employer:
+                    if has_address:
+                        doc.add_paragraph()
+                    doc.add_paragraph("EMPLOYEUR:")
+                    doc.add_paragraph(donnee_enqueteur.nom_employeur)
+
                     if donnee_enqueteur.adresse1_employeur:
-                        emp_parts.append(donnee_enqueteur.adresse1_employeur)
+                        doc.add_paragraph(donnee_enqueteur.adresse1_employeur)
+                    if donnee_enqueteur.adresse2_employeur:
+                        doc.add_paragraph(donnee_enqueteur.adresse2_employeur)
+                    if donnee_enqueteur.adresse3_employeur:
+                        doc.add_paragraph(donnee_enqueteur.adresse3_employeur)
+                    if donnee_enqueteur.adresse4_employeur:
+                        doc.add_paragraph(donnee_enqueteur.adresse4_employeur)
+
                     if donnee_enqueteur.telephone_employeur:
-                        emp_parts.append(f"Tél: {donnee_enqueteur.telephone_employeur}")
-                    emp_str = " | ".join(emp_parts)
+                        doc.add_paragraph(f"tel {donnee_enqueteur.telephone_employeur}")
+
                     if donnee_enqueteur.memo3:
-                        emp_str += f" | Memo: {donnee_enqueteur.memo3[:60]}"
-                    add_row("Employeur", emp_str)
-                
-                # Banque (compact)
-                if any([donnee_enqueteur.banque_domiciliation, donnee_enqueteur.code_banque]):
-                    bank_parts = []
-                    if donnee_enqueteur.banque_domiciliation:
-                        bank_parts.append(donnee_enqueteur.banque_domiciliation)
-                    if donnee_enqueteur.code_banque:
-                        bank_parts.append(f"Code: {donnee_enqueteur.code_banque}")
-                    if donnee_enqueteur.code_guichet:
-                        bank_parts.append(f"Guich: {donnee_enqueteur.code_guichet}")
-                    add_row("Banque", " | ".join(bank_parts))
-                
-                # Mémos (tronqués)
-                if donnee_enqueteur.memo1:
-                    add_row("Memo adr./tél.", donnee_enqueteur.memo1[:100] + ("..." if len(donnee_enqueteur.memo1) > 100 else ""))
-                
-                if donnee_enqueteur.memo5:
-                    add_row("Commentaires", donnee_enqueteur.memo5[:100] + ("..." if len(donnee_enqueteur.memo5) > 100 else ""))
-                
-                if donnee_enqueteur.notes_personnelles:
-                    add_row("Notes", donnee_enqueteur.notes_personnelles[:100] + ("..." if len(donnee_enqueteur.notes_personnelles) > 100 else ""))
-                
-                # Facturation
-                if donnee_enqueteur.montant_facture:
-                    add_row("Montant facture", f"{donnee_enqueteur.montant_facture} €")
-            
-            # ═══════════════════════════════════════════════════════════
-            # SECTION 3 : DEMANDES (statuts POS/NEG)
-            # ═══════════════════════════════════════════════════════════
-            requests = PartnerCaseRequest.query.filter_by(donnee_id=donnee.id).all()
-            if requests:
-                add_row("═══ DEMANDES ═══", "", span=True)
-                
-                REQUEST_LABELS = {
-                    'ADDRESS': ('🏠', 'Adresse'),
-                    'PHONE': ('📞', 'Téléphone'),
-                    'EMPLOYER': ('🏢', 'Employeur'),
-                    'BANK': ('🏦', 'Banque'),
-                    'BIRTH': ('🎂', 'Naissance')
-                }
-                
-                for req in requests:
-                    icon, label = REQUEST_LABELS.get(req.request_code, ('❓', req.request_code))
-                    status_text = "✓ TROUVÉ (POS)" if req.status == 'POS' else "✗ NON TROUVÉ (NEG)"
-                    
-                    # Label de la demande
-                    demand_label = f"{icon} {label}"
-                    
-                    # Valeur : statut + memo si NEG
-                    if req.status == 'NEG' and req.memo:
-                        demand_value = f"{status_text} - {req.memo[:80]}"
-                    else:
-                        demand_value = status_text
-                    
-                    add_row(demand_label, demand_value, bold_label=False)
-        
-        # Sauvegarder dans un BytesIO
+                        doc.add_paragraph(donnee_enqueteur.memo3)
+
         output = BytesIO()
         doc.save(output)
         output.seek(0)
-        
+
         return output
     
     def generate_enquetes_positives_excel(self, enquetes):
