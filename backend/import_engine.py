@@ -436,7 +436,8 @@ class ImportEngine:
         type_demande = record.get('typeDemande', '')
         if (not type_demande or type_demande == 'ENQ') and client_id:
             if client and client.code in ['CLIENT_X', 'PARTNER']:
-                if self.filename and 'CONTESTATION' in self.filename.upper():
+                filename_upper = self.filename.upper().replace('-', ' ').replace('_', ' ') if self.filename else ''
+                if 'CONTESTATION' in filename_upper or 'CONTRE ENQUETE' in filename_upper:
                     type_demande = 'CON'
                     record['typeDemande'] = 'CON'
                     logger.info(f"✅ Détection CON via Nom Fichier: {self.filename}")
