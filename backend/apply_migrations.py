@@ -6,7 +6,8 @@ import os
 import sys
 
 # Définir DATABASE_URL AVANT tout import
-os.environ['DATABASE_URL'] = 'postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db'
+# Note: Utilise les credentials par défaut postgres:postgres
+os.environ['DATABASE_URL'] = 'postgresql+psycopg2://postgres:postgres@localhost:5432/eos_db'
 
 print("✓ DATABASE_URL définie dans le processus Python")
 print(f"  {os.environ['DATABASE_URL'][:50]}...")
