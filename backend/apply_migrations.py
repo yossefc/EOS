@@ -4,6 +4,13 @@ Ce script garantit que DATABASE_URL est défini avant d'exécuter les migrations
 """
 import os
 import sys
+import codecs
+
+# Fixer l'encodage stdout/stderr en utf-8 avant tout print
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, errors='replace')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, errors='replace')
 
 # Définir DATABASE_URL AVANT tout import
 # Note: Utilise les credentials par défaut postgres:postgres
