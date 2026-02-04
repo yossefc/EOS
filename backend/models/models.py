@@ -221,8 +221,10 @@ class Donnee(db.Model):
                     'enqueteurNom': enqueteur_nom  # Ajouter le nom directement
                 }
 
-        return result
-        # Méthode pour ajouter un événement à l'historique
+        # Nettoyer les valeurs 'nan'/'None' de pandas
+        return {k: (None if isinstance(v, str) and v.strip().lower() in ('nan', 'none') else v) for k, v in result.items()}
+
+    # Méthode pour ajouter un événement à l'historique
     def add_to_history(self, event_type, event_details, user=None):
         import json
         history_list = []

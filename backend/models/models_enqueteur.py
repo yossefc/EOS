@@ -115,7 +115,7 @@ class DonneeEnqueteur(db.Model):
 
     def to_dict(self):
         """Convertit l'objet en dictionnaire"""
-        return {
+        result = {
             'id': self.id,
             'donnee_id': self.donnee_id,
             'code_resultat': self.code_resultat,
@@ -216,3 +216,5 @@ class DonneeEnqueteur(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
+        # Nettoyer les valeurs 'nan'/'None' de pandas
+        return {k: (None if isinstance(v, str) and v.strip().lower() in ('nan', 'none') else v) for k, v in result.items()}

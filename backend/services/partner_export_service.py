@@ -29,6 +29,7 @@ from models.export_batch import ExportBatch
 from models.tarifs import TarifClient
 from models.partner_models import PartnerCaseRequest
 from services.partner_tarif_resolver import PartnerTarifResolver
+from utils import NanCleaner
 
 logger = logging.getLogger(__name__)
 
@@ -178,12 +179,13 @@ class PartnerExportService:
         report_no = self._get_report_number('enquete_positive')
         date_export = datetime.now().strftime('%d/%m/%Y')
 
-        for idx, donnee in enumerate(enquetes):
+        for idx, donnee_obj in enumerate(enquetes):
             if idx > 0:
                 doc.add_paragraph()
                 doc.add_paragraph()
 
-            donnee_enqueteur = donnee.donnee_enqueteur
+            donnee = NanCleaner(donnee_obj)
+            donnee_enqueteur = NanCleaner(donnee_obj.donnee_enqueteur) if donnee_obj.donnee_enqueteur else None
             batch_total = self._get_batch_total(donnee)
 
             # Titre (répété par dossier)
@@ -323,8 +325,9 @@ class PartnerExportService:
             sheet.write(0, col_idx, col_name, header_style)
         
         # Écrire les données
-        for row_idx, donnee in enumerate(enquetes, start=1):
-            donnee_enqueteur = donnee.donnee_enqueteur
+        for row_idx, donnee_obj in enumerate(enquetes, start=1):
+            donnee = NanCleaner(donnee_obj)
+            donnee_enqueteur = NanCleaner(donnee_obj.donnee_enqueteur) if donnee_obj.donnee_enqueteur else None
             
             # Construire la ligne de données
             row_data = []
@@ -474,7 +477,8 @@ class PartnerExportService:
         
         # Écrire les données (si présentes)
         logger.info(f"Génération Excel enquêtes négatives: {len(enquetes)} lignes")
-        for row_idx, donnee in enumerate(enquetes, start=1):
+        for row_idx, donnee_obj in enumerate(enquetes, start=1):
+            donnee = NanCleaner(donnee_obj)
             batch_total = self._get_batch_total(donnee)
             reference = self._format_reference_enquete(donnee, batch_total)
             
@@ -516,13 +520,14 @@ class PartnerExportService:
         report_no = self._get_report_number('contestation_positive')
         date_export = datetime.now().strftime('%d/%m/%Y')
         
-        for idx, donnee in enumerate(contestations):
+        for idx, donnee_obj in enumerate(contestations):
             if idx > 0:
                 # Ajouter 2 lignes vides entre les blocs
                 doc.add_paragraph()
                 doc.add_paragraph()
-            
-            donnee_enqueteur = donnee.donnee_enqueteur
+
+            donnee = NanCleaner(donnee_obj)
+            donnee_enqueteur = NanCleaner(donnee_obj.donnee_enqueteur) if donnee_obj.donnee_enqueteur else None
             batch_total = self._get_batch_total(donnee)
             
             # Titre
@@ -618,7 +623,8 @@ class PartnerExportService:
         
         # Écrire les données (si présentes)
         logger.info(f"Génération Excel contestations négatives: {len(contestations)} lignes")
-        for row_idx, donnee in enumerate(contestations, start=1):
+        for row_idx, donnee_obj in enumerate(contestations, start=1):
+            donnee = NanCleaner(donnee_obj)
             batch_total = self._get_batch_total(donnee)
             reference = self._format_reference_contestation(donnee, batch_total)
             

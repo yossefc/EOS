@@ -7,6 +7,21 @@ import codecs
 
 logger = logging.getLogger(__name__)
 
+
+class NanCleaner:
+    """Proxy qui retourne '' pour les attributs string 'nan'/'none' (artefacts pandas)"""
+    __slots__ = ('_obj',)
+    def __init__(self, obj):
+        object.__setattr__(self, '_obj', obj)
+    def __getattr__(self, name):
+        val = getattr(self._obj, name)
+        if isinstance(val, str) and val.strip().lower() in ('nan', 'none'):
+            return ''
+        return val
+    def __bool__(self):
+        return self._obj is not None
+
+
 # Définition des positions et longueurs exactes selon le cahier des charges
 # Format: (nom du champ, position de début, longueur)
 COLUMN_SPECS = [
