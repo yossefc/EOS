@@ -7,9 +7,9 @@ import sys
 import codecs
 
 # Fixer l'encodage stdout/stderr en utf-8 avant tout print
-if sys.stdout.encoding != 'utf-8':
+if hasattr(sys.stdout, 'buffer') and getattr(sys.stdout, 'encoding', None) != 'utf-8':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, errors='replace')
-if sys.stderr.encoding != 'utf-8':
+if hasattr(sys.stderr, 'buffer') and getattr(sys.stderr, 'encoding', None) != 'utf-8':
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, errors='replace')
 
 # Définir DATABASE_URL AVANT tout import

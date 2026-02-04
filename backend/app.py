@@ -13,9 +13,9 @@ import pandas as pd
 import io
 
 # Configuration de l'encodage par défaut pour Windows
-if sys.stdout.encoding != 'utf-8':
+if hasattr(sys.stdout, 'buffer') and getattr(sys.stdout, 'encoding', None) != 'utf-8':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-if sys.stderr.encoding != 'utf-8':
+if hasattr(sys.stderr, 'buffer') and getattr(sys.stderr, 'encoding', None) != 'utf-8':
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 # Configuration du logging
