@@ -432,22 +432,14 @@ class ImportEngine:
             if client and client.code == 'RG_SHERLOCK':
                 return self._create_sherlock_donnee(record, fichier_id)
 
-        # Détection automatique de contestation (PARTNER)
+        # Détection automatique de contestation (PARTNER) — uniquement via le nom du fichier
         type_demande = record.get('typeDemande', '')
-        # Si on n'a pas de type ou si c'est le défaut ENQ, on essaie de détecter CON
         if (not type_demande or type_demande == 'ENQ') and client_id:
             if client and client.code in ['CLIENT_X', 'PARTNER']:
-                # Critère 1: Nom de fichier contient CONTESTATION
                 if self.filename and 'CONTESTATION' in self.filename.upper():
                     type_demande = 'CON'
-                    record['typeDemande'] = 'CON'  # Forcer dans le record
+                    record['typeDemande'] = 'CON'
                     logger.info(f"✅ Détection CON via Nom Fichier: {self.filename}")
-                # Critère 2: Le champ instructions/motif est rempli (exclure 'nan' de pandas)
-                elif (record.get('instructions') and str(record.get('instructions')).strip().lower() not in ('', 'nan', 'none')) or \
-                     (record.get('motif') and str(record.get('motif')).strip().lower() not in ('', 'nan', 'none')):
-                    type_demande = 'CON'
-                    record['typeDemande'] = 'CON'  # Forcer dans le record
-                    logger.info("✅ Détection CON via présence de Motif/Instructions")
         
         nouvelle_donnee = Donnee(
             client_id=client_id,
