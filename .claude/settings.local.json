@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python analyze_example_line.py:*)"
+      "Bash(python analyze_example_line.py:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
