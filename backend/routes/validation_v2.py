@@ -58,7 +58,8 @@ def valider_enquete(enquete_id):
         
         # Mettre à jour le statut à 'validee' (pas encore archivée)
         donnee.statut_validation = 'validee'
-        
+        donnee.exported = False  # Resettera pour qu'elle réapparaisse dans l'onglet Export
+
         # Calculer et persister la tarification lors de la validation
         from services.tarification_service import TarificationService
         
