@@ -442,8 +442,9 @@ class ImportEngine:
                     type_demande = 'CON'
                     record['typeDemande'] = 'CON'  # Forcer dans le record
                     logger.info(f"✅ Détection CON via Nom Fichier: {self.filename}")
-                # Critère 2: Le champ instructions/motif est rempli
-                elif record.get('instructions') or record.get('motif'):
+                # Critère 2: Le champ instructions/motif est rempli (exclure 'nan' de pandas)
+                elif (record.get('instructions') and str(record.get('instructions')).strip().lower() not in ('', 'nan', 'none')) or \
+                     (record.get('motif') and str(record.get('motif')).strip().lower() not in ('', 'nan', 'none')):
                     type_demande = 'CON'
                     record['typeDemande'] = 'CON'  # Forcer dans le record
                     logger.info("✅ Détection CON via présence de Motif/Instructions")
@@ -501,10 +502,10 @@ class ImportEngine:
             # Champs spécifiques PARTNER (ex-CLIENT_X)
             tarif_lettre=record.get('tarif_lettre'),
             recherche=record.get('recherche', '').strip() if record.get('recherche') else None,
-            instructions=record.get('instructions', '').strip() if record.get('instructions') else None,
+            instructions=record.get('instructions', '').strip() if record.get('instructions') and str(record.get('instructions')).strip().lower() not in ('nan', 'none') else None,
             date_jour=convert_date(record.get('date_jour', '')),
             nom_complet=record.get('nom_complet'),
-            motif=record.get('motif')
+            motif=record.get('motif') if record.get('motif') and str(record.get('motif')).strip().lower() not in ('nan', 'none') else None
         )
         
         # Traiter les contestations
