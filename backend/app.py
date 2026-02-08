@@ -1089,6 +1089,20 @@ def register_legacy_routes(app):
                     # Pour CLIENT_X, ne pas bloquer si la facturation échoue
                     if not is_client_x:
                         raise
+                
+                # Mettre à jour le statut_validation automatiquement pour PARTNER
+                # Quand un code résultat positif est saisi, l'enquête passe directement à 'validee'
+                if is_client_x and donnee_parent.statut_validation == 'en_attente':
+                    donnee_parent.statut_validation = 'validee'
+                    donnee_parent.exported = False  # Marquer comme non exportée pour qu'elle apparaisse dans Export
+                    logger.info(f"Statut mis à jour automatiquement: enquête {donnee_id} -> validee")
+            
+            # Si le code résultat est négatif (N, Z, I, Y), marquer comme validée aussi
+            elif donnee_enqueteur.code_resultat in ['N', 'Z', 'I', 'Y']:
+                if is_client_x and donnee_parent.statut_validation == 'en_attente':
+                    donnee_parent.statut_validation = 'validee'
+                    donnee_parent.exported = False
+                    logger.info(f"Statut mis à jour automatiquement: enquête {donnee_id} (négative) -> validee")
             
             # UN SEUL COMMIT à la fin pour éviter les conflits
             db.session.commit()
