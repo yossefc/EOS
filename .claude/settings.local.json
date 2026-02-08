@@ -3,7 +3,17 @@
     "allow": [
       "Bash(python analyze_example_line.py:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(echo:*)",
+      "Bash(python backend/apply_migrations.py:*)",
+      "Bash(python -c \"\nimport os\nos.environ[''DATABASE_URL''] = ''postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db''\nfrom sqlalchemy import create_engine, inspect\nengine = create_engine\\(os.environ[''DATABASE_URL'']\\)\ninsp = inspect\\(engine\\)\ncols = {c[''name'']: c[''type''] for c in insp.get_columns\\(''donnees''\\) if c[''name''].startswith\\(''adresse''\\) or c[''name''] == ''ville''}\nfor name, typ in cols.items\\(\\):\n    print\\(f''{name}: {typ}''\\)\n\")",
+      "Bash(python:*)",
+      "Bash(cd /d D:EOS)",
+      "Bash(if exist \"D:\\\\EOS\\\\_temp_extract.py\" del \"D:\\\\EOS\\\\_temp_extract.py\")",
+      "Bash(python3:*)",
+      "Bash(test:*)",
+      "Bash(dir:*)"
     ]
   }
 }
