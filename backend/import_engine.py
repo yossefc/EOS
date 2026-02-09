@@ -181,25 +181,43 @@ class ImportEngine:
             logger.info(f"  - Exemples: {list(df.columns)[:5]}")
             
             parsed_records = []
-            
+
+            # Déterminer si on utilise le mapping YAML (client_config) ou les mappings DB
+            use_yaml_mapping = bool(self.client_config and 'mappings' in self.client_config)
+            if use_yaml_mapping:
+                logger.info(f"Utilisation du mapping YAML client ({len(self.client_config['mappings'])} champs)")
+            else:
+                logger.info(f"Utilisation des mappings DB ({len(self.mappings)} champs)")
+
             for row_number, row in df.iterrows():
                 try:
                     # Ignorer les lignes vides
                     if row.isna().all():
                         continue
-                    
-                    record = {}
-                    
-                    for mapping in self.mappings:
-                        value = mapping.extract_value(row, 'EXCEL', col_map=col_map)
-                        record[mapping.internal_field] = value
-                    
+
+                    if use_yaml_mapping:
+                        # Convertir la row pandas en dict pour _apply_client_mapping
+                        raw_record = {}
+                        for col in df.columns:
+                            val = row[col]
+                            if pd.isna(val):
+                                raw_record[str(col).strip()] = None
+                            else:
+                                raw_record[str(col).strip()] = str(val).strip()
+
+                        record = self._apply_client_mapping(raw_record)
+                    else:
+                        record = {}
+                        for mapping in self.mappings:
+                            value = mapping.extract_value(row, 'EXCEL', col_map=col_map)
+                            record[mapping.internal_field] = value
+
                     # Vérifier les champs requis
                     if not self._validate_required_fields(record, row_number + 2):  # +2 pour header et index 0
                         continue
-                    
+
                     parsed_records.append(record)
-                    
+
                 except Exception as e:
                     logger.error(f"Erreur ligne {row_number + 2}: {e}")
                     logger.error(f"Contenu de la ligne: {row.to_dict()}")
@@ -311,13 +329,27 @@ class ImportEngine:
             else:
                 # Essayer d'abord avec le nom exact
                 value = raw_record.get(source_key)
-                
+
                 # Si pas trouvé, essayer avec la normalisation (sans accents)
                 if value is None or (isinstance(value, float) and pd.isna(value)):
                     normalized_source = normalize_column_name(source_key)
                     original_key = normalized_map.get(normalized_source)
                     if original_key:
                         value = raw_record.get(original_key)
+
+                # Si toujours pas trouvé, essayer les alternative_keys du YAML
+                if value is None or (isinstance(value, float) and pd.isna(value)):
+                    for alt_key in m.get('alternative_keys', []):
+                        value = raw_record.get(alt_key)
+                        if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                            break
+                        # Essayer aussi la version normalisée de l'alternative
+                        norm_alt = normalize_column_name(alt_key)
+                        original_key = normalized_map.get(norm_alt)
+                        if original_key:
+                            value = raw_record.get(original_key)
+                            if value is not None and not (isinstance(value, float) and pd.isna(value)):
+                                break
             
             # Transformation
             transform_name = m.get('transform')
@@ -418,16 +450,17 @@ class ImportEngine:
     def _validate_required_fields(self, record, line_number):
         """
         Valide que les champs requis sont présents
-        
+
         Args:
             record (dict): Enregistrement parsé
             line_number (int): Numéro de ligne pour logging
-            
+
         Returns:
             bool: True si valide, False sinon
         """
+        # Validation via mappings DB
         required_mappings = [m for m in self.mappings if m.is_required]
-        
+
         for mapping in required_mappings:
             value = record.get(mapping.internal_field)
             if not value or not str(value).strip() or str(value).lower() == 'nan':
@@ -435,13 +468,25 @@ class ImportEngine:
                 if mapping.internal_field == 'numeroDossier':
                     logger.info(f"Ligne {line_number}: 'numeroDossier' absent, continué...")
                     continue
-                    
+
                 logger.warning(
                     f"Ligne {line_number}: Champ requis manquant '{mapping.internal_field}'"
                 )
                 logger.info(f"Record content: {record}")
                 return False
-        
+
+        # Validation via YAML (si pas de mappings DB)
+        if not required_mappings and self.client_config and 'mappings' in self.client_config:
+            for m in self.client_config['mappings']:
+                if m.get('required'):
+                    for field in m.get('candidate_fields', []):
+                        value = record.get(field)
+                        if not value or not str(value).strip() or str(value).lower() == 'nan':
+                            logger.warning(
+                                f"Ligne {line_number}: Champ requis YAML manquant '{field}' (source: {m.get('source_key')})"
+                            )
+                            return False
+
         return True
     
     def create_donnee_from_record(self, record, fichier_id, client_id, date_butoir=None):
