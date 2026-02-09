@@ -181,8 +181,7 @@ class PartnerExportService:
 
         for idx, donnee_obj in enumerate(enquetes):
             if idx > 0:
-                doc.add_paragraph()
-                doc.add_paragraph()
+                doc.add_page_break()
 
             donnee = NanCleaner(donnee_obj)
             donnee_enqueteur = NanCleaner(donnee_obj.donnee_enqueteur) if donnee_obj.donnee_enqueteur else None
@@ -518,9 +517,8 @@ class PartnerExportService:
         
         for idx, donnee_obj in enumerate(contestations):
             if idx > 0:
-                # Ajouter 2 lignes vides entre les blocs
-                doc.add_paragraph()
-                doc.add_paragraph()
+                # Saut de page entre chaque contestation
+                doc.add_page_break()
 
             donnee = NanCleaner(donnee_obj)
             donnee_enqueteur = NanCleaner(donnee_obj.donnee_enqueteur) if donnee_obj.donnee_enqueteur else None

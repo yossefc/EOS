@@ -780,11 +780,24 @@ class ImportEngine:
 
     def _create_sherlock_donnee(self, record, fichier_id):
         """Crée une instance SherlockDonnee"""
+        from utils import convert_float
+        
         # Mapper les champs record -> SherlockDonnee
         # On suppose que les internal_fields dans le YAML correspondent aux attributs de SherlockDonnee
+        
+        # Préparer les données en convertissant les valeurs numériques correctement
+        donnee_data = {}
+        for k, v in record.items():
+            if hasattr(SherlockDonnee, k):
+                # Convertir les champs Float avec la fonction convert_float
+                if k == 'montant_ht':
+                    donnee_data[k] = convert_float(v)
+                else:
+                    donnee_data[k] = v
+        
         nouvelle_donnee = SherlockDonnee(
             fichier_id=fichier_id,
-            **{k: v for k, v in record.items() if hasattr(SherlockDonnee, k)}
+            **donnee_data
         )
         
         db.session.add(nouvelle_donnee)
