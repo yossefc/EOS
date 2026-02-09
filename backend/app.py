@@ -1875,7 +1875,7 @@ def register_legacy_routes(app):
             if not items:
                 return jsonify({"success": False, "error": "Aucune donnée à exporter"}), 404
             
-            # Mapping des champs - TOUS les 68 champs comme dans l'import
+            # Mapping des champs - 65 champs (sans les tarifs)
             FIELDS_MAPPING = [
                 ('DossierId', 'dossier_id', ''),
                 ('RéférenceInterne', 'reference_interne', ''),
@@ -1909,9 +1909,6 @@ def register_legacy_routes(app):
                 ('AD-TéléphonePro', 'ad_telephone_pro', ''),
                 ('AD-TéléphoneMobile', 'ad_telephone_mobile', ''),
                 ('AD-Email', 'ad_email', ''),
-                ('Tarif A', 'tarif_a', ''),
-                ('Tarif AT', 'tarif_at', ''),
-                ('Tarif DCD', 'tarif_dcd', ''),
                 ('Résultat', 'resultat', ''),
                 ('Montant HT', 'montant_ht', ''),
                 # Champs de réponse enquêteur (Rép-)
@@ -1948,6 +1945,39 @@ def register_legacy_routes(app):
                 ('Rép-AD-Téléphone', 'rep_ad_telephone', ''),
             ]
             
+            def format_date(date_str):
+                """Formate une date au format JJ/MM/AAAA"""
+                if not date_str:
+                    return ''
+                date_str = str(date_str).strip()
+                if date_str.lower() in ('nan', 'none', ''):
+                    return ''
+                
+                # Si format AAAA-MM-JJ HH:MM:SS ou AAAA-MM-JJ
+                if '-' in date_str:
+                    try:
+                        # Extraire juste la partie date
+                        date_part = date_str.split(' ')[0]
+                        parts = date_part.split('-')
+                        if len(parts) == 3:
+                            year, month, day = parts
+                            return f"{day}/{month}/{year}"
+                    except:
+                        pass
+                
+                return date_str
+            
+            def remove_decimal_zero(val):
+                """Enlève le .0 des nombres comme 35000.0 -> 35000"""
+                if val is None or val == '':
+                    return ''
+                val_str = str(val).strip()
+                if val_str.lower() in ('nan', 'none'):
+                    return ''
+                if val_str.endswith('.0'):
+                    return val_str[:-2]
+                return val_str
+            
             def clean_value(val):
                 """Nettoie une valeur pour l'export"""
                 if val is None:
@@ -1964,10 +1994,21 @@ def register_legacy_routes(app):
                 return val_str
             
             def get_field_value(item, attr_name, default_value):
-                """Récupère la valeur d'un champ"""
-                if hasattr(item, attr_name):
-                    return clean_value(getattr(item, attr_name))
-                return default_value
+                """Récupère la valeur d'un champ avec formatage spécial"""
+                if not hasattr(item, attr_name):
+                    return default_value
+                
+                val = getattr(item, attr_name)
+                
+                # Formater les dates
+                if 'date_naissance' in attr_name.lower() or 'dcd_date' in attr_name.lower():
+                    return format_date(val)
+                
+                # Enlever .0 des codes postaux et INSEE
+                if any(x in attr_name.lower() for x in ['_cp', 'insee']):
+                    return remove_decimal_zero(val)
+                
+                return clean_value(val)
             
             # Créer le Workbook
             wb = xlwt.Workbook(encoding='utf-8')
@@ -1994,8 +2035,8 @@ def register_legacy_routes(app):
             ws.col(1).width = 256 * 50  # Colonne B: 50 caractères
             
             # === CONSTANTES ===
-            ROWS_PER_RECORD = 80  # 68 champs + lignes de séparation
-            FIELDS_COUNT = len(FIELDS_MAPPING)  # 68 champs
+            ROWS_PER_RECORD = 75  # 65 champs + lignes de séparation
+            FIELDS_COUNT = len(FIELDS_MAPPING)  # 65 champs (sans tarifs)
             ROW_HEIGHT = 300  # ~15 points
             
             # Ligne 0: En-tête vide
