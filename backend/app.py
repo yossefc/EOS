@@ -1875,23 +1875,23 @@ def register_legacy_routes(app):
             if not items:
                 return jsonify({"success": False, "error": "Aucune donnée à exporter"}), 404
             
-            # Mapping des champs
+            # Mapping des champs - TOUS les 68 champs comme dans l'import
             FIELDS_MAPPING = [
-                ('Client', '_fixed_client', 'rg'),
-                ('Elements demandes', 'elements_demandes', ''),
-                ('Indexe LDM', 'indexe_ldm', ''),
-                ('Indexe client', '_fixed_indexe_client', '0'),
-                ('Date retour esperee', 'date_retour_esperee', ''),
                 ('DossierId', 'dossier_id', ''),
                 ('RéférenceInterne', 'reference_interne', ''),
-                ('EC-Nom Usage', 'ec_nom_usage', ''),
-                ('EC-Prénom', 'ec_prenom', ''),
-                ('EC-Nom Naissance', 'ec_nom_naissance', ''),
-                ('EC-Civilité', 'ec_civilite', ''),
                 ('Demande', 'demande', ''),
+                ('EC-Civilité', 'ec_civilite', ''),
+                ('EC-Prénom', 'ec_prenom', ''),
+                ('EC-Prénom2', 'ec_prenom2', ''),
+                ('EC-Prénom3', 'ec_prenom3', ''),
+                ('EC-Prénom4', 'ec_prenom4', ''),
+                ('EC-Nom Usage', 'ec_nom_usage', ''),
+                ('EC-Nom Naissance', 'ec_nom_naissance', ''),
                 ('EC-Date Naissance', 'ec_date_naissance', ''),
-                ('EC-Localité Naissance', 'ec_localite_naissance', ''),
                 ('Naissance CP', 'naissance_cp', ''),
+                ('EC-Localité Naissance', 'ec_localite_naissance', ''),
+                ('Naissance INSEE', 'naissance_insee', ''),
+                ('EC-Pays Naissance', 'ec_pays_naissance', ''),
                 ('Client-Commentaire', 'client_commentaire', ''),
                 ('AD-L1', 'ad_l1', ''),
                 ('AD-L2', 'ad_l2', ''),
@@ -1909,6 +1909,43 @@ def register_legacy_routes(app):
                 ('AD-TéléphonePro', 'ad_telephone_pro', ''),
                 ('AD-TéléphoneMobile', 'ad_telephone_mobile', ''),
                 ('AD-Email', 'ad_email', ''),
+                ('Tarif A', 'tarif_a', ''),
+                ('Tarif AT', 'tarif_at', ''),
+                ('Tarif DCD', 'tarif_dcd', ''),
+                ('Résultat', 'resultat', ''),
+                ('Montant HT', 'montant_ht', ''),
+                # Champs de réponse enquêteur (Rép-)
+                ('Rép-EC-Civilité', 'rep_ec_civilite', ''),
+                ('Rép-EC-Prénom', 'rep_ec_prenom', ''),
+                ('Rép-EC-Prénom2', 'rep_ec_prenom2', ''),
+                ('Rép-EC-Prénom3', 'rep_ec_prenom3', ''),
+                ('Rép-EC-Prénom4', 'rep_ec_prenom4', ''),
+                ('Rép-EC-Nom Usage', 'rep_ec_nom_usage', ''),
+                ('Rép-EC-Nom Naissance', 'rep_ec_nom_naissance', ''),
+                ('Rép-EC-Date Naissance', 'rep_ec_date_naissance', ''),
+                ('Rép-Naissance CP', 'rep_naissance_cp', ''),
+                ('Rép-EC-Localité Naissance', 'rep_ec_localite_naissance', ''),
+                ('Rép-Naissance INSEE', 'rep_naissance_insee', ''),
+                ('Rép-EC-Pays Naissance', 'rep_ec_pays_naissance', ''),
+                ('Rép-DCD-Date', 'rep_dcd_date', ''),
+                ('Rép-DCD-Numéro_Acte', 'rep_dcd_numero_acte', ''),
+                ('Rép-DCD-Localité', 'rep_dcd_localite', ''),
+                ('Rép-DCD-CP', 'rep_dcd_cp', ''),
+                ('Rép-DCD-INSEE', 'rep_dcd_insee', ''),
+                ('Rép-DCD-Pays', 'rep_dcd_pays', ''),
+                ('Rép-AD-L1', 'rep_ad_l1', ''),
+                ('Rép-AD-L2', 'rep_ad_l2', ''),
+                ('Rép-AD-L3', 'rep_ad_l3', ''),
+                ('Rép-AD-L4 Numéro', 'rep_ad_l4_numero', ''),
+                ('Rép-AD-L4 Type', 'rep_ad_l4_type', ''),
+                ('Rép-AD-L4 Voie', 'rep_ad_l4_voie', ''),
+                ('Rép-AD-L5', 'rep_ad_l5', ''),
+                ('Rép-AD-L6 Cedex', 'rep_ad_l6_cedex', ''),
+                ('Rép-AD-L6 CP', 'rep_ad_l6_cp', ''),
+                ('Rép-AD-L6 INSEE', 'rep_ad_l6_insee', ''),
+                ('Rép-AD-L6 Localité', 'rep_ad_l6_localite', ''),
+                ('Rép-AD-L7 Pays', 'rep_ad_l7_pays', ''),
+                ('Rép-AD-Téléphone', 'rep_ad_telephone', ''),
             ]
             
             def clean_value(val):
@@ -1928,10 +1965,6 @@ def register_legacy_routes(app):
             
             def get_field_value(item, attr_name, default_value):
                 """Récupère la valeur d'un champ"""
-                if attr_name == '_fixed_client':
-                    return 'rg'
-                if attr_name == '_fixed_indexe_client':
-                    return '0'
                 if hasattr(item, attr_name):
                     return clean_value(getattr(item, attr_name))
                 return default_value
@@ -1961,8 +1994,8 @@ def register_legacy_routes(app):
             ws.col(1).width = 256 * 50  # Colonne B: 50 caractères
             
             # === CONSTANTES ===
-            ROWS_PER_RECORD = 40
-            FIELDS_COUNT = 32
+            ROWS_PER_RECORD = 80  # 68 champs + lignes de séparation
+            FIELDS_COUNT = len(FIELDS_MAPPING)  # 68 champs
             ROW_HEIGHT = 300  # ~15 points
             
             # Ligne 0: En-tête vide
