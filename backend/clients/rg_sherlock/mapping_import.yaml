@@ -11,6 +11,7 @@ mappings:
   - source_key: "RéférenceInterne"
     target_model: "SherlockDonnee"
     candidate_fields: ["reference_interne"]
+    alternative_keys: ["ReferenceInterne", "Référence Interne"]
 
   - source_key: "Demande"
     target_model: "SherlockDonnee"
@@ -19,22 +20,27 @@ mappings:
   - source_key: "EC-Civilité"
     target_model: "SherlockDonnee"
     candidate_fields: ["ec_civilite"]
+    alternative_keys: ["EC-Civilite"]
 
   - source_key: "EC-Prénom"
     target_model: "SherlockDonnee"
     candidate_fields: ["ec_prenom"]
+    alternative_keys: ["EC-Prenom"]
 
   - source_key: "EC-Prénom2"
     target_model: "SherlockDonnee"
     candidate_fields: ["ec_prenom2"]
+    alternative_keys: ["EC-Prenom2"]
 
   - source_key: "EC-Prénom3"
     target_model: "SherlockDonnee"
     candidate_fields: ["ec_prenom3"]
+    alternative_keys: ["EC-Prenom3"]
 
   - source_key: "EC-Prénom4"
     target_model: "SherlockDonnee"
     candidate_fields: ["ec_prenom4"]
+    alternative_keys: ["EC-Prenom4"]
 
   - source_key: "EC-Nom Usage"
     target_model: "SherlockDonnee"

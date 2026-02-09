@@ -5,10 +5,23 @@ from datetime import datetime
 import re
 import yaml
 import os
+import unicodedata
 from models import ImportProfile, ImportFieldMapping, Donnee, DonneeEnqueteur, Client, SherlockDonnee
 from extensions import db
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_column_name(name):
+    """Normalise un nom de colonne en enlevant les accents et en mettant en majuscules"""
+    if not name:
+        return ""
+    # Enlever les accents
+    name_str = str(name)
+    nfd = unicodedata.normalize('NFD', name_str)
+    without_accents = ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
+    # Mettre en majuscules et enlever espaces superflus
+    return without_accents.upper().strip()
 
 
 class ImportEngine:
@@ -276,6 +289,10 @@ class ImportEngine:
                 record[mapping.internal_field] = val
             return record
 
+        # Créer un dictionnaire de mapping normalisé pour gérer les accents
+        # Mapping: nom_normalisé → nom_original
+        normalized_map = {normalize_column_name(k): k for k in raw_record.keys()}
+        
         record = {}
         for m in self.client_config['mappings']:
             source_key = m.get('source_key')
@@ -284,7 +301,15 @@ class ImportEngine:
             if source_key == "__COMPUTED_AD_L4__":
                 value = self._compute_ad_l4(raw_record)
             else:
+                # Essayer d'abord avec le nom exact
                 value = raw_record.get(source_key)
+                
+                # Si pas trouvé, essayer avec la normalisation (sans accents)
+                if value is None or (isinstance(value, float) and pd.isna(value)):
+                    normalized_source = normalize_column_name(source_key)
+                    original_key = normalized_map.get(normalized_source)
+                    if original_key:
+                        value = raw_record.get(original_key)
             
             # Transformation
             transform_name = m.get('transform')
@@ -294,6 +319,9 @@ class ImportEngine:
             # Attribution au premier champ candidat
             for field in m.get('candidate_fields', []):
                 if hasattr(Donnee, field):
+                    record[field] = value
+                    break
+                elif hasattr(SherlockDonnee, field):
                     record[field] = value
                     break
         
