@@ -4,6 +4,19 @@ Permet de définir dynamiquement comment parser les fichiers selon le client
 """
 from datetime import datetime
 from extensions import db
+import unicodedata
+
+
+def normalize_column_name(name):
+    """Normalise un nom de colonne en enlevant les accents et en mettant en majuscules"""
+    if not name:
+        return ""
+    # Enlever les accents
+    name_str = str(name)
+    nfd = unicodedata.normalize('NFD', name_str)
+    without_accents = ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
+    # Mettre en majuscules et enlever espaces superflus
+    return without_accents.upper().strip()
 
 
 class ImportProfile(db.Model):
@@ -115,10 +128,10 @@ class ImportFieldMapping(db.Model):
                         target_col = alias
                         break
                 
-                # Si aucun alias exact n'est trouvé, essayer via col_map (insensible à la casse)
+                # Si aucun alias exact n'est trouvé, essayer via col_map (insensible à la casse et aux accents)
                 if not target_col and col_map:
                     for alias in aliases:
-                        norm_target = alias.strip().upper()
+                        norm_target = normalize_column_name(alias)
                         real_col_name = col_map.get(norm_target)
                         if real_col_name and real_col_name in line_or_row:
                             target_col = real_col_name

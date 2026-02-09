@@ -168,9 +168,10 @@ class ImportEngine:
             logger.info(f"Traitement de {len(df)} lignes (EXCEL)")
             logger.info(f"Colonnes disponibles: {list(df.columns)}")
             
-            # Créer un dictionnaire de mapping pour les colonnes Excel (insensible à la casse/espaces)
-            # Pour chaque colonne réelle, on stocke une clé normalisée
-            col_map = {str(col).strip().upper(): col for col in df.columns}
+            # Créer un dictionnaire de mapping pour les colonnes Excel (insensible à la casse/espaces/accents)
+            # Pour chaque colonne réelle, on stocke une clé normalisée SANS ACCENTS
+            col_map = {normalize_column_name(col): col for col in df.columns}
+            logger.info(f"Colonnes normalisées: {list(col_map.keys())}")
             
             parsed_records = []
             
