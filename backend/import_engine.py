@@ -168,10 +168,17 @@ class ImportEngine:
             logger.info(f"Traitement de {len(df)} lignes (EXCEL)")
             logger.info(f"Colonnes disponibles: {list(df.columns)}")
             
-            # Créer un dictionnaire de mapping pour les colonnes Excel (insensible à la casse/espaces/accents)
-            # Pour chaque colonne réelle, on stocke une clé normalisée SANS ACCENTS
-            col_map = {normalize_column_name(col): col for col in df.columns}
-            logger.info(f"Colonnes normalisées: {list(col_map.keys())}")
+            # Créer DEUX mappings pour gérer les accents:
+            # 1. Mapping exact (garde les accents)
+            # 2. Mapping normalisé (enlève les accents pour compatibilité)
+            col_map_exact = {str(col).strip(): col for col in df.columns}
+            col_map_normalized = {normalize_column_name(col): col for col in df.columns}
+            
+            # Fusionner les deux (le mapping exact a priorité)
+            col_map = {**col_map_normalized, **col_map_exact}
+            
+            logger.info(f"Colonnes Excel trouvées: {len(df.columns)}")
+            logger.info(f"  - Exemples: {list(df.columns)[:5]}")
             
             parsed_records = []
             

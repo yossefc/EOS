@@ -122,15 +122,23 @@ class ImportFieldMapping(db.Model):
                 aliases = [a.strip() for a in str(self.column_name).split('|')]
                 
                 target_col = None
-                # Essayer chaque alias
+                
+                # STRATÉGIE 1: Essayer chaque alias EXACT (avec accents)
                 for alias in aliases:
                     if alias in line_or_row:
                         target_col = alias
                         break
                 
-                # Si aucun alias exact n'est trouvé, essayer via col_map (insensible à la casse et aux accents)
+                # STRATÉGIE 2: Essayer via col_map (supporte variations d'encodage)
                 if not target_col and col_map:
                     for alias in aliases:
+                        # Essayer d'abord avec le nom exact dans col_map
+                        real_col_name = col_map.get(alias.strip())
+                        if real_col_name and real_col_name in line_or_row:
+                            target_col = real_col_name
+                            break
+                        
+                        # Sinon essayer avec normalisation (sans accents)
                         norm_target = normalize_column_name(alias)
                         real_col_name = col_map.get(norm_target)
                         if real_col_name and real_col_name in line_or_row:
