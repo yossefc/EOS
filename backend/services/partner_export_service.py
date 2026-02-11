@@ -204,6 +204,12 @@ class PartnerExportService:
             num = str(donnee.numeroDossier or '0')
             doc.add_paragraph(identity.ljust(35) + f"NO {num}")
 
+            # Lettre (tarif)
+            if donnee.tarif_lettre:
+                lettre_text = f"Lettre: {donnee.tarif_lettre}"
+                p_lettre = doc.add_paragraph(lettre_text)
+                p_lettre.runs[0].bold = True
+
             # Naissance
             if donnee.dateNaissance:
                 jour = donnee.dateNaissance.day
@@ -543,6 +549,12 @@ class PartnerExportService:
             nom_complet = donnee.nom_complet or f"{donnee.nom or ''} {donnee.prenom or ''}".strip()
             identite = f"{nom_complet} NO {num}"
             doc.add_paragraph(identite)
+            
+            # Lettre (tarif)
+            if donnee.tarif_lettre:
+                lettre_text = f"Lettre: {donnee.tarif_lettre}"
+                p_lettre = doc.add_paragraph(lettre_text)
+                p_lettre.runs[0].bold = True
             
             # Naissance si dispo
             if donnee.dateNaissance:

@@ -770,6 +770,7 @@ def generate_enquete_page(doc, donnee, numero_enquete, total_enquetes, date_rece
     add_row('N° Demande Contestée', donnee.numeroDemandeContestee)
     add_row('N° Demande Initiale', donnee.numeroDemandeInitiale)
     add_row('Forfait', donnee.forfaitDemande)
+    add_row('Lettre', donnee.tarif_lettre)
     add_row('Date Envoi', donnee.datedenvoie.strftime('%d/%m/%Y') if donnee.datedenvoie else None)
     add_row('Date Retour Espéré', donnee.dateRetourEspere.strftime('%d/%m/%Y') if donnee.dateRetourEspere else None)
     add_row('Date Butoir', donnee.date_butoir.strftime('%d/%m/%Y') if donnee.date_butoir else None)
