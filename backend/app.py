@@ -1350,12 +1350,28 @@ def register_legacy_routes(app):
                             donnee_enqueteur = DonneeEnqueteur.query.filter_by(
                                 donnee_id=nouvelle_donnee.id
                             ).first()
-                            
+
                             if not donnee_enqueteur:
                                 donnee_enqueteur = DonneeEnqueteur(
                                     donnee_id=nouvelle_donnee.id,
                                     client_id=client.id
                                 )
+
+                                # Récupérer les données de l'enquêteur original (nom, résultats, mémo)
+                                if nouvelle_donnee.enquete_originale_id:
+                                    original_de = DonneeEnqueteur.query.filter_by(
+                                        donnee_id=nouvelle_donnee.enquete_originale_id
+                                    ).first()
+                                    if original_de:
+                                        # Copier le mémo personnel et les notes
+                                        donnee_enqueteur.notes_personnelles = original_de.notes_personnelles
+                                        donnee_enqueteur.memo1 = original_de.memo1
+                                        donnee_enqueteur.memo2 = original_de.memo2
+                                        donnee_enqueteur.memo3 = original_de.memo3
+                                        donnee_enqueteur.memo4 = original_de.memo4
+                                        donnee_enqueteur.memo5 = original_de.memo5
+                                        logger.info(f"Contestation {nouvelle_donnee.numeroDossier}: mémos et notes copiés depuis l'enquête originale {nouvelle_donnee.enquete_originale_id}")
+
                                 db.session.add(donnee_enqueteur)
                         
                         # Créer PartnerCaseRequest si PARTNER et demandes détectées
@@ -1507,14 +1523,29 @@ def register_legacy_routes(app):
                         donnee_enqueteur = DonneeEnqueteur.query.filter_by(
                             donnee_id=nouvelle_donnee.id
                         ).first()
-                        
+
                         if not donnee_enqueteur:
                             donnee_enqueteur = DonneeEnqueteur(
                                 donnee_id=nouvelle_donnee.id,
                                 client_id=client.id
                             )
+
+                            # Récupérer les données de l'enquêteur original (nom, résultats, mémo)
+                            if nouvelle_donnee.enquete_originale_id:
+                                original_de = DonneeEnqueteur.query.filter_by(
+                                    donnee_id=nouvelle_donnee.enquete_originale_id
+                                ).first()
+                                if original_de:
+                                    donnee_enqueteur.notes_personnelles = original_de.notes_personnelles
+                                    donnee_enqueteur.memo1 = original_de.memo1
+                                    donnee_enqueteur.memo2 = original_de.memo2
+                                    donnee_enqueteur.memo3 = original_de.memo3
+                                    donnee_enqueteur.memo4 = original_de.memo4
+                                    donnee_enqueteur.memo5 = original_de.memo5
+                                    logger.info(f"Contestation {nouvelle_donnee.numeroDossier}: mémos copiés depuis originale {nouvelle_donnee.enquete_originale_id}")
+
                             db.session.add(donnee_enqueteur)
-                    
+
                     created_count += 1
                     
                 except Exception as e:

@@ -210,7 +210,13 @@ class Donnee(db.Model):
                     enqueteur = db.session.get(Enqueteur, original.enqueteurId)
                     if enqueteur:
                         enqueteur_nom = f"{enqueteur.nom} {enqueteur.prenom}"
-                
+
+                # Récupérer les résultats et mémos de l'enquêteur original
+                from models.models_enqueteur import DonneeEnqueteur
+                original_de = DonneeEnqueteur.query.filter_by(
+                    donnee_id=original.id
+                ).first()
+
                 result['enqueteOriginale'] = {
                     'id': original.id,
                     'numeroDossier': original.numeroDossier,
@@ -218,7 +224,18 @@ class Donnee(db.Model):
                     'nom': original.nom,
                     'prenom': original.prenom,
                     'enqueteurId': original.enqueteurId,
-                    'enqueteurNom': enqueteur_nom  # Ajouter le nom directement
+                    'enqueteurNom': enqueteur_nom,
+                    'statut_validation': original.statut_validation,
+                    # Résultats et mémos de l'enquêteur original
+                    'code_resultat': original_de.code_resultat if original_de else None,
+                    'elements_retrouves': original_de.elements_retrouves if original_de else None,
+                    'date_retour': original_de.date_retour.strftime('%Y-%m-%d') if original_de and original_de.date_retour else None,
+                    'notes_personnelles': original_de.notes_personnelles if original_de else None,
+                    'memo1': original_de.memo1 if original_de else None,
+                    'memo2': original_de.memo2 if original_de else None,
+                    'memo3': original_de.memo3 if original_de else None,
+                    'memo4': original_de.memo4 if original_de else None,
+                    'memo5': original_de.memo5 if original_de else None,
                 }
 
         # Nettoyer les valeurs 'nan'/'None' de pandas

@@ -335,3 +335,152 @@ def generate_facture_pdf(client, facturations, montant_total, reference_facture,
     except Exception as e:
         logger.error(f"Erreur lors de la génération de la facture PDF: {str(e)}")
         raise
+
+
+def generate_facturation_client_pdf(client_nom, facturations, montant_total, date_debut=None, date_fin=None):
+    """
+    Génère un PDF de facturation détaillée pour un client.
+    Liste chaque enquête : N° Dossier, Nom, Prénom, Éléments trouvés, Prix, Date de retour.
+    Affiche le total en bas.
+
+    Args:
+        client_nom: Nom du client
+        facturations: Liste de dicts avec clés:
+            numeroDossier, nom, prenom, elements_retrouves, montant, date_retour
+        montant_total: Somme totale
+        date_debut: Date début de la période (optionnel)
+        date_fin: Date fin de la période (optionnel)
+
+    Returns:
+        str: Chemin vers le fichier PDF généré
+    """
+    try:
+        fd, path = tempfile.mkstemp(suffix='.pdf')
+        os.close(fd)
+
+        doc = SimpleDocTemplate(
+            path,
+            pagesize=A4,
+            rightMargin=1.5*cm,
+            leftMargin=1.5*cm,
+            topMargin=2*cm,
+            bottomMargin=2*cm
+        )
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            name='FactClientTitle',
+            parent=styles['Heading1'],
+            alignment=1,
+            fontSize=16,
+            spaceAfter=10,
+        )
+        subtitle_style = ParagraphStyle(
+            name='FactClientSubtitle',
+            parent=styles['Normal'],
+            alignment=1,
+            fontSize=11,
+            textColor=colors.grey,
+            spaceAfter=16,
+        )
+
+        elements = []
+
+        # Titre
+        elements.append(Paragraph("RELEVÉ DE FACTURATION CLIENT", title_style))
+
+        # Sous-titre: client + période
+        periode_str = ""
+        if date_debut and date_fin:
+            periode_str = f" — Période du {date_debut.strftime('%d/%m/%Y')} au {date_fin.strftime('%d/%m/%Y')}"
+        elif date_fin:
+            periode_str = f" — Au {date_fin.strftime('%d/%m/%Y')}"
+
+        elements.append(Paragraph(f"Client : {client_nom}{periode_str}", subtitle_style))
+        elements.append(Spacer(1, 5))
+
+        # Résumé
+        elements.append(Paragraph(f"<b>Nombre d'enquêtes :</b> {len(facturations)}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Montant total HT :</b> {montant_total:.2f} €", styles['Normal']))
+        elements.append(Spacer(1, 15))
+
+        # Tableau détaillé
+        data = [
+            ["N° Dossier", "Nom", "Prénom", "Éléments", "Date retour", "Montant HT"]
+        ]
+
+        for f in facturations:
+            # Formater les éléments trouvés en texte lisible
+            elems = f.get('elements_retrouves') or '-'
+
+            date_retour = f.get('date_retour') or '-'
+            montant = f.get('montant', 0)
+
+            data.append([
+                str(f.get('numeroDossier', '')),
+                str(f.get('nom', '')),
+                str(f.get('prenom', '')),
+                elems,
+                date_retour,
+                f"{montant:.2f} €"
+            ])
+
+        # Ligne total
+        data.append(["", "", "", "", "TOTAL", f"{montant_total:.2f} €"])
+
+        # Largeurs de colonnes proportionnelles
+        col_widths = [
+            doc.width * 0.16,  # N° Dossier
+            doc.width * 0.20,  # Nom
+            doc.width * 0.18,  # Prénom
+            doc.width * 0.14,  # Éléments
+            doc.width * 0.16,  # Date retour
+            doc.width * 0.16,  # Montant
+        ]
+
+        table = Table(data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(TableStyle([
+            # En-tête
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3B82F6')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('TOPPADDING', (0, 0), (-1, 0), 10),
+            # Corps
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'),       # Montants à droite
+            ('ALIGN', (-2, 1), (-2, -1), 'CENTER'),       # Date centrée
+            ('ALIGN', (-3, 1), (-3, -2), 'CENTER'),       # Éléments centrés
+            # Alternance de couleurs
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#F3F4F6')]),
+            # Ligne total
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1E3A5F')),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 10),
+            ('TOPPADDING', (0, -1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 10),
+            # Grille
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1D5DB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+
+        # Date de génération
+        elements.append(Paragraph(
+            f"Document généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}",
+            ParagraphStyle(name='Footer', parent=styles['Normal'], fontSize=8, textColor=colors.grey, alignment=2)
+        ))
+
+        doc.build(elements)
+        return path
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la génération du PDF facturation client: {str(e)}")
+        raise

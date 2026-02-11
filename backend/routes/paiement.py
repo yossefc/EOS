@@ -5,11 +5,11 @@ from models.models import Donnee
 from models.enqueteur import Enqueteur
 from models.tarifs import EnqueteFacturation
 from extensions import db
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import logging
 import os
 import tempfile
-from services.pdf_service import generate_paiement_pdf
+from services.pdf_service import generate_paiement_pdf, generate_facturation_client_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -629,6 +629,103 @@ def diagnostic_facturations():
             'success': False,
             'error': str(e)
         }), 500
+@paiement_bp.route('/api/paiement/facturation-client-pdf/<int:client_id>', methods=['GET'])
+def generer_pdf_facturation_client(client_id):
+    """
+    Génère un PDF de facturation pour un client.
+    Colonnes: N° Dossier, Nom, Prénom, Éléments trouvés, Prix, Date retour + Total.
+
+    Query params optionnels:
+        date_debut (YYYY-MM-DD), date_fin (YYYY-MM-DD)
+        statut: 'all' (défaut), 'payees', 'non_payees'
+    """
+    try:
+        from models.client import Client
+
+        client = db.session.get(Client, client_id)
+        if not client:
+            return jsonify({'success': False, 'error': 'Client non trouvé'}), 404
+
+        # Paramètres optionnels
+        date_debut_str = request.args.get('date_debut')
+        date_fin_str = request.args.get('date_fin')
+        statut = request.args.get('statut', 'all')
+
+        date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date() if date_debut_str else None
+        date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date() if date_fin_str else None
+
+        # Requête: EnqueteFacturation + Donnee + DonneeEnqueteur pour ce client
+        query = db.session.query(
+            EnqueteFacturation, Donnee, DonneeEnqueteur
+        ).join(
+            Donnee, EnqueteFacturation.donnee_id == Donnee.id
+        ).join(
+            DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
+        ).filter(
+            EnqueteFacturation.client_id == client_id,
+            EnqueteFacturation.resultat_eos_montant.isnot(None)
+        )
+
+        # Filtre par statut de paiement
+        if statut == 'payees':
+            query = query.filter(EnqueteFacturation.paye == True)
+        elif statut == 'non_payees':
+            query = query.filter(EnqueteFacturation.paye == False)
+
+        # Filtre par période
+        if date_debut:
+            query = query.filter(EnqueteFacturation.created_at >= datetime.combine(date_debut, time.min))
+        if date_fin:
+            query = query.filter(EnqueteFacturation.created_at <= datetime.combine(date_fin, time.max))
+
+        query = query.order_by(EnqueteFacturation.created_at.desc())
+        results = query.all()
+
+        if not results:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune facturation trouvée pour ce client avec ces critères'
+            }), 404
+
+        # Construire la liste pour le PDF
+        facturations_details = []
+        montant_total = 0.0
+
+        for facturation, donnee, donnee_enqueteur in results:
+            montant = float(facturation.resultat_eos_montant or 0)
+            montant_total += montant
+
+            facturations_details.append({
+                'numeroDossier': donnee.numeroDossier or '',
+                'nom': donnee.nom or '',
+                'prenom': donnee.prenom or '',
+                'elements_retrouves': donnee_enqueteur.elements_retrouves or '-',
+                'montant': montant,
+                'date_retour': donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else '-',
+            })
+
+        # Générer le PDF
+        pdf_path = generate_facturation_client_pdf(
+            client_nom=client.nom,
+            facturations=facturations_details,
+            montant_total=montant_total,
+            date_debut=date_debut,
+            date_fin=date_fin
+        )
+
+        return send_file(
+            pdf_path,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"facturation_{client.code}_{datetime.now().strftime('%Y%m%d')}.pdf",
+            max_age=0
+        )
+
+    except Exception as e:
+        logger.error(f"Erreur génération PDF facturation client {client_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def register_paiement_routes(app):
     """Enregistre les routes de paiement"""
     app.register_blueprint(paiement_bp)

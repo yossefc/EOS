@@ -161,10 +161,41 @@ const FinancialReports = () => {
     }, [autoRefresh, fetchAllData]);
 
 
-    // Générer un rapport PDF (exemple)
+    // Générer un PDF de facturation client
     const handleGenerateReport = () => {
-        // Dans une implémentation réelle, cette fonction ferait un appel API pour générer un PDF
-        alert("Fonctionnalité de génération de rapport PDF à implémenter");
+        if (!selectedClientId) {
+            alert("Veuillez sélectionner un client (EOS ou PARTNER) pour exporter le PDF de facturation.");
+            return;
+        }
+        // Construire l'URL avec les filtres de période
+        let url = `${API_URL}/api/paiement/facturation-client-pdf/${selectedClientId}`;
+        const params = [];
+
+        // Ajouter les filtres de date basés sur la période sélectionnée
+        const now = new Date();
+        if (selectedPeriod === '1month') {
+            const debut = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
+            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
+        } else if (selectedPeriod === '12months') {
+            const debut = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
+            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
+        } else if (selectedPeriod === '24months') {
+            const debut = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
+            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
+        } else if (selectedPeriod === 'current') {
+            const debut = new Date(now.getFullYear(), 0, 1);
+            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
+            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
+        }
+
+        if (params.length > 0) {
+            url += '?' + params.join('&');
+        }
+
+        window.open(url, '_blank');
     };
 
     // Mise en forme des données pour les graphiques
@@ -283,10 +314,15 @@ const FinancialReports = () => {
                     </div>
                     <button
                         onClick={handleGenerateReport}
-                        className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
+                            selectedClientId
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'border border-gray-300 hover:bg-gray-50 text-gray-500'
+                        }`}
+                        title={selectedClientId ? 'Télécharger le PDF de facturation client' : 'Sélectionnez un client pour exporter'}
                     >
                         <Download className="w-4 h-4" />
-                        <span>Exporter PDF</span>
+                        <span>PDF Facturation</span>
                     </button>
                     <button
                         onClick={fetchAllData}
