@@ -984,6 +984,7 @@ def generate_word_document(donnees):
             ('N° Demande Contestée', donnee.numeroDemandeContestee),
             ('N° Demande Initiale', donnee.numeroDemandeInitiale),
             ('Forfait Demande', donnee.forfaitDemande),
+            ('Lettre', donnee.tarif_lettre),
             ('Date d\'Envoi', donnee.datedenvoie.strftime('%d/%m/%Y') if donnee.datedenvoie else None),
             ('Date Retour Espéré', donnee.dateRetourEspere.strftime('%d/%m/%Y') if donnee.dateRetourEspere else None),
             ('Date Butoir', donnee.date_butoir.strftime('%d/%m/%Y') if donnee.date_butoir else None),
