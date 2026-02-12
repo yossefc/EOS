@@ -195,6 +195,11 @@ class PartnerExportService:
             reference = self._format_reference_enquete(donnee, batch_total)
             doc.add_paragraph(reference)
 
+            # Lettre (tarif)
+            lettre = (donnee.tarif_lettre or '').strip()
+            if lettre:
+                doc.add_paragraph(f"Lettre: {lettre}")
+
             # Ligne identité: NOM  PRENOM (+ NJF) alignée avec NO numeroDossier
             nom = (donnee.nom or '').strip()
             prenom = (donnee.prenom or '').strip()
@@ -533,6 +538,11 @@ class PartnerExportService:
             reference = self._format_reference_contestation(donnee, batch_total)
             doc.add_paragraph(reference)
             
+            # Lettre (tarif)
+            lettre = (donnee.tarif_lettre or '').strip()
+            if lettre:
+                doc.add_paragraph(f"Lettre: {lettre}")
+
             # URGENT si applicable
             if donnee.urgence == '1' or donnee.urgence == 'O':
                 p_urgent = doc.add_paragraph("URGENT")
