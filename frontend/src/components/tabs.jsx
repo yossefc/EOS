@@ -11,7 +11,6 @@ const ImportHandler = lazy(() => import('./ImportHandler'));
 const PartnerKeywordsAdmin = lazy(() => import('./PartnerKeywordsAdmin'));
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
 const ArchivesViewer = lazy(() => import('./ArchivesViewer'));
-// const AdminDashboard = lazy(() => import('./AdminDashboard')); // Supprimé - validation intégrée dans DataViewer
 
 // Non-lazy loaded components
 import FinanceManager from './FinanceManager';

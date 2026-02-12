@@ -171,3 +171,5 @@ RAPPORT_*.txt
 *_EXPORT.sql
 PARTNER_*_EXPORT.sql
 FETCH_HEAD
+
+nul

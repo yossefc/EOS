@@ -13,7 +13,12 @@
       "Bash(if exist \"D:\\\\EOS\\\\_temp_extract.py\" del \"D:\\\\EOS\\\\_temp_extract.py\")",
       "Bash(python3:*)",
       "Bash(test:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(ls -la \"D:\\\\EOS\\\\backend\\\\routes\"\" | findstr /i \"export_eos|files \")",
+      "Bash(del:*)",
+      "Bash(ls:*)"
     ]
   }
 }
