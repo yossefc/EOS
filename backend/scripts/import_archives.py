@@ -142,18 +142,40 @@ def combine_date_parts(jour, mois, annee):
     return None
 
 
-def check_duplicate(client_id, numero_dossier, nom):
-    """Verifie si une enquete existe deja dans la DB"""
-    if not numero_dossier and not nom:
+def check_duplicate(client_id, numero_dossier, nom, prenom=None, reference_dossier=None):
+    """Verifie si une enquete existe deja dans la DB.
+
+    Pour PARTNER: le NUM est un numero sequentiel court (1, 2, 3...) qui se repete
+    dans chaque fichier. Il faut donc verifier NUM + nom + prenom ensemble.
+    Pour EOS: le referenceDossier est unique et suffit.
+    """
+    if not numero_dossier and not nom and not reference_dossier:
         return False
 
-    query = Donnee.query.filter_by(client_id=client_id)
-
-    if numero_dossier:
-        existing = query.filter_by(numeroDossier=numero_dossier).first()
+    # Pour EOS: verifier par referenceDossier (unique)
+    if reference_dossier:
+        existing = Donnee.query.filter_by(
+            client_id=client_id,
+            referenceDossier=reference_dossier
+        ).first()
         if existing:
             return True
 
+    # Pour PARTNER: verifier par numeroDossier + nom + prenom
+    if numero_dossier and nom:
+        query = Donnee.query.filter_by(
+            client_id=client_id,
+            numeroDossier=numero_dossier,
+            nom=nom
+        )
+        if prenom:
+            query = query.filter_by(prenom=prenom)
+        existing = query.first()
+        if existing:
+            return True
+
+    # Si seulement nom (sans numeroDossier), pas de verification de doublon
+    # car plusieurs personnes peuvent avoir le meme nom
     return False
 
 
@@ -168,13 +190,14 @@ def import_partner_cr_format_a(df, fichier_id, stats):
     for _, row in df.iterrows():
         num_dossier = clean_str(row.get('NUM'), 10)
         nom = clean_str(row.get('NOM'), 30)
+        prenom = clean_str(row.get('PRENOM'), 20)
 
         if not nom:
             stats['skipped'] += 1
             continue
 
-        # Verifier doublon
-        if check_duplicate(PARTNER_CLIENT_ID, num_dossier, nom):
+        # Verifier doublon (NUM + nom + prenom car NUM est un seq court)
+        if check_duplicate(PARTNER_CLIENT_ID, num_dossier, nom, prenom=prenom):
             stats['duplicates'] += 1
             continue
 
@@ -295,8 +318,16 @@ def import_partner_cr_format_b(df, fichier_id, stats):
             continue
 
         # Essayer de trouver une enquete existante pour rattacher le memo
+        # Chercher par reference + nom (car le NUM est un seq court)
         existing = None
-        if reference:
+        if reference and nom:
+            existing = Donnee.query.filter_by(
+                client_id=PARTNER_CLIENT_ID,
+                numeroDossier=reference,
+                nom=nom
+            ).first()
+        if not existing and reference:
+            # Fallback: chercher par reference seul si nom ne matche pas
             existing = Donnee.query.filter_by(
                 client_id=PARTNER_CLIENT_ID,
                 numeroDossier=reference
@@ -365,7 +396,8 @@ def import_partner_crcont(df, fichier_id, stats):
             stats['skipped'] += 1
             continue
 
-        if check_duplicate(PARTNER_CLIENT_ID, dossier, nom):
+        motif = clean_str(row.get('MOTIF'), 255)
+        if check_duplicate(PARTNER_CLIENT_ID, dossier, nom, prenom=motif):
             stats['duplicates'] += 1
             continue
 
@@ -377,7 +409,7 @@ def import_partner_crcont(df, fichier_id, stats):
             est_contestation=True,
             numeroDossier=dossier,
             nom=nom,
-            motif=clean_str(row.get('MOTIF'), 255),
+            motif=motif,
             date_jour=parse_date(row.get('DATE DU JOUR')),
             date_butoir=parse_date(row.get('DATE BUTOIR')),
         )
@@ -456,22 +488,39 @@ def import_partner_crcont_xlsx(df, fichier_id, stats):
 # Import EOS CSV
 # ============================================================================
 
+def _get_col(row, *col_names):
+    """Recupere une valeur depuis la premiere colonne trouvee (gere encodage)"""
+    for col in col_names:
+        val = row.get(col)
+        if val is not None and not (isinstance(val, float) and pd.isna(val)):
+            return val
+    return None
+
+
 def import_eos_csv(df, fichier_id, stats):
     """Importe les fichiers CSV EOS (81 colonnes)"""
-    for _, row in df.iterrows():
-        num_dossier = clean_str(row.get('N DOSSIER'), 10)
-        nom = clean_str(row.get('NOM'), 30)
+    # Normaliser les noms de colonnes (enlever les accents d'encodage)
+    col_map = {}
+    for c in df.columns:
+        # Creer des alias normalises
+        norm = str(c).replace('\xc2\xb0', '°').replace('Â°', '°').replace('\xc3\x8a', 'E').replace('Ã\x8a', 'E')
+        col_map[norm] = c
 
-        if not nom and not num_dossier:
+    for _, row in df.iterrows():
+        num_dossier = clean_str(_get_col(row, 'N DOSSIER', 'N° DOSSIER', 'NÂ° DOSSIER'), 10)
+        ref_dossier = clean_str(_get_col(row, 'REFERENCE DOSSIER'), 15)
+        nom = clean_str(_get_col(row, 'NOM'), 30)
+
+        if not nom and not num_dossier and not ref_dossier:
             stats['skipped'] += 1
             continue
 
-        if check_duplicate(EOS_CLIENT_ID, num_dossier, nom):
+        if check_duplicate(EOS_CLIENT_ID, num_dossier, nom, reference_dossier=ref_dossier):
             stats['duplicates'] += 1
             continue
 
         # Determiner le type de demande
-        type_demande = clean_str(row.get("TYPE DE DEMANDE D'ENQUETE"), 3)
+        type_demande = clean_str(_get_col(row, "TYPE DE DEMANDE D'ENQUETE", "TYPE DE DEMANDE D'ENQUÊTE"), 3)
         est_contestation = (type_demande == 'CON')
 
         donnee = Donnee(
@@ -481,7 +530,7 @@ def import_eos_csv(df, fichier_id, stats):
             typeDemande=type_demande or 'ENQ',
             est_contestation=est_contestation,
             numeroDossier=num_dossier,
-            referenceDossier=clean_str(row.get('REFERENCE DOSSIER'), 15),
+            referenceDossier=ref_dossier,
             numeroInterlocuteur=clean_str(row.get('NUMERO INTERLOCUTEUR'), 12),
             guidInterlocuteur=clean_str(row.get('GUID INTERLOCUTEUR'), 36),
             numeroDemande=clean_str(row.get('NUMERO DEMANDE ENQUETE'), 11),
