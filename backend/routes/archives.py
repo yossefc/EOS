@@ -161,7 +161,7 @@ def get_archived_enquetes():
         ).join(
             EnqueteArchiveFile, Donnee.id == EnqueteArchiveFile.enquete_id, isouter=True
         ).filter(
-            Donnee.statut_validation == 'archive'
+            Donnee.statut_validation.in_(['archive', 'archivee'])
         ).order_by(
             Donnee.updated_at.desc()
         )
@@ -221,7 +221,7 @@ def get_archived_enquete_details(enquete_id):
         if not donnee:
             return jsonify({"error": "Enquête non trouvée"}), 404
         
-        if donnee.statut_validation != 'archive':
+        if donnee.statut_validation not in ('archive', 'archivee'):
             return jsonify({"error": "Cette enquête n'est pas archivée"}), 400
         
         # Récupérer les données enquêteur

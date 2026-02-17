@@ -381,8 +381,11 @@ def register_legacy_routes(app):
                     item_dict['enqueteurId'] = None 
                     data.append(item_dict)
             else:
-                # Comportement standard
-                pagination = Donnee.query.filter_by(client_id=client.id).paginate(
+                # Comportement standard — exclure les enquêtes archivées/validées
+                pagination = Donnee.query.filter(
+                    Donnee.client_id == client.id,
+                    Donnee.statut_validation.notin_(['validee', 'archive', 'archivee'])
+                ).paginate(
                     page=page, per_page=per_page, error_out=False
                 )
                 data = [donnee.to_dict() for donnee in pagination.items]
@@ -687,7 +690,7 @@ def register_legacy_routes(app):
 
             count = Donnee.query.filter(
                 Donnee.client_id == client.id,  # Filtrer par client
-                Donnee.statut_validation.notin_(['validee', 'archivee']),
+                Donnee.statut_validation.notin_(['validee', 'archive', 'archivee']),
                 Donnee.exported == False
             ).count()
             
@@ -816,7 +819,7 @@ def register_legacy_routes(app):
                 db.joinedload(Donnee.donnee_enqueteur)
             ).filter(
                 Donnee.client_id == client.id,  # MULTI-CLIENT: Filtre par client
-                Donnee.statut_validation.notin_(['validee', 'archivee'])
+                Donnee.statut_validation.notin_(['validee', 'archive', 'archivee'])
             )
             
             # === FILTRES CÔTÉ SERVEUR ===

@@ -303,10 +303,10 @@ def export_enquetes():
         # Compter d'abord le nombre total d'enquêtes à exporter POUR CE CLIENT
         total_count = Donnee.query.filter(
             Donnee.client_id == client.id,
-            Donnee.statut_validation.notin_(['validee', 'archivee']),
+            Donnee.statut_validation.notin_(['validee', 'archive', 'archivee']),
             Donnee.exported == False
         ).count()
-        
+
         if total_count == 0:
             return jsonify({
                 "success": False,
@@ -322,7 +322,7 @@ def export_enquetes():
             db.joinedload(Donnee.fichier)
         ).filter(
             Donnee.client_id == client.id,
-            Donnee.statut_validation.notin_(['validee', 'archivee']),
+            Donnee.statut_validation.notin_(['validee', 'archive', 'archivee']),
             Donnee.exported == False
         ).order_by(Donnee.created_at.asc()).limit(MAX_EXPORT_LIMIT).all()
         
@@ -1208,7 +1208,7 @@ def export_and_archive_enquete(enquete_id):
         if not donnee:
             return jsonify({"error": "Enquête non trouvée"}), 404
         
-        if donnee.statut_validation != 'archive':
+        if donnee.statut_validation not in ('archive', 'archivee'):
             return jsonify({"error": "Seules les enquêtes archivées peuvent être exportées"}), 400
         
         from models.enquete_archive import EnqueteArchive

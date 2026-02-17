@@ -432,7 +432,7 @@ def get_stats_periodes():
             
             nb_enquetes = query_enquetes.filter(
                 DonneeEnqueteur.code_resultat.isnot(None),
-                Donnee.statut_validation.in_(['confirmee', 'archivee']),
+                Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee']),
                 DonneeEnqueteur.updated_at >= periode['debut'],
                 DonneeEnqueteur.updated_at <= periode['fin']
             ).scalar() or 0
@@ -443,7 +443,7 @@ def get_stats_periodes():
             ).filter(
                 EnqueteFacturation.created_at >= periode['debut'],
                 EnqueteFacturation.created_at <= periode['fin'],
-                Donnee.statut_validation.in_(['confirmee', 'archivee'])
+                Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee'])
             )
             
             # ✅ AJOUT: Filtre client si fourni
@@ -465,7 +465,7 @@ def get_stats_periodes():
                 EnqueteFacturation.paye == True,
                 EnqueteFacturation.date_paiement >= periode['debut'],
                 EnqueteFacturation.date_paiement <= periode['fin'],
-                Donnee.statut_validation.in_(['confirmee', 'archivee'])
+                Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee'])
             )
             
             # ✅ AJOUT: Filtre client si fourni

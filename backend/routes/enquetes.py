@@ -93,7 +93,7 @@ def get_enquetes_by_enqueteur(enqueteur_id):
     try:
         # Récupérer les enquêtes assignées à l'enquêteur spécifié (exclure les archivées)
         enquetes = Donnee.query.filter_by(enqueteurId=enqueteur_id).filter(
-            Donnee.statut_validation != 'archive'
+            Donnee.statut_validation.notin_(['archive', 'archivee'])
         ).all()
         
         # Formater les données
@@ -136,7 +136,7 @@ def get_completed_enquetes_by_enqueteur(enqueteur_id):
                    .join(DonneeEnqueteur, Donnee.id == DonneeEnqueteur.donnee_id)
                    .filter(Donnee.enqueteurId == enqueteur_id)
                    .filter(DonneeEnqueteur.code_resultat.isnot(None))
-                   .filter(Donnee.statut_validation != 'archive')
+                   .filter(Donnee.statut_validation.notin_(['archive', 'archivee']))
                    .all())
         
         # Formater les données
