@@ -22,6 +22,7 @@ def get_pending_enquetes():
         ).filter(
             Donnee.enqueteurId.isnot(None),  # Enquêteur assigné
             DonneeEnqueteur.code_resultat.isnot(None),  # Résultat renseigné
+            Donnee.statut_validation.notin_(['archive', 'archivee']),  # Exclure les archives
             ~Donnee.id.in_(db.session.query(EnqueteTerminee.donnee_id))  # Pas encore validée
         ).all()
         
