@@ -303,7 +303,7 @@ def export_enquetes():
         # Compter d'abord le nombre total d'enquêtes à exporter POUR CE CLIENT
         total_count = Donnee.query.filter(
             Donnee.client_id == client.id,
-            Donnee.statut_validation.notin_(['validee', 'archive', 'archivee']),
+            Donnee.statut_validation.notin_(['valide', 'validee', 'archive', 'archivee']),
             Donnee.exported == False
         ).count()
 
@@ -322,7 +322,7 @@ def export_enquetes():
             db.joinedload(Donnee.fichier)
         ).filter(
             Donnee.client_id == client.id,
-            Donnee.statut_validation.notin_(['validee', 'archive', 'archivee']),
+            Donnee.statut_validation.notin_(['valide', 'validee', 'archive', 'archivee']),
             Donnee.exported == False
         ).order_by(Donnee.created_at.asc()).limit(MAX_EXPORT_LIMIT).all()
         
