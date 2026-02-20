@@ -15,6 +15,7 @@ class DonneeEnqueteur(db.Model):
     # Informations de base
     code_resultat = db.Column(db.String(1))  # P, N, H, Z, I, Y
     elements_retrouves = db.Column(db.String(10))  # A, T, B, E, R ou D
+    proximite = db.Column(db.Text)  # Valeur choisie dans "Confirme par"
     flag_etat_civil_errone = db.Column(db.String(1))  # E ou vide
     date_retour = db.Column(db.Date)
     
@@ -120,6 +121,7 @@ class DonneeEnqueteur(db.Model):
             'donnee_id': self.donnee_id,
             'code_resultat': self.code_resultat,
             'elements_retrouves': self.elements_retrouves,
+            'proximite': self.proximite,
             'flag_etat_civil_errone': self.flag_etat_civil_errone,
             'date_retour': self.date_retour.strftime('%Y-%m-%d') if self.date_retour else None,
             

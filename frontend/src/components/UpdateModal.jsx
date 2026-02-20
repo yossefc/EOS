@@ -25,10 +25,6 @@ const CODES_RESULTAT = [
   { code: 'Y', libelle: 'Annulation EOS' }
 ];
 
-const TYPE_RECHERCHE = {
-  A: "Adresse", T: "Téléphone", D: "Décès",
-  B: "Coordonnées bancaires", E: "Coordonnées employeur", R: "Revenus"
-};
 
 const FREQUENCES_VERSEMENT = [
   { code: 'Q', libelle: 'Quotidienne' },
@@ -43,6 +39,146 @@ const FREQUENCES_VERSEMENT = [
 const STATUS_LABELS = {
   'P': 'Positif', 'N': 'Négatif / NPA', 'H': 'Confirmé',
   'Z': 'Annulé (agence)', 'I': 'Intraitable', 'Y': 'Annulé (EOS)', '': 'En attente'
+};
+
+const hasTextValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  return true;
+};
+
+const buildProximiteFromForm = (values) => {
+  const confirmeParRaw =
+    values?.elements_retrouves === 'AUTRE'
+      ? (values?.elements_retrouves_autre || '')
+      : (values?.elements_retrouves || '');
+  const confirmePar = confirmeParRaw.trim() || 'non renseigne';
+
+  const elements = [];
+
+  const hasAdresse = [
+    values?.adresse1, values?.adresse2, values?.adresse3, values?.adresse4,
+    values?.code_postal, values?.ville, values?.pays_residence
+  ].some(hasTextValue);
+  if (hasAdresse) elements.push('adresse');
+
+  const hasTelephone = [
+    values?.telephone_personnel, values?.telephone_chez_employeur
+  ].some(hasTextValue);
+  if (hasTelephone) elements.push('telephone');
+
+  const hasEmployeur = [
+    values?.nom_employeur, values?.telephone_employeur, values?.telecopie_employeur,
+    values?.adresse1_employeur, values?.adresse2_employeur, values?.adresse3_employeur,
+    values?.adresse4_employeur, values?.code_postal_employeur, values?.ville_employeur,
+    values?.pays_employeur
+  ].some(hasTextValue);
+  if (hasEmployeur) elements.push('employeur');
+
+  const hasBanque = [
+    values?.banque_domiciliation, values?.libelle_guichet, values?.titulaire_compte,
+    values?.code_banque, values?.code_guichet
+  ].some(hasTextValue);
+  if (hasBanque) elements.push('banque');
+
+  const hasDeces = [
+    values?.date_deces, values?.numero_acte_deces, values?.code_insee_deces,
+    values?.code_postal_deces, values?.localite_deces
+  ].some(hasTextValue);
+  if (hasDeces) elements.push('deces');
+
+  const hasRevenus = [
+    values?.commentaires_revenus, values?.montant_salaire,
+    values?.nature_revenu1, values?.montant_revenu1,
+    values?.nature_revenu2, values?.montant_revenu2,
+    values?.nature_revenu3, values?.montant_revenu3
+  ].some(hasTextValue);
+  if (hasRevenus) elements.push('revenus');
+
+  const foundText = elements.length > 0 ? elements.join(', ') : 'aucun element detaille';
+  return `Confirme par: ${confirmePar} | Retrouve: ${foundText}`;
+};
+
+const ENQUETEUR_EXCLUDED_KEYS = new Set(['id', 'donnee_id', 'client_id', 'created_at', 'updated_at']);
+
+const ENQUETEUR_FIELD_LABELS = {
+  code_resultat: 'Code resultat',
+  elements_retrouves: 'Elements retrouves',
+  proximite: 'Confirme par / Proximite',
+  flag_etat_civil_errone: 'Etat civil errone',
+  date_retour: 'Date retour',
+  adresse1: 'Adresse 1',
+  adresse2: 'Adresse 2',
+  adresse3: 'Adresse 3',
+  adresse4: 'Adresse 4',
+  code_postal: 'Code postal',
+  ville: 'Ville',
+  pays_residence: 'Pays residence',
+  telephone_personnel: 'Telephone personnel',
+  telephone_chez_employeur: 'Telephone chez employeur',
+  date_deces: 'Date deces',
+  numero_acte_deces: 'Numero acte deces',
+  code_insee_deces: 'Code INSEE deces',
+  code_postal_deces: 'Code postal deces',
+  localite_deces: 'Localite deces',
+  nom_employeur: 'Nom employeur',
+  telephone_employeur: 'Telephone employeur',
+  telecopie_employeur: 'Telecopie employeur',
+  adresse1_employeur: 'Adresse 1 employeur',
+  adresse2_employeur: 'Adresse 2 employeur',
+  adresse3_employeur: 'Adresse 3 employeur',
+  adresse4_employeur: 'Adresse 4 employeur',
+  code_postal_employeur: 'Code postal employeur',
+  ville_employeur: 'Ville employeur',
+  pays_employeur: 'Pays employeur',
+  banque_domiciliation: 'Banque domiciliation',
+  libelle_guichet: 'Libelle guichet',
+  titulaire_compte: 'Titulaire compte',
+  code_banque: 'Code banque',
+  code_guichet: 'Code guichet',
+  commentaires_revenus: 'Commentaires revenus',
+  montant_salaire: 'Montant salaire',
+  periode_versement_salaire: 'Periode versement salaire',
+  frequence_versement_salaire: 'Frequence versement salaire',
+  nature_revenu1: 'Nature revenu 1',
+  montant_revenu1: 'Montant revenu 1',
+  periode_versement_revenu1: 'Periode versement revenu 1',
+  frequence_versement_revenu1: 'Frequence versement revenu 1',
+  nature_revenu2: 'Nature revenu 2',
+  montant_revenu2: 'Montant revenu 2',
+  periode_versement_revenu2: 'Periode versement revenu 2',
+  frequence_versement_revenu2: 'Frequence versement revenu 2',
+  nature_revenu3: 'Nature revenu 3',
+  montant_revenu3: 'Montant revenu 3',
+  periode_versement_revenu3: 'Periode versement revenu 3',
+  frequence_versement_revenu3: 'Frequence versement revenu 3',
+  memo1: 'Memo 1',
+  memo2: 'Memo 2',
+  memo3: 'Memo 3',
+  memo4: 'Memo 4',
+  memo5: 'Memo 5',
+  notes_personnelles: 'Memo personnel',
+  dateNaissance_maj: 'Date naissance MAJ',
+  lieuNaissance_maj: 'Lieu naissance MAJ'
+};
+
+const buildHistoricalEnqueteurRows = (source) => {
+  if (!source || typeof source !== 'object') return [];
+
+  return Object.entries(source)
+    .filter(([key, value]) => !ENQUETEUR_EXCLUDED_KEYS.has(key) && hasTextValue(value))
+    .map(([key, value]) => ({
+      key,
+      label: ENQUETEUR_FIELD_LABELS[key] || key.replace(/_/g, ' '),
+      value: typeof value === 'string' ? value.trim() : String(value)
+    }));
+};
+
+const formatHistoryDate = (value) => {
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString('fr-FR');
 };
 
 // ============================================================
@@ -219,8 +355,13 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [enqueteurs, setEnqueteurs] = useState([]);
   const [isLoading, setIsLoading] = useState({ submit: false, adresse: false });
   const [suggestions, setSuggestions] = useState({ adresses: [], codesPostaux: [] });
+  const [enqueteOriginaleData, setEnqueteOriginaleData] = useState(
+    data?.enqueteOriginale || data?.enquete_originale || null
+  );
+  const [historiqueArchivesRows, setHistoriqueArchivesRows] = useState([]);
 
   const demandesHeaderRef = useRef(null);
+  const confirmationOptionsRef = useRef([]);
   const isPartner = clientCode === 'PARTNER';
 
   // Form state
@@ -282,92 +423,171 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     }));
   }, [data]);
 
-  // Load client & enqueteur data
+  useEffect(() => {
+    setEnqueteOriginaleData(data?.enqueteOriginale || data?.enquete_originale || null);
+  }, [data]);
+
+  useEffect(() => {
+    confirmationOptionsRef.current = confirmationOptions;
+  }, [confirmationOptions]);
+
+  // Load client and enqueteur data. For contestations, preserve original survey data.
   useEffect(() => {
     if (!data) return;
+    let cancelled = false;
+    const isContestation = data?.typeDemande === 'CON' || data?.est_contestation === true;
 
     const fetchClientData = async () => {
       try {
         const response = await axios.get(`${API_URL}/api/donnees/${data.id}`);
-        if (response.data.success && response.data.data?.client) {
-          const clientData = response.data.data.client;
-          setClientCode(clientData.code || 'EOS');
-          setClientId(clientData.id);
+        if (!(response.data.success && response.data.data)) {
+          setHistoriqueArchivesRows([]);
+          return { originalData: null, resolvedClientCode: 'EOS' };
+        }
 
-          if (clientData.code !== 'EOS') {
-            const optionsRes = await axios.get(`${API_URL}/api/confirmation-options/${clientData.id}`);
-            if (optionsRes.data.success) {
-              setConfirmationOptions(optionsRes.data.all_options || []);
+        const payload = response.data.data;
+        const clientData = payload.client || null;
+        let fetchedOriginal = payload.enqueteOriginale || payload.enquete_originale || null;
+
+        if (isContestation && data?.numeroDossier) {
+          try {
+            const historiqueResponse = await axios.get(
+              `${API_URL}/api/historique-enquete/${encodeURIComponent(data.numeroDossier)}?donnee_id=${data.id}`
+            );
+            if (historiqueResponse.data?.success && historiqueResponse.data?.data?.enquete_originale) {
+              fetchedOriginal = historiqueResponse.data.data.enquete_originale;
             }
+          } catch (historiqueError) {
+            console.warn('Impossible de charger historique-enquete pour pré-remplissage:', historiqueError);
           }
         }
+
+        if (isContestation) {
+          try {
+            const samePersonHistoryResponse = await axios.get(`${API_URL}/api/donnees/${data.id}/historique`);
+            if (samePersonHistoryResponse.data?.success) {
+              setHistoriqueArchivesRows(samePersonHistoryResponse.data?.data?.enquetes_meme_nom || []);
+            } else {
+              setHistoriqueArchivesRows([]);
+            }
+          } catch (historyRowsError) {
+            console.warn('Impossible de charger les enquetes archivees du meme nom/prenom:', historyRowsError);
+            setHistoriqueArchivesRows([]);
+          }
+        } else {
+          setHistoriqueArchivesRows([]);
+        }
+
+        const resolvedClientCode = clientData?.code || 'EOS';
+        if (clientData) {
+          setClientCode(clientData.code || 'EOS');
+          setClientId(clientData.id);
+        } else {
+          setClientCode('EOS');
+          setClientId(null);
+        }
+
+        setEnqueteOriginaleData(fetchedOriginal);
+
+        if (clientData && clientData.code !== 'EOS') {
+          const optionsRes = await axios.get(`${API_URL}/api/confirmation-options/${clientData.id}`);
+          if (optionsRes.data.success) {
+            setConfirmationOptions(optionsRes.data.all_options || []);
+          }
+        }
+
+        return { originalData: fetchedOriginal, resolvedClientCode };
       } catch (error) {
-        console.error("Erreur client:", error);
+        console.error('Erreur client:', error);
         setClientCode('EOS');
+        setClientId(null);
+        setHistoriqueArchivesRows([]);
+        return { originalData: null, resolvedClientCode: 'EOS' };
       }
     };
 
-    const fetchEnqueteurData = async () => {
+    const fetchEnqueteurData = async (resolvedClientCode = 'EOS') => {
       try {
         const response = await axios.get(`${API_URL}/api/donnees-enqueteur/${data.id}`);
         if (response.data.success && response.data.data) {
           const d = response.data.data;
+          const isPartnerClient = resolvedClientCode === 'PARTNER';
+
           setDonneesSauvegardees(d);
 
-          const optionsPredefinies = [
-            'Confirmé par la mairie', 'En proximité', 'Confirmé par téléphone',
-            'Confirmé par voisinage', 'Confirmé par famille', "Confirmé par l'employeur",
-            'Confirmé par courrier', 'Confirmé sur place',
-            'A', 'AT', 'D', 'AB', 'AE', 'ATB', 'ATE', 'ATBE', 'ATBER'
-          ];
+          const optionsPredefinies = isPartnerClient
+            ? [...confirmationOptionsRef.current]
+            : ['A', 'AT', 'D', 'AB', 'AE', 'ATB', 'ATE', 'ATBE', 'ATBER'];
+          const elemVal = isPartnerClient
+            ? (d.proximite || '')
+            : (d.elements_retrouves || '');
+          const hasElemVal = typeof elemVal === 'string' ? elemVal.trim() !== '' : Boolean(elemVal);
+          const isPredefinie = hasElemVal && optionsPredefinies.includes(elemVal);
 
-          const elemVal = d.elements_retrouves || data.elementDemandes || 'A';
-          const isPredefinie = optionsPredefinies.includes(elemVal);
-
+          // IMPORTANT: on ne pré-remplit que les données déjà saisies sur cette enquête.
+          // Aucune reprise auto depuis l'historique enquêteur dans les autres onglets.
           setFormData({
             code_resultat: d.code_resultat || 'P',
-            elements_retrouves: isPredefinie ? elemVal : 'AUTRE',
-            elements_retrouves_autre: isPredefinie ? '' : elemVal,
+            elements_retrouves: hasElemVal ? (isPredefinie ? elemVal : 'AUTRE') : '',
+            elements_retrouves_autre: hasElemVal ? (isPredefinie ? '' : elemVal) : '',
             flag_etat_civil_errone: d.flag_etat_civil_errone || '',
             date_retour: d.date_retour || new Date().toISOString().split('T')[0],
-            adresse1: d.adresse1 || '', adresse2: d.adresse2 || '',
-            adresse3: d.adresse3 || '', adresse4: d.adresse4 || '',
-            code_postal: d.code_postal || '', ville: d.ville || '',
+            adresse1: d.adresse1 || '',
+            adresse2: d.adresse2 || '',
+            adresse3: d.adresse3 || '',
+            adresse4: d.adresse4 || '',
+            code_postal: d.code_postal || '',
+            ville: d.ville || '',
             pays_residence: d.pays_residence || 'FRANCE',
             telephone_personnel: d.telephone_personnel || '',
             telephone_chez_employeur: d.telephone_chez_employeur || '',
-            date_deces: d.date_deces || '', numero_acte_deces: d.numero_acte_deces || '',
-            code_insee_deces: d.code_insee_deces || '', code_postal_deces: d.code_postal_deces || '',
+            date_deces: d.date_deces || '',
+            numero_acte_deces: d.numero_acte_deces || '',
+            code_insee_deces: d.code_insee_deces || '',
+            code_postal_deces: d.code_postal_deces || '',
             localite_deces: d.localite_deces || '',
-            nom_employeur: d.nom_employeur || '', telephone_employeur: d.telephone_employeur || '',
+            nom_employeur: d.nom_employeur || '',
+            telephone_employeur: d.telephone_employeur || '',
             telecopie_employeur: d.telecopie_employeur || '',
-            adresse1_employeur: d.adresse1_employeur || '', adresse2_employeur: d.adresse2_employeur || '',
-            adresse3_employeur: d.adresse3_employeur || '', adresse4_employeur: d.adresse4_employeur || '',
-            code_postal_employeur: d.code_postal_employeur || '', ville_employeur: d.ville_employeur || '',
+            adresse1_employeur: d.adresse1_employeur || '',
+            adresse2_employeur: d.adresse2_employeur || '',
+            adresse3_employeur: d.adresse3_employeur || '',
+            adresse4_employeur: d.adresse4_employeur || '',
+            code_postal_employeur: d.code_postal_employeur || '',
+            ville_employeur: d.ville_employeur || '',
             pays_employeur: d.pays_employeur || '',
-            banque_domiciliation: d.banque_domiciliation || '', libelle_guichet: d.libelle_guichet || '',
-            titulaire_compte: d.titulaire_compte || '', code_banque: d.code_banque || '',
+            banque_domiciliation: d.banque_domiciliation || '',
+            libelle_guichet: d.libelle_guichet || '',
+            titulaire_compte: d.titulaire_compte || '',
+            code_banque: d.code_banque || '',
             code_guichet: d.code_guichet || '',
-            commentaires_revenus: d.commentaires_revenus || '', montant_salaire: d.montant_salaire || '',
+            commentaires_revenus: d.commentaires_revenus || '',
+            montant_salaire: d.montant_salaire || '',
             periode_versement_salaire: d.periode_versement_salaire || '',
             frequence_versement_salaire: d.frequence_versement_salaire || '',
-            nature_revenu1: d.nature_revenu1 || '', montant_revenu1: d.montant_revenu1 || '',
+            nature_revenu1: d.nature_revenu1 || '',
+            montant_revenu1: d.montant_revenu1 || '',
             periode_versement_revenu1: d.periode_versement_revenu1 || '',
             frequence_versement_revenu1: d.frequence_versement_revenu1 || '',
-            nature_revenu2: d.nature_revenu2 || '', montant_revenu2: d.montant_revenu2 || '',
+            nature_revenu2: d.nature_revenu2 || '',
+            montant_revenu2: d.montant_revenu2 || '',
             periode_versement_revenu2: d.periode_versement_revenu2 || '',
             frequence_versement_revenu2: d.frequence_versement_revenu2 || '',
-            nature_revenu3: d.nature_revenu3 || '', montant_revenu3: d.montant_revenu3 || '',
+            nature_revenu3: d.nature_revenu3 || '',
+            montant_revenu3: d.montant_revenu3 || '',
             periode_versement_revenu3: d.periode_versement_revenu3 || '',
             frequence_versement_revenu3: d.frequence_versement_revenu3 || '',
-            memo1: d.memo1 || '', memo2: d.memo2 || '', memo3: d.memo3 || '',
-            memo4: d.memo4 || '', memo5: d.memo5 || '',
+            memo1: d.memo1 || '',
+            memo2: d.memo2 || '',
+            memo3: d.memo3 || '',
+            memo4: d.memo4 || '',
+            memo5: d.memo5 || '',
             notes_personnelles: d.notes_personnelles || '',
             dateNaissance_maj: data.dateNaissance_maj || '',
             lieuNaissance_maj: data.lieuNaissance_maj || ''
           });
 
-          if (d.date_deces || d.elements_retrouves?.includes('D')) {
+          if (d.date_deces || String(elemVal).includes('D')) {
             setShowDeathInfo(true);
           }
         } else {
@@ -379,8 +599,16 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       }
     };
 
-    fetchClientData();
-    fetchEnqueteurData();
+    const loadData = async () => {
+      const clientLoad = await fetchClientData();
+      if (cancelled) return;
+      await fetchEnqueteurData(clientLoad?.resolvedClientCode || 'EOS');
+    };
+
+    loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [data, initializeWithDossierData]);
 
   // Address search
@@ -554,10 +782,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       let dataToSend = {
         donnee_id: data.id,
         code_resultat: formData.code_resultat,
-        elements_retrouves: formData.code_resultat === 'I' ? '' : elementsRetrouvesValue,
+        elements_retrouves: formData.code_resultat === 'I' ? '' : (isPartner ? '' : elementsRetrouvesValue),
         flag_etat_civil_errone: formData.flag_etat_civil_errone,
         date_retour: formData.date_retour,
       };
+
+      if (isPartner) {
+        dataToSend.proximite = formData.code_resultat === 'I' ? '' : elementsRetrouvesValue;
+      }
 
       if (formData.flag_etat_civil_errone === 'E') {
         dataToSend = {
@@ -597,6 +829,9 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           memo1: formData.memo1, memo2: formData.memo2, memo3: formData.memo3,
           memo4: formData.memo4, memo5: formData.memo5, notes_personnelles: formData.notes_personnelles
         };
+        if (isPartner) {
+          dataToSend.proximite = '';
+        }
       } else {
         dataToSend = {
           ...dataToSend,
@@ -697,6 +932,18 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   // ============================================================
   if (!isOpen || !data) return null;
 
+  const isContestationRecord = data?.typeDemande === 'CON' || data?.est_contestation === true;
+  const contestationOriginal = enqueteOriginaleData || data.enqueteOriginale || data.enquete_originale || null;
+  const originalEnqueteur = contestationOriginal?.donnee_enqueteur || contestationOriginal?.donneeEnqueteur || {};
+  const partnerInstructionText =
+    data?.instructions ||
+    data?.motif ||
+    data?.motifDeContestation ||
+    data?.motif_contestation_detail ||
+    '';
+  const historicalEnqueteurRows = buildHistoricalEnqueteurRows(originalEnqueteur);
+  const historiqueArchives = (historiqueArchivesRows || []).filter((row) => row && row.id !== data.id);
+  const proximitePreview = isPartner ? buildProximiteFromForm(formData) : '';
   const tabs = getTabsForClient(isPartner, showDeathInfo, formData);
   const isDisabled = formData.code_resultat === 'I';
 
@@ -725,10 +972,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
             {/* Type */}
             <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase
-              ${data?.typeDemande === 'CON'
+              ${isContestationRecord
                 ? 'bg-amber-100 text-amber-700 border border-amber-200'
                 : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
-              {data?.typeDemande === 'CON' ? 'Contestation' : 'Enquête'}
+              {isContestationRecord ? 'Contestation' : 'Enquête'}
             </span>
 
             {/* Enquêteur */}
@@ -807,10 +1054,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 </div>
 
                 {/* Instructions */}
-                {data.instructions && (
+                {partnerInstructionText && (
                   <div className="flex items-start gap-2">
                     <span className="text-xs font-bold text-amber-600 uppercase w-24 flex-shrink-0">Instructions:</span>
-                    <span className="text-sm text-slate-700">{data.instructions}</span>
+                    <span className="text-sm text-slate-700">{partnerInstructionText}</span>
                   </div>
                 )}
               </div>
@@ -974,19 +1221,61 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   </InfoCard>
                 )}
 
-                {/* Contestation */}
-                {data.typeDemande === 'CON' && (
-                  <InfoCard icon={AlertCircle} title="Contestation" color="amber">
-                    <div className="space-y-1">
-                      {data.enqueteOriginale ? (
-                        <>
-                          <div><span className="text-slate-500">Dossier contesté:</span> {data.enqueteOriginale.numeroDossier}</div>
-                          <div><span className="text-slate-500">Enquêteur initial:</span> {data.enqueteOriginale.enqueteurNom}</div>
-                        </>
-                      ) : (
-                        <div className="text-amber-600 italic">Info non disponible</div>
-                      )}
-                      <div><span className="text-slate-500">Motif:</span> {data.motifDeContestation || 'Non précisé'}</div>
+                {isContestationRecord && historiqueArchives.length > 0 && (
+                  <InfoCard
+                    icon={FileText}
+                    title={`Toutes Les Donnees Trouvees Par L Enqueteur (Archives: ${historiqueArchives.length})`}
+                    color="amber"
+                  >
+                    <div className="space-y-3">
+                      {historiqueArchives.map((archiveRow) => {
+                        const archiveFields = buildHistoricalEnqueteurRows(archiveRow.donnee_enqueteur_saisie || {});
+                        return (
+                          <div key={archiveRow.id} className="rounded-lg border border-amber-200 bg-white p-3">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-700">
+                              <span className="font-semibold">#{archiveRow.id}</span>
+                              {archiveRow.numeroDossier ? <span>Dossier: {archiveRow.numeroDossier}</span> : null}
+                              <span>Date: {formatHistoryDate(archiveRow.date)}</span>
+                              {archiveRow.element_demandes ? <span>Element demande: {archiveRow.element_demandes}</span> : null}
+                              {archiveRow.code_resultat ? <span>Resultat: {archiveRow.code_resultat}</span> : null}
+                              {archiveRow.elements_retrouves ? <span>Element retrouve: {archiveRow.elements_retrouves}</span> : null}
+                            </div>
+
+                            {archiveRow.memo_personnel ? (
+                              <div className="mt-2 text-sm text-slate-700">
+                                <span className="text-slate-500">Memo personnel:</span>{' '}
+                                <span className="whitespace-pre-wrap">{archiveRow.memo_personnel}</span>
+                              </div>
+                            ) : null}
+
+                            {archiveFields.length > 0 ? (
+                              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {archiveFields.map((row) => (
+                                  <div key={`${archiveRow.id}-${row.key}`} className="text-sm">
+                                    <span className="text-slate-500">{row.label}:</span>{' '}
+                                    <span className="text-slate-800 break-words">{row.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="mt-2 text-xs text-slate-500">Aucune donnee enqueteur saisie.</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </InfoCard>
+                )}
+
+                {isContestationRecord && historiqueArchives.length === 0 && historicalEnqueteurRows.length > 0 && (
+                  <InfoCard icon={FileText} title="Donnees Enqueteur Historique (Lecture Seule)" color="amber">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {historicalEnqueteurRows.map((row) => (
+                        <div key={row.key} className="text-sm">
+                          <span className="text-slate-500">{row.label}:</span>{' '}
+                          <span className="text-slate-800 break-words">{row.value}</span>
+                        </div>
+                      ))}
                     </div>
                   </InfoCard>
                 )}
@@ -1004,6 +1293,9 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     <div className="space-y-1">
                       <div><span className="text-slate-500">Statut:</span> <strong>{STATUS_LABELS[donneesSauvegardees.code_resultat]}</strong></div>
                       <div><span className="text-slate-500">Éléments:</span> {donneesSauvegardees.elements_retrouves || '-'}</div>
+                      {donneesSauvegardees.proximite && (
+                        <div><span className="text-slate-500">Proximite:</span> {donneesSauvegardees.proximite}</div>
+                      )}
                       <div className="text-xs text-slate-500">
                         {new Date(donneesSauvegardees.updated_at).toLocaleString()}
                       </div>
@@ -1298,7 +1590,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 {formData.flag_etat_civil_errone === 'E' && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
                     <HelpCircle className="w-4 h-4 text-blue-500 mt-0.5" />
-                    <p className="text-sm text-blue-700">Documentez les différences d'état civil constatées.</p>
+                    <p className="text-sm text-blue-700">Documentez les différences d&apos;état civil constatées.</p>
                   </div>
                 )}
 
@@ -1306,6 +1598,15 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <Field label="Memo adresse / téléphone" name="memo1" value={formData.memo1} onChange={handleInputChange} maxLength={64} />
                     <Field label="Memo employeur" name="memo3" value={formData.memo3} onChange={handleInputChange} maxLength={64} />
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Proximite (auto)</label>
+                      <textarea
+                        value={proximitePreview}
+                        readOnly
+                        rows="2"
+                        className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50 text-slate-700"
+                      />
+                    </div>
                     <div className="col-span-2">
                       <label className="block text-xs font-medium text-slate-600 mb-1">Proximité (détails)</label>
                       <textarea name="memo5" value={formData.memo5} onChange={handleInputChange} rows="3" maxLength={1000}
@@ -1361,7 +1662,11 @@ UpdateModal.propTypes = {
     id: PropTypes.number.isRequired,
     numeroDossier: PropTypes.string,
     typeDemande: PropTypes.string,
+    est_contestation: PropTypes.bool,
+    motif: PropTypes.string,
     motifDeContestation: PropTypes.string,
+    motif_contestation_detail: PropTypes.string,
+    motif_contestation_code: PropTypes.string,
     elementDemandes: PropTypes.string,
     qualite: PropTypes.string,
     nom: PropTypes.string,
@@ -1372,6 +1677,7 @@ UpdateModal.propTypes = {
     paysNaissance: PropTypes.string,
     nomPatronymique: PropTypes.string,
     enqueteOriginale: PropTypes.object,
+    enquete_originale: PropTypes.object,
     instructions: PropTypes.string,
     enqueteurId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     adresse1_origine: PropTypes.string,
@@ -1394,3 +1700,4 @@ UpdateModal.propTypes = {
 };
 
 export default UpdateModal;
+

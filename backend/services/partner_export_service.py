@@ -380,8 +380,8 @@ class PartnerExportService:
             
             # Résultats enquêteur
             if donnee_enqueteur:
-                # Proximite : utiliser elements_retrouves ("Confirmation par qui" dans l'UI)
-                row_data.append(donnee_enqueteur.elements_retrouves or '')  # Proximite
+                # Proximite : valeur choisie dans "Confirme par".
+                row_data.append(donnee_enqueteur.proximite or '')
                 
                 # Date et lieu de naissance mis à jour (depuis Donnee)
                 if donnee.dateNaissance_maj:
@@ -696,4 +696,3 @@ class PartnerExportService:
             db.session.rollback()
             logger.error(f"Erreur lors de la création du batch d'export: {str(e)}")
             raise
-

@@ -1,12 +1,11 @@
 import { useState, lazy, Suspense } from 'react';
-import { BarChart2, Database, Users, ClipboardList, FileUp, FileDown, User, DollarSign, CheckSquare, Archive } from 'lucide-react';
+import { BarChart2, Database, Users, ClipboardList, FileUp, FileDown, DollarSign, Archive } from 'lucide-react';
 
 // Lazy loading of components
 const StatsViewer = lazy(() => import('./StatsViewer'));
 const DataViewer = lazy(() => import('./DataViewer'));
 const ImprovedEnqueteurViewer = lazy(() => import('./ImprovedEnqueteurViewer'));
 const AssignmentViewer = lazy(() => import('./AssignmentViewer'));
-const EnqueteurDashboard = lazy(() => import('./EnqueteurDashboard'));
 const ImportHandler = lazy(() => import('./ImportHandler'));
 const PartnerKeywordsAdmin = lazy(() => import('./PartnerKeywordsAdmin'));
 const EnqueteExporter = lazy(() => import('./EnqueteExporter'));
@@ -32,10 +31,6 @@ const Tabs = () => {
     console.log('Import complete, refreshing data...');
   };
 
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-  };
-
   const tabs = [
     {
       id: 'stats',
@@ -49,21 +44,15 @@ const Tabs = () => {
       icon: <FileUp className="w-4 h-4" />,
       component: <ImportHandler onImportComplete={handleImportComplete} />
     },
-    /* {
-       id: 'enqueteur-interface',
-       label: 'Interface Enquêteur',
-       icon: <User className="w-4 h-4" />,
-       component: <EnqueteurDashboard onLogout={() => console.log('Logout clicked')} />
-     },*/
     {
       id: 'data',
-      label: 'Données',
+      label: 'Donnees',
       icon: <Database className="w-4 h-4" />,
       component: <DataViewer />
     },
     {
       id: 'export',
-      label: 'Export des résultats',
+      label: 'Export des resultats',
       icon: <FileDown className="w-4 h-4" />,
       component: <EnqueteExporter />
     },
@@ -75,7 +64,7 @@ const Tabs = () => {
     },
     {
       id: 'enqueteurs',
-      label: 'Enquêteurs',
+      label: 'Enqueteurs',
       icon: <Users className="w-4 h-4" />,
       component: <ImprovedEnqueteurViewer />
     },
@@ -93,13 +82,12 @@ const Tabs = () => {
     },
     {
       id: 'partner-keywords',
-      label: 'PARTNER - Mots-clés',
+      label: 'PARTNER - Mots-cles',
       icon: <ClipboardList className="w-4 h-4" />,
       component: <PartnerKeywordsAdmin />
     }
   ];
 
-  // Function to render the active component
   const renderActiveComponent = () => {
     const activeTabObj = tabs.find(tab => tab.id === activeTab);
     if (!activeTabObj) return null;
@@ -112,9 +100,12 @@ const Tabs = () => {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto px-8 py-4">
-      <div className="sticky top-4 z-50 mb-10 pointer-events-none">
-        <nav className="flex items-center gap-2 p-1.5 bg-white/70 backdrop-blur-xl rounded-[24px] border border-white/40 shadow-xl shadow-slate-200/40 overflow-x-auto hide-scrollbar pointer-events-auto" aria-label="Tabs">
+    <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+      <div className="sticky top-2 sm:top-4 z-40 mb-6 sm:mb-10">
+        <nav
+          className="flex flex-nowrap items-center gap-1.5 sm:gap-2 p-1.5 bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-[24px] border border-white/40 shadow-xl shadow-slate-200/40 overflow-x-auto"
+          aria-label="Tabs"
+        >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -122,14 +113,14 @@ const Tabs = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex items-center gap-2.5 px-5 py-2.5 text-sm font-semibold whitespace-nowrap
+                  flex items-center gap-2 px-3 sm:px-4 lg:px-5 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap
                   rounded-xl transition-all duration-300
                   ${isActive
                     ? 'bg-slate-800 text-white shadow-md shadow-slate-200 translate-y-[-1px]'
                     : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:border-slate-200/50 hover:shadow-sm'}
                 `}
               >
-                <span className={`${isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                <span className={isActive ? 'text-blue-400' : 'text-slate-400'}>
                   {tab.icon}
                 </span>
                 {tab.label}
@@ -145,18 +136,5 @@ const Tabs = () => {
     </div>
   );
 };
-
-// Add a style to hide the horizontal scrollbar while allowing scrolling
-const style = document.createElement('style');
-style.textContent = `
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-`;
-document.head.appendChild(style);
 
 export default Tabs;

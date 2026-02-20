@@ -196,7 +196,7 @@ class Donnee(db.Model):
             'date_jour': self.date_jour.strftime('%Y-%m-%d') if self.date_jour else None,
             'nom_complet': self.nom_complet,
             'motif': self.motif,
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
         }
         if self.est_contestation and self.enquete_originale_id:

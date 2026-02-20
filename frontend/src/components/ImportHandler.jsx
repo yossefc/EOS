@@ -20,6 +20,7 @@ const ImportHandler = ({ onImportComplete }) => {
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
+  const [contestationMatches, setContestationMatches] = useState([]);
   const [fileExists, setFileExists] = useState(false);
   const [existingFileInfo, setExistingFileInfo] = useState(null);
   const [stats, setStats] = useState(null);
@@ -75,6 +76,7 @@ const ImportHandler = ({ onImportComplete }) => {
       setExistingFileInfo(null);
       setError(null);
       setSuccess(null);
+      setContestationMatches([]);
     }
   };
 
@@ -86,6 +88,7 @@ const ImportHandler = ({ onImportComplete }) => {
 
     try {
       setUploading(true);
+      setContestationMatches([]);
       const formData = new FormData();
       formData.append("file", selectedFile);
       if (dateButoir) formData.append("date_butoir", dateButoir);
@@ -100,7 +103,15 @@ const ImportHandler = ({ onImportComplete }) => {
         setFileExists(true);
         setExistingFileInfo(response.data.existing_file_info);
       } else {
-        setSuccess(`Import réussi : ${response.data.records_processed} enregistrements traités.`);
+        const identityMatches = response.data.contestation_identity_matches || [];
+        const totalMatches = response.data.contestation_identity_matches_count
+          ?? identityMatches.reduce((sum, item) => sum + (item.matches_count || 0), 0);
+        setContestationMatches(identityMatches);
+        setSuccess(
+          `Import réussi : ${response.data.records_processed} enregistrements traités. `
+          + `${identityMatches.length} contestation(s) analysée(s), `
+          + `${totalMatches} enquête(s) correspondante(s) trouvée(s).`
+        );
         setSelectedFile(null);
         setDateButoir('');
         fetchStats();
@@ -330,6 +341,44 @@ const ImportHandler = ({ onImportComplete }) => {
               </div>
             )}
           </div>
+
+          {contestationMatches.length > 0 && (
+            <div className="mt-6 border border-blue-200 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
+                <h3 className="text-sm font-semibold text-blue-800">
+                  Correspondances contestation (nom + prénom + date de naissance)
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Contestation</th>
+                      <th className="px-4 py-2 text-left">Identité</th>
+                      <th className="px-4 py-2 text-left">Enquêtes trouvées</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {contestationMatches.map((row) => (
+                      <tr key={row.contestation_id}>
+                        <td className="px-4 py-2 font-medium text-slate-800">
+                          #{row.contestation_id} ({row.contestation_numeroDossier || 'N/A'})
+                        </td>
+                        <td className="px-4 py-2 text-slate-700">
+                          {row.identity?.nom || '-'} {row.identity?.prenom || '-'} - {row.identity?.dateNaissance || '-'}
+                        </td>
+                        <td className="px-4 py-2 text-slate-700">
+                          {row.matches_count > 0
+                            ? row.matches.map((m) => `#${m.id} (${m.numeroDossier || 'N/A'})`).join(', ')
+                            : 'Aucune'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Stats */}

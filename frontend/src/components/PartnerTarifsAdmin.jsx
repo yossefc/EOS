@@ -184,7 +184,7 @@ const PartnerTarifsAdmin = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-between sm:items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Euro className="w-7 h-7 text-blue-600" />
@@ -196,7 +196,7 @@ const PartnerTarifsAdmin = () => {
         </div>
         <button
           onClick={handleAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md sm:w-auto"
         >
           <Plus className="w-5 h-5" />
           Ajouter une règle
@@ -393,4 +393,3 @@ const PartnerTarifsAdmin = () => {
 };
 
 export default PartnerTarifsAdmin;
-
