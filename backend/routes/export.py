@@ -290,7 +290,8 @@ def export_enquetes():
         from client_utils import get_client_or_default
         data = request.get_json() or {}
         client_id_param = data.get('client_id')
-        
+        ids = data.get('ids')  # Liste optionnelle d'IDs fournie par le frontend
+
         client = get_client_or_default(client_id=client_id_param)
         if not client:
             return jsonify({"success": False, "error": "Client introuvable"}), 404
@@ -299,32 +300,48 @@ def export_enquetes():
 
         # Limite maximale pour un seul export (performance et mémoire)
         MAX_EXPORT_LIMIT = 1000
-        
-        # Compter d'abord le nombre total d'enquêtes à exporter POUR CE CLIENT
-        total_count = Donnee.query.filter(
-            Donnee.client_id == client.id,
-            Donnee.statut_validation.notin_(['valide', 'validee', 'archive', 'archivee']),
-            Donnee.exported == False
-        ).count()
 
-        if total_count == 0:
-            return jsonify({
-                "success": False,
-                "message": f"Aucune nouvelle enquête à exporter pour {client.nom}. Toutes les enquêtes ont déjà été exportées."
-            }), 200
-        
-        # Avertir si dépassement de la limite
-        if total_count > MAX_EXPORT_LIMIT:
-            logger.warning(f"Export limité : {total_count} enquêtes disponibles, mais limite fixée à {MAX_EXPORT_LIMIT}")
-        
-        # Récupérer les enquêtes non exportées POUR CE CLIENT (AVEC LIMITE)
-        donnees = Donnee.query.options(
-            db.joinedload(Donnee.fichier)
-        ).filter(
-            Donnee.client_id == client.id,
-            Donnee.statut_validation.notin_(['valide', 'validee', 'archive', 'archivee']),
-            Donnee.exported == False
-        ).order_by(Donnee.created_at.asc()).limit(MAX_EXPORT_LIMIT).all()
+        if ids:
+            # Mode sélection : exporter uniquement les IDs explicitement fournis par le frontend
+            logger.info(f"Export filtré sur {len(ids)} ID(s) explicites")
+            donnees = Donnee.query.options(
+                db.joinedload(Donnee.fichier)
+            ).filter(
+                Donnee.id.in_(ids),
+                Donnee.client_id == client.id
+            ).order_by(Donnee.created_at.asc()).all()
+            total_count = len(donnees)
+            if total_count == 0:
+                return jsonify({
+                    "success": False,
+                    "message": "Aucune enquête trouvée pour les IDs fournis."
+                }), 200
+        else:
+            # Mode global : exporter toutes les enquêtes non encore exportées du client
+            total_count = Donnee.query.filter(
+                Donnee.client_id == client.id,
+                Donnee.statut_validation.notin_(['valide', 'validee', 'archive', 'archivee']),
+                Donnee.exported == False
+            ).count()
+
+            if total_count == 0:
+                return jsonify({
+                    "success": False,
+                    "message": f"Aucune nouvelle enquête à exporter pour {client.nom}. Toutes les enquêtes ont déjà été exportées."
+                }), 200
+
+            # Avertir si dépassement de la limite
+            if total_count > MAX_EXPORT_LIMIT:
+                logger.warning(f"Export limité : {total_count} enquêtes disponibles, mais limite fixée à {MAX_EXPORT_LIMIT}")
+
+            # Récupérer les enquêtes non exportées POUR CE CLIENT (AVEC LIMITE)
+            donnees = Donnee.query.options(
+                db.joinedload(Donnee.fichier)
+            ).filter(
+                Donnee.client_id == client.id,
+                Donnee.statut_validation.notin_(['valide', 'validee', 'archive', 'archivee']),
+                Donnee.exported == False
+            ).order_by(Donnee.created_at.asc()).limit(MAX_EXPORT_LIMIT).all()
         
         if not donnees:
             return jsonify({
@@ -1870,12 +1887,22 @@ def download_export_batch(batch_id):
                 'error': 'Fichier d\'export non trouvé sur le disque'
             }), 404
         
+        # Détecter le MIME type selon l'extension du fichier
+        ext = os.path.splitext(batch.filename)[1].lower()
+        mime_map = {
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.doc':  'application/msword',
+            '.txt':  'text/plain; charset=cp1252',
+            '.csv':  'text/csv; charset=utf-8',
+        }
+        mimetype = mime_map.get(ext, 'application/octet-stream')
+
         # Envoyer le fichier
         return send_file(
             filepath_full,
             as_attachment=True,
             download_name=batch.filename,
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            mimetype=mimetype
         )
         
     except Exception as e:

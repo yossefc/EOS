@@ -5,7 +5,6 @@ import {
     Loader2, AlertCircle, UserPlus, Check, Search, Users,
     RefreshCw, ChevronLeft, ChevronRight, Download, X
 } from 'lucide-react';
-import { FixedSizeList as List } from 'react-window';
 import config from '../config';
 
 const api = axios.create({

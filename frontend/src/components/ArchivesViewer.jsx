@@ -4,6 +4,7 @@ import config from '../config';
 
 const API_BASE_URL = config.API_URL;
 
+// eslint-disable-next-line react/prop-types
 const ArchivesViewer = ({ title = 'Archives des Exports' }) => {
   const [exportBatches, setExportBatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +16,7 @@ const ArchivesViewer = ({ title = 'Archives des Exports' }) => {
   const [downloadingId, setDownloadingId] = useState(null);
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState(null);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [, setLoadingClients] = useState(false);
   const perPage = 20;
 
   const fetchClients = useCallback(async () => {

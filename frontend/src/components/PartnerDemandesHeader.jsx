@@ -48,6 +48,7 @@ const PartnerDemandesHeader = forwardRef(({ donneeId, compact = false }, ref) =>
     if (donneeId) {
       fetchRequests();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [donneeId]);
 
   const handleRecalculate = async () => {

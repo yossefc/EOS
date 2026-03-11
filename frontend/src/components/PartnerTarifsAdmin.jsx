@@ -165,14 +165,6 @@ const PartnerTarifsAdmin = () => {
     rules: rules.filter(r => r.tarif_lettre === lettre)
   })).filter(g => g.rules.length > 0);
   
-  // Formatter request_key pour affichage
-  const formatRequestKey = (key) => {
-    return key.split('+').map(code => {
-      const found = REQUEST_CODES.find(r => r.code === code);
-      return found ? found.label : code;
-    }).join(' + ');
-  };
-  
   // Formatter avec icônes
   const formatRequestKeyWithIcons = (key) => {
     return key.split('+').map(code => {

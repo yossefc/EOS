@@ -181,7 +181,7 @@ const ImportHandler = ({ onImportComplete }) => {
             <Upload className="w-5 h-5 text-blue-500" />
             Import de fichiers
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">Importez vos fichiers d'enquêtes</p>
+          <p className="text-sm text-slate-500 mt-0.5">Importez vos fichiers d&apos;enquêtes</p>
         </div>
         <button
           onClick={fetchStats}
@@ -259,7 +259,7 @@ const ImportHandler = ({ onImportComplete }) => {
                   <div>
                     <p className="font-semibold text-slate-800">{selectedFile.name}</p>
                     <p className="text-xs text-slate-500 mt-1">
-                      {(selectedFile.size / 1024).toFixed(1)} KB • Prêt pour l'import
+                      {(selectedFile.size / 1024).toFixed(1)} KB • Prêt pour l&apos;import
                     </p>
                     <button
                       onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
@@ -308,7 +308,7 @@ const ImportHandler = ({ onImportComplete }) => {
                 ) : (
                   <>
                     <FileUp className="w-4 h-4" />
-                    Lancer l'importation
+                    Lancer l&apos;importation
                   </>
                 )}
               </button>

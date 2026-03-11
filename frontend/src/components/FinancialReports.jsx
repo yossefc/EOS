@@ -6,8 +6,7 @@ import {
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    ResponsiveContainer, PieChart as RPieChart, Pie, Cell, LineChart, Line,
-    AreaChart, Area
+    ResponsiveContainer, PieChart as RPieChart, Pie, Cell
 } from 'recharts';
 import config from '../config';
 
@@ -32,7 +31,6 @@ const FinancialReports = () => {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('overview');
 
     // Période sélectionnée pour les filtres
     const [selectedPeriod, setSelectedPeriod] = useState('12months');
@@ -228,7 +226,7 @@ const FinancialReports = () => {
         return { monthlyData, tarifData, enqueteurData };
     };
 
-    const { monthlyData, tarifData, enqueteurData } = prepareChartData();
+    const { monthlyData, tarifData } = prepareChartData();
 
     // Affichage du chargement
     if (loading && !periodeStats.length) {

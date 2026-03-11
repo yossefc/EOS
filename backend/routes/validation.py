@@ -94,17 +94,18 @@ def valider_enquete(enquete_id):
         # Mettre à jour le statut
         if action == 'confirmer':
             donnee.statut_validation = 'confirmee'
-            
+
             # Calculer et persister la tarification lors de la confirmation
-            from models.donnee_enqueteur import DonneeEnqueteur
-            from services.tarification_service import TarificationService
-            
+            # DonneeEnqueteur est déjà importé en tête de fichier
             donnee_enqueteur = DonneeEnqueteur.query.filter_by(donnee_id=enquete_id).first()
             if donnee_enqueteur:
                 try:
+                    from services.tarification_service import TarificationService
                     facturation = TarificationService.calculate_tarif_for_enquete(donnee_enqueteur.id)
                     if facturation:
                         logger.info(f"Tarification calculée pour l'enquête {enquete_id}: EOS={facturation.resultat_eos_montant}€, Enquêteur={facturation.resultat_enqueteur_montant}€")
+                except ImportError:
+                    logger.warning("TarificationService non disponible — tarification ignorée.")
                 except Exception as e:
                     logger.error(f"Erreur lors du calcul de la tarification pour l'enquête {enquete_id}: {str(e)}")
         else:

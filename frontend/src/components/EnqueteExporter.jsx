@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Archive, RefreshCw, AlertCircle, 
-  CheckCircle, Download, FileText, FileSpreadsheet
+import {
+  RefreshCw, AlertCircle,
+  CheckCircle, Download, FileText
 } from 'lucide-react';
 import config from '../config';
 
@@ -156,56 +156,6 @@ const EnqueteExporter = () => {
     }
   };
 
-  // Gérer les exports PARTNER - Un seul fichier
-  const handlePartnerExportSingle = async (exportType, endpoint, label) => {
-    setExportingPartner(prev => ({ ...prev, [exportType]: true }));
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const response = await axios.post(`${API_URL}${endpoint}`, {}, {
-        responseType: 'blob'
-      });
-
-      const blob = new Blob([response.data]);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Déterminer l'extension du fichier
-      const contentType = response.headers['content-type'];
-      let extension = '.xls';
-      if (contentType && contentType.includes('wordprocessingml')) {
-        extension = '.docx';
-      } else if (contentType && contentType.includes('zip')) {
-        extension = '.zip';
-      }
-      
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T');
-      const filename = `export_partner_${exportType}_${timestamp[0]}_${timestamp[1].split('-')[0]}${extension}`;
-      
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      setSuccess(`Export PARTNER "${label}" créé avec succès !`);
-      
-      // Rafraîchir les statistiques et la liste
-      setTimeout(() => {
-        fetchPartnerStats();
-        fetchPartnerEnquetes();
-      }, 1000);
-
-    } catch (error) {
-      console.error("Erreur export PARTNER:", error);
-      setError(error.response?.data?.error || `Erreur lors de l'export ${label}`);
-    } finally {
-      setExportingPartner(prev => ({ ...prev, [exportType]: false }));
-    }
-  };
-
   // Gérer les exports PARTNER - Word ET Excel (endpoint combiné)
   const handlePartnerExportBoth = async (exportType, endpointBoth, label) => {
     setExportingPartner(prev => ({ ...prev, [exportType]: true }));
@@ -258,7 +208,7 @@ const EnqueteExporter = () => {
             Export des Résultats
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Exports EOS et PARTNER - Enquêtes validées prêtes pour l'export
+            Exports EOS et PARTNER - Enquêtes validées prêtes pour l&apos;export
           </p>
         </div>
         <button
@@ -617,7 +567,7 @@ const EnqueteExporter = () => {
               <li>• <strong>EOS</strong> : Fichier texte (.txt) format longueur fixe - Toutes les enquêtes validées</li>
               <li>• <strong>PARTNER</strong> : Fichiers Word (.docx) pour rapports et Excel (.xls) pour tableaux</li>
               <li>• Les dossiers exportés sont automatiquement <strong>archivés</strong></li>
-              <li>• Consultez l'onglet <strong>"Archives"</strong> pour retrouver vos exports</li>
+              <li>• Consultez l&apos;onglet <strong>&quot;Archives&quot;</strong> pour retrouver vos exports</li>
               <li>• Les badges rouges <span className="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">avec animation</span> indiquent les dossiers en attente</li>
             </ul>
           </div>

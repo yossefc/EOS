@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   Database, Search, Filter, RefreshCw,
   AlertCircle, X, Trash2,
-  History, FileDown, Pencil, Download, CalendarDays,
+  History, Pencil, Download, CalendarDays,
   CheckCircle, XCircle
 } from 'lucide-react';
 import config from '../config';
@@ -180,6 +180,7 @@ const DataViewer = () => {
     fetchClients(); // MULTI-CLIENT
     fetchNonExporteesCount();
     fetchEnqueteurs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchClients]);
 
   // Recharger les données quand la page ou le client changent
@@ -188,6 +189,7 @@ const DataViewer = () => {
       fetchData(currentPage);
       fetchNonExporteesCount();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, selectedClientId]);
 
   // Retourner à la page 1 quand les filtres ou la recherche changent
@@ -197,6 +199,7 @@ const DataViewer = () => {
     } else {
       fetchData(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filters]);
 
   // Handle opening update modal
@@ -419,7 +422,7 @@ const DataViewer = () => {
     } else if (diffDays === 0) {
       return (
         <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-          Aujourd'hui
+          Aujourd&apos;hui
         </span>
       );
     } else if (diffDays <= 7) {
@@ -1126,13 +1129,13 @@ const DataViewer = () => {
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Attention</h3>
             <p className="text-gray-600 mb-8 leading-relaxed">
-              Il est impossible de valider ce dossier car <span className="font-semibold text-gray-900">aucun enquêteur n'est assigné</span>.
+              Il est impossible de valider ce dossier car <span className="font-semibold text-gray-900">aucun enquêteur n&apos;est assigné</span>.
             </p>
             <button
               onClick={() => setShowInvestigatorAlert(false)}
               className="w-full py-3.5 px-6 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-amber-200 active:scale-95"
             >
-              D'accord, j'ai compris
+              D&apos;accord, j&apos;ai compris
             </button>
           </div>
         </div>

@@ -64,7 +64,7 @@ const StatsViewer = forwardRef((props, ref) => {
                         <TrendingUp className="w-5 h-5 text-blue-500" />
                         Tableau de bord
                     </h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Vue d'ensemble des performances</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Vue d&apos;ensemble des performances</p>
                 </div>
                 <button
                     onClick={fetchStats}
@@ -261,7 +261,7 @@ const StatsViewer = forwardRef((props, ref) => {
                             <>
                                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                                     <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
-                                        Priorité d'action
+                                        Priorité d&apos;action
                                     </p>
                                     <p className="text-lg font-bold text-slate-800">{priorityClient.nom}</p>
                                     <p className="text-xs text-slate-500 mt-1">

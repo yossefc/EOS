@@ -2,7 +2,7 @@ import  { useState, useEffect, lazy, Suspense } from 'react';
 import axios from 'axios';
 import {
   DollarSign, PlusCircle, RefreshCw, Check, AlertCircle, Edit, Trash2,
-  FilePlus,  Calculator,  BarChart2, Users
+  FilePlus
 } from 'lucide-react';
 import config from '../config';
 
@@ -18,11 +18,6 @@ const TarificationViewer = () => {
   const [tarifsEnqueteur, setTarifsEnqueteur] = useState([]);
   const [enqueteurs, setEnqueteurs] = useState([]);
   
-  // Nouveaux états pour les rapports financiers
-  const [globalStats, setGlobalStats] = useState(null);
-  const [enquetesAFacturer, setEnquetesAFacturer] = useState([]);
-  const [loadingStats, setLoadingStats] = useState(false);
-  const [loadingEnquetes, setLoadingEnquetes] = useState(false);
   // États pour les formulaires
   const [showFormEOS, setShowFormEOS] = useState(false);
   const [showFormEnqueteur, setShowFormEnqueteur] = useState(false);
@@ -255,44 +250,6 @@ useEffect(() => {
     });
     setEditingEnqueteur(tarif);
     setShowFormEnqueteur(true);
-  };
-  // Fonctions pour les rapports financiers
-  const fetchGlobalStats = async () => {
-    try {
-      setLoadingStats(true);
-      
-      const response = await axios.get(`${API_URL}/api/tarification/stats/global`);
-      
-      if (response.data.success) {
-        setGlobalStats(response.data.data);
-      } else {
-        setError(response.data.error || "Erreur lors du chargement des statistiques");
-      }
-    } catch (error) {
-      console.error("Erreur lors du chargement des statistiques:", error);
-      setError(error.response?.data?.error || "Erreur lors du chargement des statistiques");
-    } finally {
-      setLoadingStats(false);
-    }
-  };
-
-  const fetchEnquetesAFacturer = async () => {
-    try {
-      setLoadingEnquetes(true);
-      
-      const response = await axios.get(`${API_URL}/api/tarification/enquetes-a-facturer`);
-      
-      if (response.data.success) {
-        setEnquetesAFacturer(response.data.data);
-      } else {
-        setError(response.data.error || "Erreur lors du chargement des enquêtes");
-      }
-    } catch (error) {
-      console.error("Erreur lors du chargement des enquêtes:", error);
-      setError(error.response?.data?.error || "Erreur lors du chargement des enquêtes");
-    } finally {
-      setLoadingEnquetes(false);
-    }
   };
   // Rendu de l'interface
   return (
@@ -575,7 +532,7 @@ useEffect(() => {
                 <form onSubmit={handleSubmitEnqueteur} className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
                     <p className="text-sm text-blue-800">
-                      ℹ️ <strong>Pour EOS uniquement.</strong> Les tarifs PARTNER sont calculés automatiquement avec un pourcentage configurable dans "Gestion Clients".
+                      ℹ️ <strong>Pour EOS uniquement.</strong> Les tarifs PARTNER sont calculés automatiquement avec un pourcentage configurable dans &quot;Gestion Clients&quot;.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

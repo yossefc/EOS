@@ -229,6 +229,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
       fetchEarnings();
       fetchEarningsHistory();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enqueteurId, month, year, viewAll, selectedClientId, loadingClients]);
 
   // Fetch monthly stats when switching to monthly-stats view or when period/client changes
@@ -236,6 +237,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
     if (enqueteurId && activeView === 'monthly-stats' && !loadingClients) {
       fetchMonthlyStats();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enqueteurId, activeView, monthsPeriod, selectedClientId, loadingClients]);
 
 
@@ -877,7 +879,7 @@ const EnhancedEarningsViewer = ({ enqueteurId }) => {
 
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-xs text-gray-600">Nombre d'enquêtes</div>
+                    <div className="text-xs text-gray-600">Nombre d&apos;enquêtes</div>
                     <div className="text-sm font-medium">{earnings.nombre_enquetes}</div>
                   </div>
                   <div className="text-right">

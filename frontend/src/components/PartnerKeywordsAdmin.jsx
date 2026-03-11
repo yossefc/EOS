@@ -418,9 +418,9 @@ const PartnerKeywordsAdmin = () => {
           <div>
             <h4 className="font-bold text-gray-900 mb-2">Comment ça marche ?</h4>
             <div className="text-sm text-gray-700 space-y-1">
-              <p>1️⃣ Vous importez un fichier avec <span className="font-mono bg-white px-2 py-0.5 rounded">RECHERCHE = "ADRESSE EMPLOYEUR"</span></p>
+              <p>1️⃣ Vous importez un fichier avec <span className="font-mono bg-white px-2 py-0.5 rounded">RECHERCHE = &quot;ADRESSE EMPLOYEUR&quot;</span></p>
               <p>2️⃣ Le système détecte automatiquement : 🏠 Adresse + 💼 Employeur</p>
-              <p>3️⃣ Ces demandes apparaissent dans le tableau et dans la fiche de l'enquête</p>
+              <p>3️⃣ Ces demandes apparaissent dans le tableau et dans la fiche de l&apos;enquête</p>
             </div>
           </div>
         </div>

@@ -56,14 +56,12 @@ def create_app(config_class=Config):
         instance_path = os.path.join(os.path.dirname(__file__), 'instance')
         os.makedirs(instance_path, exist_ok=True)
         
-        # Importer tous les modֳ¨les pour s'assurer qu'ils sont enregistrֳ©s
+        # Importer tous les modèles pour s'assurer qu'ils sont enregistrés par Alembic
         from models.enquete_archive_file import EnqueteArchiveFile
         from models.export_batch import ExportBatch
-        
-        # Note: db.create_all() temporairement rֳ©activֳ© pour migration PostgreSQL
-        # Aprֳ¨s migration, utiliser: flask db upgrade pour les futures modifications
-        db.create_all()  # Temporairement rֳ©activֳ©
-        logger.info("Base de donnֳ©es initialisֳ©e")
+
+        # Les migrations de schéma sont gérées par Alembic (flask db upgrade)
+        logger.info("Modèles chargés — schéma géré par Alembic")
     
     # Enregistrer les blueprints
     register_blueprints(app)

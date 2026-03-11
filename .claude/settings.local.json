@@ -29,7 +29,16 @@
       "Bash(PGPASSWORD=eos_password \"/c/Program Files/PostgreSQL/17/bin/psql\":*)",
       "Bash(set:*)",
       "Bash(DATABASE_URL=\"postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db\" python:*)",
-      "Bash(DATABASE_URL=\"postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db\" python -c \"\nimport os\nos.environ[''DATABASE_URL''] = ''postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db''\nfrom app import create_app, db\nfrom models.models import Donnee\nfrom models.models_enqueteur import DonneeEnqueteur\n\napp = create_app\\(\\)\nwith app.app_context\\(\\):\n    # Dump complet donnee_enqueteur pour JACOB VANILLE \\(37003\\)\n    de = DonneeEnqueteur.query.filter_by\\(donnee_id=37003\\).first\\(\\)\n    if de:\n        d = de.to_dict\\(\\)\n        for k, v in d.items\\(\\):\n            if v is not None and v != '''' and v != 0:\n                print\\(f''  {k} = {v}''\\)\n    \n    print\\(\\)\n    print\\(''--- Donnee originale \\(donnees table\\) ---''\\)\n    donnee = db.session.get\\(Donnee, 37003\\)\n    dd = donnee.to_dict\\(\\)\n    for k, v in dd.items\\(\\):\n        if v is not None and v != '''' and v != 0 and v != False:\n            print\\(f''  {k} = {v}''\\)\n\")"
+      "Bash(DATABASE_URL=\"postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db\" python -c \"\nimport os\nos.environ[''DATABASE_URL''] = ''postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db''\nfrom app import create_app, db\nfrom models.models import Donnee\nfrom models.models_enqueteur import DonneeEnqueteur\n\napp = create_app\\(\\)\nwith app.app_context\\(\\):\n    # Dump complet donnee_enqueteur pour JACOB VANILLE \\(37003\\)\n    de = DonneeEnqueteur.query.filter_by\\(donnee_id=37003\\).first\\(\\)\n    if de:\n        d = de.to_dict\\(\\)\n        for k, v in d.items\\(\\):\n            if v is not None and v != '''' and v != 0:\n                print\\(f''  {k} = {v}''\\)\n    \n    print\\(\\)\n    print\\(''--- Donnee originale \\(donnees table\\) ---''\\)\n    donnee = db.session.get\\(Donnee, 37003\\)\n    dd = donnee.to_dict\\(\\)\n    for k, v in dd.items\\(\\):\n        if v is not None and v != '''' and v != 0 and v != False:\n            print\\(f''  {k} = {v}''\\)\n\")",
+      "Bash(venvScriptspython.exe -c \"import dotenv; print\\(''dotenv OK''\\)\")",
+      "Bash(cmd /c \"cd /d D:\\\\EOS\\\\backend && venv\\\\Scripts\\\\python.exe -c \"\"import dotenv; print\\(''dotenv OK''\\)\"\"\")",
+      "Bash(cmd /c \"D:\\\\EOS\\\\backend\\\\venv\\\\Scripts\\\\python.exe -c \"\"import dotenv; print\\(''dotenv OK''\\)\"\"\")",
+      "Bash(D:/EOS/backend/venv/Scripts/python.exe:*)",
+      "Bash(D:/EOS/frontend/node_modules/.bin/eslint.cmd:*)",
+      "Bash(cmd /c \"cd /d D:\\\\EOS\\\\frontend && node_modules\\\\.bin\\\\eslint src --format compact 2>&1\")",
+      "Bash(cmd /c \"D:\\\\EOS\\\\frontend\\\\node_modules\\\\.bin\\\\eslint.cmd:*)",
+      "Bash(node node_modules/eslint/bin/eslint.js:*)",
+      "Bash(wc:*)"
     ]
   }
 }

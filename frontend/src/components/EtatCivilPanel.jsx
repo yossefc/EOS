@@ -77,10 +77,10 @@ const EtatCivilPanel = ({ originalData, formData, onValidate }) => {
       {/* Aide (collapsible) */}
       {showHelp && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-          <p className="mb-2">Corrigez les champs si vous constatez des différences avec l'état civil retrouvé :</p>
+          <p className="mb-2">Corrigez les champs si vous constatez des différences avec l&apos;état civil retrouvé :</p>
           <ul className="list-disc list-inside space-y-0.5 text-blue-600">
             <li>Ne modifiez que les champs nécessaires</li>
-            <li>Champs vides = valeurs d'origine conservées</li>
+            <li>Champs vides = valeurs d&apos;origine conservées</li>
             <li>Sélectionnez le type de divergence</li>
             <li>Documentez dans les mémos</li>
           </ul>
@@ -196,7 +196,7 @@ const EtatCivilPanel = ({ originalData, formData, onValidate }) => {
       <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
         <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
         <p className="text-xs text-amber-700">
-          <strong>Important :</strong> Documentez les divergences dans l'onglet Commentaires.
+          <strong>Important :</strong> Documentez les divergences dans l&apos;onglet Commentaires.
         </p>
       </div>
     </div>
