@@ -658,11 +658,22 @@ class PartnerExportService:
         
         return output
     
-    def create_export_batch(self, enquete_ids, export_type, filename, filepath, file_size):
+    def create_export_batch(self, enquete_ids, export_type, filename, filepath, file_size, file_data=None):
         """
-        Crée un enregistrement ExportBatch et marque les enquêtes comme exportées et archivées
+        Crée un enregistrement ExportBatch et marque les enquêtes comme exportées et archivées.
+        Si file_data (bytes) est fourni, sauvegarde le fichier sur disque pour permettre
+        le re-téléchargement ultérieur via /api/exports/batches/<id>/download.
         """
         try:
+            # Sauvegarder le fichier sur disque si les données sont fournies
+            if file_data is not None:
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                filepath_full = os.path.join(base_dir, 'exports', filepath.replace('/', os.sep))
+                os.makedirs(os.path.dirname(filepath_full), exist_ok=True)
+                with open(filepath_full, 'wb') as f:
+                    f.write(file_data if isinstance(file_data, bytes) else file_data.getvalue())
+                logger.info(f"Fichier d'export sauvegardé: {filepath_full}")
+
             # Créer le batch
             batch = ExportBatch(
                 client_id=self.client_id,

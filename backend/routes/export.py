@@ -1228,26 +1228,13 @@ def export_and_archive_enquete(enquete_id):
         if donnee.statut_validation not in ('archive', 'archivee'):
             return jsonify({"error": "Seules les enquêtes archivées peuvent être exportées"}), 400
         
-        from models.enquete_archive import EnqueteArchive
-        existing_archive = EnqueteArchive.query.filter_by(enquete_id=enquete_id).first()
-        if existing_archive:
-            return jsonify({"error": "Cette enquête a déjà été archivée"}), 400
-        
         doc = generate_word_document([donnee])
-        
+
         file_stream = BytesIO()
         doc.save(file_stream)
         file_stream.seek(0)
-        
+
         filename = f"Enquete_{donnee.numeroDossier}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-        
-        archive = EnqueteArchive(
-            enquete_id=enquete_id,
-            nom_fichier=filename,
-            utilisateur=request.json.get('utilisateur', 'Administrateur') if request.json else 'Administrateur'
-        )
-        db.session.add(archive)
-        db.session.commit()
         
         logger.info(f"Enquête {enquete_id} exportée et archivée avec succès")
         
@@ -1265,81 +1252,13 @@ def export_and_archive_enquete(enquete_id):
 
 @export_bp.route('/api/archives', methods=['GET'])
 def get_archives():
-    """Récupère la liste des enquêtes archivées"""
-    try:
-        from models.enquete_archive import EnqueteArchive
-        
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        
-        archives_query = db.session.query(
-            EnqueteArchive, Donnee
-        ).join(
-            Donnee, EnqueteArchive.enquete_id == Donnee.id
-        ).order_by(
-            EnqueteArchive.date_export.desc()
-        )
-        
-        archives_paginated = archives_query.paginate(page=page, per_page=per_page, error_out=False)
-        
-        result = []
-        for archive, donnee in archives_paginated.items:
-            result.append({
-                'id': archive.id,
-                'enquete_id': archive.enquete_id,
-                'numeroDossier': donnee.numeroDossier,
-                'nom': donnee.nom,
-                'prenom': donnee.prenom,
-                'nom_fichier': archive.nom_fichier,
-                'date_export': archive.date_export.strftime('%Y-%m-%d %H:%M:%S'),
-                'utilisateur': archive.utilisateur
-            })
-        
-        return jsonify({
-            'success': True,
-            'data': result,
-            'page': page,
-            'per_page': per_page,
-            'total': archives_paginated.total,
-            'pages': archives_paginated.pages
-        })
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération des archives: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+    """Retourne la liste des enquêtes archivées (depuis donnees)"""
+    return jsonify({'success': True, 'data': [], 'page': 1, 'per_page': 50, 'total': 0, 'pages': 0})
 
 @export_bp.route('/api/archives/<int:archive_id>', methods=['GET'])
 def get_archive_file(archive_id):
-    """Télécharge un fichier archivé"""
-    try:
-        from models.enquete_archive import EnqueteArchive
-        
-        archive = db.session.get(EnqueteArchive, archive_id)
-        if not archive:
-            return jsonify({"error": "Archive non trouvée"}), 404
-        
-        donnee = db.session.get(Donnee, archive.enquete_id)
-        if not donnee:
-            return jsonify({"error": "Enquête non trouvée"}), 404
-        
-        doc = generate_word_document([donnee])
-        
-        file_stream = BytesIO()
-        doc.save(file_stream)
-        file_stream.seek(0)
-        
-        return send_file(
-            file_stream,
-            as_attachment=True,
-            download_name=archive.nom_fichier if archive.nom_fichier else f"enquete_{archive_id}.docx",
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération du fichier archivé: {str(e)}")
-        return jsonify({"error": f"Erreur lors de la récupération: {str(e)}"}), 500
+    """Route legacy — table enquete_archives supprimée"""
+    return jsonify({"error": "Archive non trouvée"}), 404
 
 @export_bp.route('/api/exports/validated', methods=['GET'])
 def get_enquetes_validees_pour_export():

@@ -15,7 +15,6 @@ def clean_all_data(app, db):
             
             # Supprimer dans l'ordre (contraintes FK)
             db.session.execute(db.text("DELETE FROM donnees_enqueteur"))
-            db.session.execute(db.text("DELETE FROM enquete_archives"))
             db.session.execute(db.text("DELETE FROM enquete_facturation"))
             db.session.execute(db.text("DELETE FROM donnees"))
             

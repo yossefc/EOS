@@ -4,7 +4,6 @@ Routes de validation V2 - Validation depuis l'onglet Données
 from flask import Blueprint, request, jsonify
 from models.models import Donnee
 from models.models_enqueteur import DonneeEnqueteur
-from models.enquete_archive import EnqueteArchive
 from extensions import db
 from datetime import datetime
 import logging
@@ -133,10 +132,6 @@ def refuser_enquete(enquete_id):
             f'Enquête refusée par {utilisateur}. Motif: {motif}. Statut remis à en_attente.',
             utilisateur
         )
-        
-        # Ne pas créer d'archive
-        # Supprimer l'archive si elle existe (au cas où)
-        EnqueteArchive.query.filter_by(enquete_id=enquete_id).delete()
         
         db.session.commit()
         

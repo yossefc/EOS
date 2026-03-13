@@ -406,14 +406,12 @@ def generate_facturation_client_pdf(client_nom, facturations, montant_total, dat
 
         # Tableau détaillé
         data = [
-            ["N° Dossier", "Nom", "Prénom", "Éléments", "Date retour", "Montant HT"]
+            ["N° Dossier", "Nom", "Prénom", "Éléments", "Date archivage", "Montant HT"]
         ]
 
         for f in facturations:
-            # Formater les éléments trouvés en texte lisible
             elems = f.get('elements_retrouves') or '-'
-
-            date_retour = f.get('date_retour') or '-'
+            date_archive = f.get('date_archive') or '-'
             montant = f.get('montant', 0)
 
             data.append([
@@ -421,7 +419,7 @@ def generate_facturation_client_pdf(client_nom, facturations, montant_total, dat
                 str(f.get('nom', '')),
                 str(f.get('prenom', '')),
                 elems,
-                date_retour,
+                date_archive,
                 f"{montant:.2f} €"
             ])
 

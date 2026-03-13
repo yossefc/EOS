@@ -88,7 +88,8 @@ def export_enquetes_positives_both():
             export_type='enquete_positive_both',
             filename=f'export_positif_{timestamp}.zip',
             filepath=f'archives/partner/export_positif_{timestamp}.zip',
-            file_size=len(zip_buffer.getvalue())
+            file_size=len(zip_buffer.getvalue()),
+            file_data=zip_buffer.getvalue()
         )
         
         logger.info(f"Export combiné enquêtes positives PARTNER: {len(enquetes)} enquêtes, batch #{batch.id}")
@@ -175,7 +176,8 @@ def export_enquetes_positives():
             export_type='enquete_positive',
             filename=f'export_positif_{timestamp}.zip',
             filepath=f'archives/partner/export_positif_{timestamp}.zip',
-            file_size=len(zip_buffer.getvalue())
+            file_size=len(zip_buffer.getvalue()),
+            file_data=zip_buffer.getvalue()
         )
         
         logger.info(f"Export enquêtes positives PARTNER créé: {len(enquetes)} enquêtes, batch #{batch.id}")
@@ -246,7 +248,8 @@ def export_enquetes_positives_docx():
             export_type='enquete_positive_word',
             filename=filename,
             filepath=f'archives/partner/{filename}',
-            file_size=len(output.getvalue())
+            file_size=len(output.getvalue()),
+            file_data=output.getvalue()
         )
         
         output.seek(0)
@@ -319,7 +322,8 @@ def export_enquetes_positives_xls():
             export_type='enquete_positive_excel',
             filename=filename,
             filepath=f'archives/partner/{filename}',
-            file_size=len(output.getvalue())
+            file_size=len(output.getvalue()),
+            file_data=output.getvalue()
         )
         
         output.seek(0)
@@ -392,7 +396,8 @@ def export_enquetes_negatives():
                 export_type='enquete_negative',
                 filename=filename,
                 filepath=f'archives/partner/{filename}',
-                file_size=len(output.getvalue())
+                file_size=len(output.getvalue()),
+                file_data=output.getvalue()
             )
             logger.info(f"Export enquêtes négatives PARTNER créé: {len(enquetes)} enquêtes, batch #{batch.id}")
         else:
@@ -472,7 +477,8 @@ def export_enquetes_negatives_both():
                 export_type='enquete_negative_both',
                 filename=f'export_negatif_{timestamp}.zip',
                 filepath=f'archives/partner/export_negatif_{timestamp}.zip',
-                file_size=len(zip_buffer.getvalue())
+                file_size=len(zip_buffer.getvalue()),
+                file_data=zip_buffer.getvalue()
             )
             logger.info(f"Export combiné enquêtes négatives PARTNER: {len(enquetes)} enquêtes, batch #{batch.id}")
         else:
@@ -542,7 +548,8 @@ def export_enquetes_negatives_docx():
             export_type='enquete_negative_word',
             filename=filename,
             filepath=f'archives/partner/{filename}',
-            file_size=len(output.getvalue())
+            file_size=len(output.getvalue()),
+            file_data=output.getvalue()
         )
         
         output.seek(0)
@@ -611,7 +618,8 @@ def export_contestations_positives_xls():
             export_type='contestation_positive_excel',
             filename=filename,
             filepath=f'archives/partner/{filename}',
-            file_size=len(output.getvalue())
+            file_size=len(output.getvalue()),
+            file_data=output.getvalue()
         )
         
         output.seek(0)
@@ -680,7 +688,8 @@ def export_contestations_negatives_docx():
             export_type='contestation_negative_word',
             filename=filename,
             filepath=f'archives/partner/{filename}',
-            file_size=len(output.getvalue())
+            file_size=len(output.getvalue()),
+            file_data=output.getvalue()
         )
         
         output.seek(0)
@@ -759,7 +768,8 @@ def export_contestations_positives_both():
             export_type='contestation_positive_both',
             filename=f'export_contest_pos_{timestamp}.zip',
             filepath=f'archives/partner/export_contest_pos_{timestamp}.zip',
-            file_size=len(zip_buffer.getvalue())
+            file_size=len(zip_buffer.getvalue()),
+            file_data=zip_buffer.getvalue()
         )
         
         logger.info(f"Export combiné contestations positives PARTNER: {len(contestations)} contestations, batch #{batch.id}")
@@ -831,6 +841,7 @@ def export_contestations_positives():
             export_type='contestation_positive',
             filename=filename,
             filepath=f'archives/partner/{filename}',
+            file_data=output.getvalue(),
             file_size=len(output.getvalue())
         )
         
@@ -912,7 +923,8 @@ def export_contestations_negatives_both():
             export_type='contestation_negative_both',
             filename=f'export_contest_neg_{timestamp}.zip',
             filepath=f'archives/partner/export_contest_neg_{timestamp}.zip',
-            file_size=len(zip_buffer.getvalue())
+            file_size=len(zip_buffer.getvalue()),
+            file_data=zip_buffer.getvalue()
         )
         
         logger.info(f"Export combiné contestations négatives PARTNER: {len(contestations)} contestations, batch #{batch.id}")
@@ -982,7 +994,8 @@ def export_contestations_negatives():
                 export_type='contestation_negative',
                 filename=filename,
                 filepath=f'archives/partner/{filename}',
-                file_size=len(output.getvalue())
+                file_size=len(output.getvalue()),
+                file_data=output.getvalue()
             )
             logger.info(f"Export contestations négatives PARTNER créé: {len(contestations)} contestations, batch #{batch.id}")
         else:

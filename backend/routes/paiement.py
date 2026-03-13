@@ -712,13 +712,25 @@ def generer_pdf_facturation_client(client_id):
             montant = float(facturation.resultat_eos_montant or 0)
             montant_total += montant
 
+            # Numéro de dossier: numeroDossier si présent, sinon ID interne
+            num_dossier = donnee.numeroDossier or f'#{donnee.id}'
+
+            # Élément trouvé: elements_retrouves, sinon adresse (PARTNER), sinon code résultat
+            elements = donnee_enqueteur.elements_retrouves
+            if not elements:
+                adr = ' '.join(filter(None, [donnee_enqueteur.adresse1, donnee_enqueteur.ville]))
+                elements = adr or donnee_enqueteur.code_resultat or '-'
+
+            # Date d'archivage (coalesce exported_at / ef.created_at)
+            date_str = date_archive.strftime('%d/%m/%Y') if date_archive else '-'
+
             facturations_details.append({
-                'numeroDossier': donnee.numeroDossier or '',
+                'numeroDossier': num_dossier,
                 'nom': donnee.nom or '',
                 'prenom': donnee.prenom or '',
-                'elements_retrouves': donnee_enqueteur.elements_retrouves or '-',
+                'elements_retrouves': elements,
                 'montant': montant,
-                'date_retour': donnee_enqueteur.date_retour.strftime('%d/%m/%Y') if donnee_enqueteur.date_retour else '-',
+                'date_archive': date_str,
             })
 
         # Générer le PDF

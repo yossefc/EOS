@@ -10,7 +10,6 @@ from io import BytesIO
 from models.models import Donnee
 from models.models_enqueteur import DonneeEnqueteur
 from models.enqueteur import Enqueteur
-from models.enquete_archive import EnqueteArchive
 from models.enquete_archive_file import EnqueteArchiveFile
 from extensions import db
 
@@ -309,14 +308,6 @@ def archive_enquete(enquete_id):
         # Mettre à jour le statut de l'enquête
         donnee.statut_validation = 'archive'
         donnee.updated_at = datetime.datetime.utcnow()
-        
-        # Créer l'entrée dans EnqueteArchive (pour compatibilité)
-        archive = EnqueteArchive(
-            enquete_id=enquete_id,
-            nom_fichier=filename,
-            utilisateur=utilisateur
-        )
-        db.session.add(archive)
         
         # Créer l'entrée dans EnqueteArchiveFile
         archive_file = EnqueteArchiveFile(
