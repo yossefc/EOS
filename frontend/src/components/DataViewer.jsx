@@ -921,7 +921,16 @@ const DataViewer = () => {
                               })()}
                             </div>
                           ) : (
-                            <span className="whitespace-nowrap">{donnee.elements_retrouves || '-'}</span>
+                            <div className="space-y-1">
+                              <div className="whitespace-nowrap font-medium text-gray-800">
+                                {donnee.elementDemandes || '-'}
+                              </div>
+                              {donnee.elements_retrouves ? (
+                                <div className="text-xs text-gray-500">
+                                  Trouvés: {donnee.elements_retrouves}
+                                </div>
+                              ) : null}
+                            </div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -970,13 +979,15 @@ const DataViewer = () => {
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => handleOpenHistoryModal(donnee)}
-                              className="text-amber-600 hover:text-amber-900"
-                              title="Historique"
-                            >
-                              <History className="w-4 h-4" />
-                            </button>
+                            {(donnee.has_historique || donnee.typeDemande === 'CON' || donnee.est_contestation) && (
+                              <button
+                                onClick={() => handleOpenHistoryModal(donnee)}
+                                className="text-amber-600 hover:text-amber-900"
+                                title="Historique"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleSupprimerEnquete(donnee.id)}
                               className="text-red-500 hover:text-red-700"

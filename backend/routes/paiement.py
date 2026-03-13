@@ -392,13 +392,13 @@ def get_stats_periodes():
         
         # Date de début (mois actuel - nb_mois)
         now = datetime.now()
-        date_debut = datetime(now.year, now.month, 1) - timedelta(days=1)
+        date_debut = datetime(now.year, now.month, 1)
         for _ in range(nb_mois):
             if date_debut.month == 1:
                 date_debut = datetime(date_debut.year - 1, 12, 1)
             else:
                 date_debut = datetime(date_debut.year, date_debut.month - 1, 1)
-        
+
         # Liste des mois à couvrir
         periodes = []
         current_date = date_debut
@@ -407,14 +407,15 @@ def get_stats_periodes():
                 next_month = datetime(current_date.year + 1, 1, 1)
             else:
                 next_month = datetime(current_date.year, current_date.month + 1, 1)
-            
+
             periodes.append({
                 'annee': current_date.year,
                 'mois': current_date.month,
                 'debut': current_date,
-                'fin': next_month - timedelta(days=1)
+                'fin': next_month - timedelta(days=1),
+                'next': next_month  # borne exclusive pour les timestamps
             })
-            
+
             current_date = next_month
         
         # Statistiques pour chaque période
@@ -422,27 +423,31 @@ def get_stats_periodes():
         
         for periode in periodes:
             # Base query pour enquêtes traitées
-            query_enquetes = db.session.query(func.count(DonneeEnqueteur.id)).join(
-                Donnee, DonneeEnqueteur.donnee_id == Donnee.id
+            # Utilise EnqueteFacturation.created_at (= datedenvoie des archives)
+            # pour que le comptage soit cohérent avec les montants facturés
+            query_enquetes = db.session.query(func.count(EnqueteFacturation.id)).join(
+                Donnee, EnqueteFacturation.donnee_id == Donnee.id
+            ).join(
+                DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
             )
-            
+
             # ✅ AJOUT: Filtre client si fourni
             if client_id:
-                query_enquetes = query_enquetes.filter(Donnee.client_id == client_id)
-            
+                query_enquetes = query_enquetes.filter(EnqueteFacturation.client_id == client_id)
+
             nb_enquetes = query_enquetes.filter(
                 DonneeEnqueteur.code_resultat.isnot(None),
                 Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee']),
-                DonneeEnqueteur.updated_at >= periode['debut'],
-                DonneeEnqueteur.updated_at <= periode['fin']
+                EnqueteFacturation.created_at >= periode['debut'],
+                EnqueteFacturation.created_at < periode['next']
             ).scalar() or 0
-            
+
             # Base query pour facturations
             query_fact = db.session.query(EnqueteFacturation).join(
                 Donnee, EnqueteFacturation.donnee_id == Donnee.id
             ).filter(
                 EnqueteFacturation.created_at >= periode['debut'],
-                EnqueteFacturation.created_at <= periode['fin'],
+                EnqueteFacturation.created_at < periode['next'],
                 Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee'])
             )
             
@@ -464,7 +469,7 @@ def get_stats_periodes():
             ).filter(
                 EnqueteFacturation.paye == True,
                 EnqueteFacturation.date_paiement >= periode['debut'],
-                EnqueteFacturation.date_paiement <= periode['fin'],
+                EnqueteFacturation.date_paiement < periode['next'],
                 Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee'])
             )
             
@@ -638,6 +643,11 @@ def generer_pdf_facturation_client(client_id):
     Query params optionnels:
         date_debut (YYYY-MM-DD), date_fin (YYYY-MM-DD)
         statut: 'all' (défaut), 'payees', 'non_payees'
+
+    Règle métier:
+        seules les enquêtes archivées sont facturées dans ce PDF.
+        La période s'applique à la date d'archivage/export, pas à la date
+        de création de la ligne de facturation.
     """
     try:
         from models.client import Client
@@ -654,16 +664,23 @@ def generer_pdf_facturation_client(client_id):
         date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date() if date_debut_str else None
         date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date() if date_fin_str else None
 
-        # Requête: EnqueteFacturation + Donnee + DonneeEnqueteur pour ce client
+        # Date d'archivage effective:
+        # 1. exported_at si renseigné (exports PARTNER récents)
+        # 2. sinon created_at de la facturation (= datedenvoie pour EOS)
+        effective_archive_date = func.coalesce(Donnee.exported_at, EnqueteFacturation.created_at)
+
+        # Requête: EnqueteFacturation + Donnee + DonneeEnqueteur pour ce client,
+        # limitée aux enquêtes réellement archivées.
         query = db.session.query(
-            EnqueteFacturation, Donnee, DonneeEnqueteur
+            EnqueteFacturation, Donnee, DonneeEnqueteur, effective_archive_date.label('date_archive')
         ).join(
             Donnee, EnqueteFacturation.donnee_id == Donnee.id
         ).join(
             DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
         ).filter(
             EnqueteFacturation.client_id == client_id,
-            EnqueteFacturation.resultat_eos_montant.isnot(None)
+            EnqueteFacturation.resultat_eos_montant.isnot(None),
+            Donnee.statut_validation.in_(['archive', 'archivee'])
         )
 
         # Filtre par statut de paiement
@@ -672,13 +689,13 @@ def generer_pdf_facturation_client(client_id):
         elif statut == 'non_payees':
             query = query.filter(EnqueteFacturation.paye == False)
 
-        # Filtre par période
+        # Filtre par période sur la date d'archivage/export.
         if date_debut:
-            query = query.filter(EnqueteFacturation.created_at >= datetime.combine(date_debut, time.min))
+            query = query.filter(effective_archive_date >= datetime.combine(date_debut, time.min))
         if date_fin:
-            query = query.filter(EnqueteFacturation.created_at <= datetime.combine(date_fin, time.max))
+            query = query.filter(effective_archive_date <= datetime.combine(date_fin, time.max))
 
-        query = query.order_by(EnqueteFacturation.created_at.desc())
+        query = query.order_by(effective_archive_date.desc(), EnqueteFacturation.created_at.desc())
         results = query.all()
 
         if not results:
@@ -691,7 +708,7 @@ def generer_pdf_facturation_client(client_id):
         facturations_details = []
         montant_total = 0.0
 
-        for facturation, donnee, donnee_enqueteur in results:
+        for facturation, donnee, donnee_enqueteur, date_archive in results:
             montant = float(facturation.resultat_eos_montant or 0)
             montant_total += montant
 

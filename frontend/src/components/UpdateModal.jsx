@@ -47,12 +47,31 @@ const hasTextValue = (value) => {
   return true;
 };
 
+const normalizeDisplayText = (value) => {
+  if (typeof value !== 'string') return value;
+  return value
+    .replaceAll('ֳ©', 'é')
+    .replaceAll('Ã©', 'é')
+    .replaceAll('Ã¨', 'è')
+    .replaceAll('Ãª', 'ê')
+    .replaceAll('Ã«', 'ë')
+    .replaceAll('Ã ', 'à')
+    .replaceAll('Ã¢', 'â')
+    .replaceAll('Ã¹', 'ù')
+    .replaceAll('Ã»', 'û')
+    .replaceAll('Ã´', 'ô')
+    .replaceAll('Ã¶', 'ö')
+    .replaceAll('Ã¯', 'ï')
+    .replaceAll('Ã§', 'ç')
+    .replaceAll('Â°', '°');
+};
+
 const buildProximiteFromForm = (values) => {
   const confirmeParRaw =
     values?.elements_retrouves === 'AUTRE'
       ? (values?.elements_retrouves_autre || '')
       : (values?.elements_retrouves || '');
-  const confirmePar = confirmeParRaw.trim() || 'non renseigne';
+  const confirmePar = confirmeParRaw.trim() || 'non renseign\u00e9';
 
   const elements = [];
 
@@ -96,7 +115,7 @@ const buildProximiteFromForm = (values) => {
   if (hasRevenus) elements.push('revenus');
 
   const foundText = elements.length > 0 ? elements.join(', ') : 'aucun element detaille';
-  return `Confirme par: ${confirmePar} | Retrouve: ${foundText}`;
+  return `Confirm\u00e9 par: ${confirmePar} | Retrouv\u00e9: ${foundText}`;
 };
 
 const ENQUETEUR_EXCLUDED_KEYS = new Set(['id', 'donnee_id', 'client_id', 'created_at', 'updated_at']);
@@ -104,7 +123,7 @@ const ENQUETEUR_EXCLUDED_KEYS = new Set(['id', 'donnee_id', 'client_id', 'create
 const ENQUETEUR_FIELD_LABELS = {
   code_resultat: 'Code resultat',
   elements_retrouves: 'Elements retrouves',
-  proximite: 'Confirme par / Proximite',
+  proximite: 'Confirm\u00e9 par / Proximit\u00e9',
   flag_etat_civil_errone: 'Etat civil errone',
   date_retour: 'Date retour',
   adresse1: 'Adresse 1',
@@ -170,7 +189,7 @@ const buildHistoricalEnqueteurRows = (source) => {
     .map(([key, value]) => ({
       key,
       label: ENQUETEUR_FIELD_LABELS[key] || key.replace(/_/g, ' '),
-      value: typeof value === 'string' ? value.trim() : String(value)
+      value: typeof value === 'string' ? normalizeDisplayText(value.trim()) : String(value)
     }));
 };
 
@@ -354,7 +373,12 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const [donneesSauvegardees, setDonneesSauvegardees] = useState(null);
   const [enqueteurs, setEnqueteurs] = useState([]);
   const [isLoading, setIsLoading] = useState({ submit: false, adresse: false });
-  const [suggestions, setSuggestions] = useState({ adresses: [], codesPostaux: [] });
+  const [suggestions, setSuggestions] = useState({
+    adresses: [],
+    codesPostaux: [],
+    addressTarget: null,
+    postalTarget: null
+  });
   const [enqueteOriginaleData, setEnqueteOriginaleData] = useState(
     data?.enqueteOriginale || data?.enquete_originale || null
   );
@@ -492,7 +516,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
         if (clientData && clientData.code !== 'EOS') {
           const optionsRes = await axios.get(`${API_URL}/api/confirmation-options/${clientData.id}`);
           if (optionsRes.data.success) {
-            setConfirmationOptions(optionsRes.data.all_options || []);
+            setConfirmationOptions((optionsRes.data.all_options || []).map((opt) => normalizeDisplayText(opt)));
           }
         }
 
@@ -513,13 +537,16 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           const d = response.data.data;
           const isPartnerClient = resolvedClientCode === 'PARTNER';
 
-          setDonneesSauvegardees(d);
+          setDonneesSauvegardees({
+            ...d,
+            proximite: normalizeDisplayText(d.proximite || '')
+          });
 
           const optionsPredefinies = isPartnerClient
             ? [...confirmationOptionsRef.current]
             : ['A', 'AT', 'D', 'AB', 'AE', 'ATB', 'ATE', 'ATBE', 'ATBER'];
           const elemVal = isPartnerClient
-            ? (d.proximite || '')
+            ? normalizeDisplayText(d.proximite || '')
             : (d.elements_retrouves || '');
           const hasElemVal = typeof elemVal === 'string' ? elemVal.trim() !== '' : Boolean(elemVal);
           const isPredefinie = hasElemVal && optionsPredefinies.includes(elemVal);
@@ -612,9 +639,48 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   }, [data, initializeWithDossierData]);
 
   // Address search
-  const searchAddress = useCallback(async (query) => {
+  const getAddressTargetConfig = (target) => {
+    if (target === 'employeur') {
+      return {
+        addressField: 'adresse3_employeur',
+        postalField: 'code_postal_employeur',
+        cityField: 'ville_employeur',
+        countryField: 'pays_employeur'
+      };
+    }
+    return {
+      addressField: 'adresse3',
+      postalField: 'code_postal',
+      cityField: 'ville',
+      countryField: 'pays_residence'
+    };
+  };
+
+  const getPostalTargetConfig = (target) => {
+    if (target === 'employeur') {
+      return {
+        postalField: 'code_postal_employeur',
+        cityField: 'ville_employeur',
+        countryField: 'pays_employeur'
+      };
+    }
+    if (target === 'deces') {
+      return {
+        postalField: 'code_postal_deces',
+        cityField: 'localite_deces',
+        countryField: null
+      };
+    }
+    return {
+      postalField: 'code_postal',
+      cityField: 'ville',
+      countryField: 'pays_residence'
+    };
+  };
+
+  const searchAddress = useCallback(async (query, target = 'residence') => {
     if (query.length <= 2) {
-      setSuggestions(prev => ({ ...prev, adresses: [] }));
+      setSuggestions(prev => ({ ...prev, adresses: [], addressTarget: null }));
       return;
     }
     setIsLoading(prev => ({ ...prev, adresse: true }));
@@ -625,6 +691,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
       if (res.data.features?.length > 0) {
         setSuggestions(prev => ({
           ...prev,
+          addressTarget: target,
           adresses: res.data.features.map(f => ({
             adresse: `${f.properties.housenumber} ${f.properties.street}`,
             codePostal: f.properties.postcode,
@@ -632,6 +699,8 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             adresseComplete: f.properties.label
           }))
         }));
+      } else {
+        setSuggestions(prev => ({ ...prev, adresses: [], addressTarget: null }));
       }
     } catch (err) {
       console.error('Erreur adresse:', err);
@@ -640,13 +709,15 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     }
   }, []);
 
-  // Postal code search
-  const searchByPostalCode = useCallback(async (code) => {
-    if (code.length < 3) return;
+  const searchMunicipality = useCallback(async (query, target = 'residence') => {
+    if (query.length < 2) {
+      setSuggestions(prev => ({ ...prev, codesPostaux: [], postalTarget: null }));
+      return;
+    }
     setIsLoading(prev => ({ ...prev, adresse: true }));
     try {
       const res = await axios.get(
-        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(code)}&type=municipality&limit=5`
+        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&type=municipality&limit=5`
       );
       if (res.data.features?.length > 0) {
         const villes = res.data.features.map(f => ({
@@ -654,10 +725,18 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
           ville: f.properties.city,
           label: `${f.properties.postcode} ${f.properties.city}`
         }));
-        setSuggestions(prev => ({ ...prev, codesPostaux: villes }));
-        if (code.length === 5 && villes.length === 1) {
-          setFormData(prev => ({ ...prev, ville: villes[0].ville }));
+        setSuggestions(prev => ({ ...prev, codesPostaux: villes, postalTarget: target }));
+        if (query.length === 5 && villes.length === 1) {
+          const { postalField, cityField, countryField } = getPostalTargetConfig(target);
+          setFormData(prev => ({
+            ...prev,
+            [postalField]: villes[0].codePostal,
+            [cityField]: villes[0].ville,
+            ...(countryField ? { [countryField]: 'FRANCE' } : {})
+          }));
         }
+      } else {
+        setSuggestions(prev => ({ ...prev, codesPostaux: [], postalTarget: null }));
       }
     } catch (err) {
       console.error('Erreur CP:', err);
@@ -686,8 +765,14 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === 'adresse3') searchAddress(value);
-    else if (name === 'code_postal' && value.length >= 3) searchByPostalCode(value);
+    if (name === 'adresse3') searchAddress(value, 'residence');
+    else if (name === 'adresse3_employeur') searchAddress(value, 'employeur');
+    else if (name === 'code_postal' && value.length >= 3) searchMunicipality(value, 'residence');
+    else if (name === 'code_postal_employeur' && value.length >= 3) searchMunicipality(value, 'employeur');
+    else if (name === 'code_postal_deces' && value.length >= 3) searchMunicipality(value, 'deces');
+    else if (name === 'ville' && value.length >= 2) searchMunicipality(value, 'residence');
+    else if (name === 'ville_employeur' && value.length >= 2) searchMunicipality(value, 'employeur');
+    else if (name === 'localite_deces' && value.length >= 2) searchMunicipality(value, 'deces');
     else if (name === 'code_resultat') {
       if (value === 'D') {
         setShowDeathInfo(true);
@@ -714,25 +799,27 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAddressSelect = (adresse) => {
+  const handleAddressSelect = (adresse, target = 'residence') => {
+    const { addressField, postalField, cityField, countryField } = getAddressTargetConfig(target);
     setFormData(prev => ({
       ...prev,
-      adresse3: adresse.adresse,
-      code_postal: adresse.codePostal,
-      ville: adresse.ville,
-      pays_residence: 'FRANCE'
+      [addressField]: adresse.adresse,
+      [postalField]: adresse.codePostal,
+      [cityField]: adresse.ville,
+      ...(countryField ? { [countryField]: 'FRANCE' } : {})
     }));
-    setSuggestions({ adresses: [], codesPostaux: [] });
+    setSuggestions(prev => ({ ...prev, adresses: [], codesPostaux: [], addressTarget: null, postalTarget: null }));
   };
 
-  const handlePostalCodeSelect = (item) => {
+  const handlePostalCodeSelect = (item, target = 'residence') => {
+    const { postalField, cityField, countryField } = getPostalTargetConfig(target);
     setFormData(prev => ({
       ...prev,
-      code_postal: item.codePostal,
-      ville: item.ville,
-      pays_residence: 'FRANCE'
+      [postalField]: item.codePostal,
+      [cityField]: item.ville,
+      ...(countryField ? { [countryField]: 'FRANCE' } : {})
     }));
-    setSuggestions(prev => ({ ...prev, codesPostaux: [] }));
+    setSuggestions(prev => ({ ...prev, codesPostaux: [], postalTarget: null }));
   };
 
   // Validation
@@ -1081,9 +1168,9 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 {/* Séparateur */}
                 <div className="h-8 w-px bg-slate-200" />
 
-                {/* Confirmé par qui */}
+                {/* Confirm\u00e9 par qui */}
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-slate-500">Confirmé par:</label>
+                  <label className="text-xs font-medium text-slate-500">Confirm\u00e9 par:</label>
                   <select
                     name="elements_retrouves"
                     value={formData.elements_retrouves}
@@ -1198,11 +1285,23 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 </InfoCard>
 
                 {/* Téléphones */}
-                {(data.telephonePersonnel_origine || data.telephoneEmployeur_origine) && (
+                {(data.telephonePersonnel_origine || (data.telephoneEmployeur_origine && !data.nomEmployeur_origine)) && (
                   <InfoCard icon={Info} title="Téléphones">
                     <div className="space-y-1">
                       {data.telephonePersonnel_origine && <div><span className="text-slate-500">Personnel:</span> {data.telephonePersonnel_origine}</div>}
-                      {data.telephoneEmployeur_origine && <div><span className="text-slate-500">Employeur:</span> {data.telephoneEmployeur_origine}</div>}
+                      {data.telephoneEmployeur_origine && !data.nomEmployeur_origine && <div><span className="text-slate-500">Tél. 2:</span> {data.telephoneEmployeur_origine}</div>}
+                    </div>
+                  </InfoCard>
+                )}
+
+                {/* Employeur origine */}
+                {data.nomEmployeur_origine && (
+                  <InfoCard icon={Briefcase} title="Employeur (fichier)">
+                    <div className="space-y-1">
+                      <div><strong>{data.nomEmployeur_origine}</strong></div>
+                      {data.telephoneEmployeur_origine && (
+                        <div><span className="text-slate-500">Tél. 2:</span> {data.telephoneEmployeur_origine}</div>
+                      )}
                     </div>
                   </InfoCard>
                 )}
@@ -1294,7 +1393,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       <div><span className="text-slate-500">Statut:</span> <strong>{STATUS_LABELS[donneesSauvegardees.code_resultat]}</strong></div>
                       <div><span className="text-slate-500">Éléments:</span> {donneesSauvegardees.elements_retrouves || '-'}</div>
                       {donneesSauvegardees.proximite && (
-                        <div><span className="text-slate-500">Proximite:</span> {donneesSauvegardees.proximite}</div>
+                        <div><span className="text-slate-500">Proximit\u00e9:</span> {normalizeDisplayText(donneesSauvegardees.proximite)}</div>
                       )}
                       <div className="text-xs text-slate-500">
                         {new Date(donneesSauvegardees.updated_at).toLocaleString()}
@@ -1419,10 +1518,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
                 <div className="relative">
                   <Field label="Ligne 3 (N° et rue) *" name="adresse3" value={formData.adresse3} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
-                  {suggestions.adresses.length > 0 && (
+                  {suggestions.addressTarget === 'residence' && suggestions.adresses.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
                       {suggestions.adresses.map((a, i) => (
-                        <button key={i} type="button" onClick={() => handleAddressSelect(a)}
+                        <button key={i} type="button" onClick={() => handleAddressSelect(a, 'residence')}
                           className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
                           {a.adresseComplete}
                         </button>
@@ -1435,10 +1534,10 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
 
                 <div className="relative">
                   <Field label="Code postal *" name="code_postal" value={formData.code_postal} onChange={handleInputChange} disabled={isDisabled} maxLength={10} />
-                  {suggestions.codesPostaux.length > 0 && (
+                  {suggestions.postalTarget === 'residence' && suggestions.codesPostaux.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
                       {suggestions.codesPostaux.map((item, i) => (
-                        <button key={i} type="button" onClick={() => handlePostalCodeSelect(item)}
+                        <button key={i} type="button" onClick={() => handlePostalCodeSelect(item, 'residence')}
                           className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
                           {item.label}
                         </button>
@@ -1523,8 +1622,32 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 <Field label="Date de décès *" name="date_deces" type="date" value={formData.date_deces} onChange={handleInputChange} disabled={isDisabled} />
                 <Field label="N° acte de décès" name="numero_acte_deces" value={formData.numero_acte_deces} onChange={handleInputChange} disabled={isDisabled} maxLength={10} />
                 <Field label="Code INSEE" name="code_insee_deces" value={formData.code_insee_deces} onChange={handleInputChange} disabled={isDisabled} maxLength={5} />
-                <Field label="Code postal" name="code_postal_deces" value={formData.code_postal_deces} onChange={handleInputChange} disabled={isDisabled} maxLength={10} />
-                <Field label="Localité" name="localite_deces" value={formData.localite_deces} onChange={handleInputChange} disabled={isDisabled} maxLength={32} className="col-span-2" />
+                <div className="relative">
+                  <Field label="Code postal" name="code_postal_deces" value={formData.code_postal_deces} onChange={handleInputChange} disabled={isDisabled} maxLength={10} />
+                  {suggestions.postalTarget === 'deces' && suggestions.codesPostaux.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
+                      {suggestions.codesPostaux.map((item, i) => (
+                        <button key={i} type="button" onClick={() => handlePostalCodeSelect(item, 'deces')}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative col-span-2">
+                  <Field label="Localité" name="localite_deces" value={formData.localite_deces} onChange={handleInputChange} disabled={isDisabled} maxLength={32} className="col-span-2" />
+                  {suggestions.postalTarget === 'deces' && suggestions.codesPostaux.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
+                      {suggestions.codesPostaux.map((item, i) => (
+                        <button key={i} type="button" onClick={() => handlePostalCodeSelect(item, 'deces')}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1535,9 +1658,45 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                 <Field label="Téléphone" name="telephone_employeur" value={formData.telephone_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={15} />
                 <Field label="Adresse 1" name="adresse1_employeur" value={formData.adresse1_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
                 <Field label="Adresse 2" name="adresse2_employeur" value={formData.adresse2_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
-                <Field label="Adresse 3" name="adresse3_employeur" value={formData.adresse3_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
-                <Field label="Code postal" name="code_postal_employeur" value={formData.code_postal_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={10} />
-                <Field label="Ville" name="ville_employeur" value={formData.ville_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
+                <div className="relative">
+                  <Field label="Adresse 3" name="adresse3_employeur" value={formData.adresse3_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
+                  {suggestions.addressTarget === 'employeur' && suggestions.adresses.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
+                      {suggestions.adresses.map((a, i) => (
+                        <button key={i} type="button" onClick={() => handleAddressSelect(a, 'employeur')}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
+                          {a.adresseComplete}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <Field label="Code postal" name="code_postal_employeur" value={formData.code_postal_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={10} />
+                  {suggestions.postalTarget === 'employeur' && suggestions.codesPostaux.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
+                      {suggestions.codesPostaux.map((item, i) => (
+                        <button key={i} type="button" onClick={() => handlePostalCodeSelect(item, 'employeur')}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <Field label="Ville" name="ville_employeur" value={formData.ville_employeur} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
+                  {suggestions.postalTarget === 'employeur' && suggestions.codesPostaux.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-auto">
+                      {suggestions.codesPostaux.map((item, i) => (
+                        <button key={i} type="button" onClick={() => handlePostalCodeSelect(item, 'employeur')}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b last:border-b-0">
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <SelectField label="Pays" name="pays_employeur" value={formData.pays_employeur || 'FRANCE'} onChange={handleInputChange} disabled={isDisabled}
                   options={COUNTRIES.map(c => ({ value: c, label: c }))} />
               </div>
@@ -1599,7 +1758,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                     <Field label="Memo adresse / téléphone" name="memo1" value={formData.memo1} onChange={handleInputChange} maxLength={64} />
                     <Field label="Memo employeur" name="memo3" value={formData.memo3} onChange={handleInputChange} maxLength={64} />
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Proximite (auto)</label>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Proximit\u00e9 (auto)</label>
                       <textarea
                         value={proximitePreview}
                         readOnly
@@ -1608,7 +1767,7 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Proximité (détails)</label>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Proximit\u00e9 (d\u00e9tails)</label>
                       <textarea name="memo5" value={formData.memo5} onChange={handleInputChange} rows="3" maxLength={1000}
                         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
                     </div>
@@ -1700,4 +1859,3 @@ UpdateModal.propTypes = {
 };
 
 export default UpdateModal;
-

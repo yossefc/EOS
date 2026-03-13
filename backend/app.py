@@ -558,9 +558,12 @@ def register_legacy_routes(app):
 
     def _build_same_nom_history_rows(donnee):
         """
-        Retourne toutes les enquêtes du même client avec le même NOM+PRENOM normalisés.
+        Retourne toutes les enquêtes avec le même NOM+PRENOM normalisés, tous clients confondus.
+        Cherche dans donnees (statut archivé OU ayant une facturation) + inclut les montants de tarification.
         """
         from sqlalchemy.orm import joinedload
+        from models.client import Client
+        from models.tarifs import EnqueteFacturation
 
         nom_reference, prenom_reference, _ = _extract_name_parts(donnee.nom, donnee.prenom)
         nom_token = _normalize_token(nom_reference)
@@ -568,19 +571,35 @@ def register_legacy_routes(app):
         if not nom_token or not prenom_token:
             return []
 
+        clients_by_id = {c.id: c.nom for c in Client.query.all()}
+
+        # Sous-requête : donnee_id ayant une facturation (tous statuts confondus)
+        facturation_ids_sq = db.session.query(EnqueteFacturation.donnee_id).subquery()
+
         candidats = Donnee.query.options(
             joinedload(Donnee.donnee_enqueteur),
             joinedload(Donnee.enqueteur)
         ).filter(
-            Donnee.client_id == donnee.client_id,
             Donnee.id != donnee.id,
-            Donnee.statut_validation.in_(ARCHIVED_STATUSES),
+            db.or_(
+                Donnee.statut_validation.in_(ARCHIVED_STATUSES),
+                Donnee.id.in_(facturation_ids_sq)
+            ),
             Donnee.nom.isnot(None),
             db.or_(
                 Donnee.nom.ilike(f"%{nom_reference}%"),
                 Donnee.prenom.ilike(f"%{nom_reference}%")
             )
         ).all()
+
+        # Charger les facturations de tous les candidats en une seule requête
+        candidat_ids = [item.id for item in candidats]
+        facturations_map = {}
+        if candidat_ids:
+            for f in EnqueteFacturation.query.filter(
+                EnqueteFacturation.donnee_id.in_(candidat_ids)
+            ).all():
+                facturations_map[f.donnee_id] = f
 
         rows = []
         for item in candidats:
@@ -591,6 +610,8 @@ def register_legacy_routes(app):
                 continue
 
             donnee_enqueteur = item.donnee_enqueteur
+            facturation = facturations_map.get(item.id)
+
             element_demandes_value = _clean_text_value(item.elementDemandes)
             if not element_demandes_value:
                 element_demandes_value = _infer_element_demandes_from_recherche_text(getattr(item, 'recherche', None))
@@ -627,6 +648,8 @@ def register_legacy_routes(app):
                     'typeDemande': item.typeDemande,
                     'est_contestation': item.est_contestation,
                     'statut_validation': item.statut_validation,
+                    'client_id': item.client_id,
+                    'client_nom': clients_by_id.get(item.client_id, f'Client {item.client_id}'),
                     'nom': item.nom,
                     'prenom': item.prenom,
                     'dateNaissance': item.dateNaissance.strftime('%Y-%m-%d') if item.dateNaissance else None,
@@ -637,7 +660,9 @@ def register_legacy_routes(app):
                     'proximite': proximite_value or None,
                     'memo_personnel': donnee_enqueteur.notes_personnelles if donnee_enqueteur else None,
                     'enqueteur': item.enqueteur.to_dict() if item.enqueteur else None,
-                    'donnee_enqueteur_saisie': _extract_filled_enqueteur_fields(donnee_enqueteur)
+                    'donnee_enqueteur_saisie': _extract_filled_enqueteur_fields(donnee_enqueteur),
+                    'montant_eos': float(facturation.resultat_eos_montant) if facturation and facturation.resultat_eos_montant is not None else None,
+                    'montant_enqueteur': float(facturation.resultat_enqueteur_montant) if facturation and facturation.resultat_enqueteur_montant is not None else None,
                 }
             ))
 
@@ -952,8 +977,6 @@ def register_legacy_routes(app):
         IMPORTANT: Cherche PRIORITAIREMENT les contestations (est_contestation=True)
         """
         try:
-            from models.enquete_archive import EnqueteArchive
-
             donnee = None
 
             # Permet de dֳ©sambiguֳ¯ser quand numeroDossier n'est pas unique.
@@ -1056,36 +1079,8 @@ def register_legacy_routes(app):
 
     @app.route('/api/archives-enquetes/<int:donnee_id>', methods=['GET'])
     def get_archives_enquetes(donnee_id):
-        """
-        Rֳ©cupֳ¨re toutes les archives (snapshots) d'une enquֳ×te dans EnqueteArchive
-        """
-        try:
-            from models.enquete_archive import EnqueteArchive
-            
-            # Chercher toutes les archives pour cette enquֳ×te (le champ est enquete_id pas donnee_id)
-            archives = EnqueteArchive.query.filter_by(enquete_id=donnee_id).order_by(
-                EnqueteArchive.date_export.desc()
-            ).all()
-            
-            result = []
-            for archive in archives:
-                result.append({
-                    'id': archive.id,
-                    'enquete_id': archive.enquete_id,
-                    'date_export': archive.date_export.strftime('%Y-%m-%d %H:%M:%S') if archive.date_export else None,
-                    'nom_fichier': archive.nom_fichier,
-                    'utilisateur': archive.utilisateur
-                })
-            
-            return jsonify({
-                'success': True,
-                'data': result,
-                'count': len(result)
-            })
-            
-        except Exception as e:
-            logger.error(f"Erreur lors de la rֳ©cupֳ©ration des archives enquֳ×tes: {str(e)}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+        """Route legacy — table enquete_archives supprimée"""
+        return jsonify({'success': True, 'data': [], 'count': 0})
 
     @app.route('/api/archives-enqueteurs/<int:donnee_id>', methods=['GET'])
     def get_archives_enqueteurs(donnee_id):
@@ -1630,6 +1625,46 @@ def register_legacy_routes(app):
             pagination = query.paginate(page=page, per_page=per_page, error_out=False)
             donnees = pagination.items
             
+            # Pré-calculer has_historique en batch (1 seule requête pour toute la page)
+            # Pour les contestations → toujours True
+            # Pour les autres → vrai si une enquête archivée avec même nom+prénom existe (tous clients)
+            non_con_donnees = [d for d in donnees if not (d.typeDemande == 'CON' or d.est_contestation)]
+            has_historique_ids = set(
+                d.id for d in donnees if d.typeDemande == 'CON' or d.est_contestation
+            )
+            if non_con_donnees:
+                page_noms = {}
+                page_noms_set = set()
+                for d in non_con_donnees:
+                    n_ref, p_ref, _ = _extract_name_parts(d.nom, d.prenom)
+                    n_tok = _normalize_token(n_ref)
+                    p_tok = _normalize_token(p_ref)
+                    page_noms[d.id] = (n_tok, p_tok)
+                    if n_ref:
+                        page_noms_set.add(n_ref.upper())
+                if page_noms_set:
+                    from models.tarifs import EnqueteFacturation as EF_batch
+                    fact_ids_sq = db.session.query(EF_batch.donnee_id).subquery()
+                    archived_check = Donnee.query.filter(
+                        db.or_(
+                            Donnee.statut_validation.in_(ARCHIVED_STATUSES),
+                            Donnee.id.in_(fact_ids_sq)
+                        ),
+                        Donnee.nom.isnot(None),
+                        db.or_(*[Donnee.nom.ilike(f"%{n}%") for n in page_noms_set])
+                    ).with_entities(Donnee.id, Donnee.nom, Donnee.prenom).all()
+                    archived_pairs = []
+                    for a_id, a_nom, a_prenom in archived_check:
+                        a_n_ref, a_p_ref, _ = _extract_name_parts(a_nom, a_prenom)
+                        archived_pairs.append((a_id, _normalize_token(a_n_ref), _normalize_token(a_p_ref)))
+                    for d in non_con_donnees:
+                        n_tok, p_tok = page_noms.get(d.id, ('', ''))
+                        if n_tok and p_tok:
+                            for a_id, a_n, a_p in archived_pairs:
+                                if a_id != d.id and a_n == n_tok and a_p == p_tok:
+                                    has_historique_ids.add(d.id)
+                                    break
+
             # Construire les rֳ©sultats avec donnֳ©es enrichies
             result = []
             for donnee in donnees:
@@ -1673,6 +1708,7 @@ def register_legacy_routes(app):
                 
                 # Ajouter les indicateurs pour la validation
                 donnee_dict['has_response'] = has_response
+                donnee_dict['has_historique'] = donnee.id in has_historique_ids
                 # Les enquֳ×tes avec statut 'confirmee' peuvent ֳ×tre validֳ©es par l'admin
                 donnee_dict['can_validate'] = has_response and donnee.statut_validation == 'confirmee'
                 
@@ -2643,7 +2679,7 @@ def register_legacy_routes(app):
             from models.models_enqueteur import DonneeEnqueteur
             from datetime import datetime as dt
             
-            CR_FOLDER = r"d:\EOS\reponses_cr backup"
+            CR_FOLDER = r"E:\LDMEOS\reponses_cr backup"
             
             # Get PARTNER client
             partner_client = db.session.execute(
@@ -2954,7 +2990,6 @@ def register_legacy_routes(app):
             # Supprimer dans l'ordre (contraintes FK)
             db.session.execute(db.text("DELETE FROM enquete_facturation"))
             db.session.execute(db.text("DELETE FROM donnees_enqueteur"))
-            db.session.execute(db.text("DELETE FROM enquete_archives"))
             db.session.execute(db.text("DELETE FROM donnees"))
             
             db.session.commit()
@@ -3270,14 +3305,14 @@ def register_legacy_routes(app):
             
             # Options prֳ©dֳ©finies de base
             options_base = [
-                'Confirmֳ© par la mairie',
-                'En proximitֳ©',
-                'Confirmֳ© par tֳ©lֳ©phone',
-                'Confirmֳ© par voisinage',
-                'Confirmֳ© par famille',
-                "Confirmֳ© par l'employeur",
-                'Confirmֳ© par courrier',
-                'Confirmֳ© sur place'
+                'Confirm\u00e9 par la mairie',
+                'En proximit\u00e9',
+                'Confirm\u00e9 par t\u00e9l\u00e9phone',
+                'Confirm\u00e9 par voisinage',
+                'Confirm\u00e9 par famille',
+                "Confirm\u00e9 par l'employeur",
+                'Confirm\u00e9 par courrier',
+                'Confirm\u00e9 sur place'
             ]
             
             # Options personnalisֳ©es du client (la table peut ne pas exister)
