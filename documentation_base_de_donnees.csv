@@ -1,0 +1,352 @@
+﻿table_name;table_description;field_name;field_description;sql_type;size;nullable;primary_key;foreign_key;unique;indexed;default;characteristics
+alembic_version;Table technique qui memorise la version de migration appliquee.;version_num;Identifiant de revision Alembic appliquee.;VARCHAR(32);32;non;oui;;non;non;;PK | NOT NULL
+clients;Referentiel des clients de l'application EOS.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('clients_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('clients_id_seq'::regclass)
+clients;Referentiel des clients de l'application EOS.;code;Code unique du client dans EOS.;VARCHAR(50);50;non;non;;oui;oui;;NOT NULL | UNIQUE | INDEX
+clients;Referentiel des clients de l'application EOS.;nom;Nom commercial ou metier du client.;VARCHAR(255);255;non;non;;non;non;;NOT NULL
+clients;Referentiel des clients de l'application EOS.;actif;Indique si l'element est actif.;BOOLEAN;-;non;non;;non;non;;NOT NULL
+clients;Referentiel des clients de l'application EOS.;date_creation;Date et heure de creation de la ligne.;TIMESTAMP;-;non;non;;non;non;;NOT NULL
+clients;Referentiel des clients de l'application EOS.;date_modification;Date et heure de derniere modification.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+confirmation_options;Options de confirmation personnalisees proposees par client.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('confirmation_options_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('confirmation_options_id_seq'::regclass)
+confirmation_options;Options de confirmation personnalisees proposees par client.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;composite;oui;;FK -> clients.id | NOT NULL | UNIQUE composite | INDEX
+confirmation_options;Options de confirmation personnalisees proposees par client.;option_text;Texte de l'option proposee a l'utilisateur.;VARCHAR(255);255;non;non;;composite;composite;;NOT NULL | UNIQUE composite | INDEX composite
+confirmation_options;Options de confirmation personnalisees proposees par client.;usage_count;Nombre d'utilisations de l'option.;INTEGER;-;oui;non;;non;non;;NULL autorise
+confirmation_options;Options de confirmation personnalisees proposees par client.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+confirmation_options;Options de confirmation personnalisees proposees par client.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('donnees_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('donnees_id_seq'::regclass)
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;fichier_id;Reference vers le fichier source importe.;INTEGER;-;non;non;fichiers.id;non;oui;;FK -> fichiers.id | NOT NULL | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;enqueteurId;Reference vers l'enqueteur affecte a l'enquete.;INTEGER;-;oui;non;enqueteurs.id;non;oui;;FK -> enqueteurs.id | NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;enquete_originale_id;Reference vers l'enquete d'origine en cas de contestation.;INTEGER;-;oui;non;donnees.id;non;non;;FK -> donnees.id | NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;est_contestation;Indique si le dossier est une contestation.;BOOLEAN;-;non;non;;non;non;;NOT NULL
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;date_contestation;Date de creation ou reception de la contestation.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;motif_contestation_code;Code normalise du motif de contestation.;VARCHAR(16);16;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;motif_contestation_detail;Detail libre du motif de contestation.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;historique;Historique JSON des evenements sur le dossier.;TEXT;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;statut_validation;Statut courant du dossier dans le workflow de validation.;VARCHAR(20);20;non;non;;non;oui;;NOT NULL | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;numeroDossier;Numero de dossier principal transmis par la source.;VARCHAR(10);10;oui;non;;non;oui;;NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;referenceDossier;Reference complementaire du dossier.;VARCHAR(15);15;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;numeroInterlocuteur;Numero de l'interlocuteur cote source.;VARCHAR(12);12;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;guidInterlocuteur;Identifiant GUID de l'interlocuteur.;VARCHAR(36);36;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;typeDemande;Type de demande metier code sur 3 caracteres.;VARCHAR(3);3;oui;non;;non;oui;;NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;numeroDemande;Numero de demande principal.;VARCHAR(11);11;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;numeroDemandeContestee;Numero de demande contestee, si applicable.;VARCHAR(11);11;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;numeroDemandeInitiale;Numero de la demande initiale.;VARCHAR(11);11;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;forfaitDemande;Code ou libelle du forfait de demande.;VARCHAR(16);16;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;dateRetourEspere;Date de retour attendue pour l'enquete.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;qualite;Civilite ou qualite declaree de la personne.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;nom;Nom ou libelle principal.;VARCHAR(255);255;oui;non;;non;oui;;NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;prenom;Prenom.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;dateNaissance;Date de naissance declaree.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;lieuNaissance;Lieu de naissance declare.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;codePostalNaissance;Code postal du lieu de naissance.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;paysNaissance;Pays de naissance.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;nomPatronymique;Nom patronymique ou nom de naissance.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;adresse1;Adresse ligne 1.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;adresse2;Adresse ligne 2.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;adresse3;Adresse ligne 3.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;adresse4;Adresse ligne 4.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;ville;Ville de residence.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;codePostal;Code postal de residence.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;paysResidence;Pays de residence.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;telephonePersonnel;Telephone personnel declare.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;telephoneEmployeur;Telephone de l'employeur.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;telecopieEmployeur;Fax de l'employeur.;VARCHAR(15);15;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;nomEmployeur;Nom de l'employeur.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;banqueDomiciliation;Banque de domiciliation.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;libelleGuichet;Libelle du guichet bancaire.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;titulaireCompte;Titulaire du compte bancaire.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;codeBanque;Code banque.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;codeGuichet;Code guichet.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;numeroCompte;Numero de compte bancaire.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;ribCompte;Cle ou suffixe RIB.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;datedenvoie;Date d'envoi du dossier par la source.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;elementDemandes;Codes des elements demandes.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;elementObligatoires;Codes des elements obligatoires.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;elementContestes;Codes des elements contestes.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;codeMotif;Code du motif metier.;VARCHAR(16);16;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;motifDeContestation;Motif textuel de contestation.;VARCHAR(1000);1000;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;cumulMontantsPrecedents;Cumul des montants precedemment factures.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;codesociete;Code societe ou entite source.;VARCHAR(2);2;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;urgence;Indicateur d'urgence.;VARCHAR(1);1;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;commentaire;Commentaire libre associe au dossier.;VARCHAR(2000);2000;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;date_butoir;Date limite de traitement.;DATE;-;oui;non;;non;oui;;NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;exported;Indique si l'enquete a deja ete exportee.;BOOLEAN;-;non;non;;non;non;;NOT NULL
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;exported_at;Date et heure du dernier export.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;oui;;NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;tarif_lettre;Code tarifaire lettre applique au dossier.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;recherche;Texte des recherches ou informations demandees.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;date_jour;Date du jour reportee sur certains dossiers.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;nom_complet;Nom complet consolide.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;motif;Motif libre complementaire.;VARCHAR(500);500;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;instructions;Instructions specifiques pour le traitement du dossier.;TEXT;-;oui;non;;non;non;;NULL autorise
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;dateNaissance_maj;Date de naissance mise a jour.;DATE;-;oui;non;;non;oui;;NULL autorise | INDEX
+donnees;Table centrale des dossiers/enquetes importes depuis les fichiers source.;lieuNaissance_maj;Lieu de naissance mis a jour.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('donnees_enqueteur_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('donnees_enqueteur_id_seq'::regclass)
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;donnee_id;Reference vers l'enquete ou le dossier dans la table donnees.;INTEGER;-;non;non;donnees.id;non;non;;FK -> donnees.id | NOT NULL
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_resultat;Code resultat saisi par l'enqueteur.;VARCHAR(1);1;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;elements_retrouves;Codes des elements retrouves par l'enqueteur.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;flag_etat_civil_errone;Marqueur signalant un etat civil errone.;VARCHAR(1);1;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;date_retour;Date de retour de l'enquete.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;qualite_corrigee;Qualite ou civilite corrigee.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;nom_corrige;Nom corrige.;VARCHAR(30);30;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;prenom_corrige;Prenom corrige.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;nom_patronymique_corrige;Nom patronymique corrige.;VARCHAR(30);30;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_postal_naissance_corrige;Code postal de naissance corrige.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;pays_naissance_corrige;Pays de naissance corrige.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;type_divergence;Type de divergence constate sur l'etat civil.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse1;Champ correspondant a adresse1.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse2;Champ correspondant a adresse2.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse3;Champ correspondant a adresse3.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse4;Champ correspondant a adresse4.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_postal;Code lie a postal.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;ville;Champ correspondant a ville.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;pays_residence;Champ correspondant a pays residence.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;telephone_personnel;Champ correspondant a telephone personnel.;VARCHAR(15);15;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;telephone_chez_employeur;Telephone joignable via l'employeur.;VARCHAR(15);15;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;nom_employeur;Information employeur - nom.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;telephone_employeur;Information employeur - telephone.;VARCHAR(15);15;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;telecopie_employeur;Information employeur - telecopie.;VARCHAR(15);15;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse1_employeur;Ligne d'adresse employeur - adresse1.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse2_employeur;Ligne d'adresse employeur - adresse2.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse3_employeur;Ligne d'adresse employeur - adresse3.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;adresse4_employeur;Ligne d'adresse employeur - adresse4.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_postal_employeur;Information employeur - code postal.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;ville_employeur;Information employeur - ville.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;pays_employeur;Information employeur - pays.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;banque_domiciliation;Champ correspondant a banque domiciliation.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;libelle_guichet;Champ correspondant a libelle guichet.;VARCHAR(30);30;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;titulaire_compte;Champ correspondant a titulaire compte.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_banque;Code lie a banque.;VARCHAR(5);5;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_guichet;Code lie a guichet.;VARCHAR(5);5;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;date_deces;Date de deces constatee.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;numero_acte_deces;Numero d'acte de deces.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_insee_deces;Code INSEE du lieu de deces.;VARCHAR(5);5;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;code_postal_deces;Code postal du lieu de deces.;VARCHAR(10);10;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;localite_deces;Localite du deces.;VARCHAR(32);32;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;commentaires_revenus;Commentaires libres sur les revenus.;VARCHAR(128);128;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;montant_salaire;Montant du salaire identifie.;NUMERIC(10, 2);10,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;periode_versement_salaire;Periode ou jour de versement du salaire.;INTEGER;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;frequence_versement_salaire;Frequence de versement du salaire.;VARCHAR(2);2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;nature_revenu1;Nature du revenu 1.;VARCHAR(30);30;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;montant_revenu1;Montant du revenu 1.;NUMERIC(10, 2);10,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;periode_versement_revenu1;Periode de versement du revenu 1.;INTEGER;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;frequence_versement_revenu1;Frequence de versement du revenu 1.;VARCHAR(2);2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;nature_revenu2;Nature du revenu 2.;VARCHAR(30);30;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;montant_revenu2;Montant du revenu 2.;NUMERIC(10, 2);10,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;periode_versement_revenu2;Periode de versement du revenu 2.;INTEGER;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;frequence_versement_revenu2;Frequence de versement du revenu 2.;VARCHAR(2);2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;nature_revenu3;Nature du revenu 3.;VARCHAR(30);30;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;montant_revenu3;Montant du revenu 3.;NUMERIC(10, 2);10,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;periode_versement_revenu3;Periode de versement du revenu 3.;INTEGER;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;frequence_versement_revenu3;Frequence de versement du revenu 3.;VARCHAR(2);2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;numero_facture;Numero de facture.;VARCHAR(9);9;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;date_facture;Date de facture.;DATE;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;montant_facture;Montant de facture.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;tarif_applique;Tarif applique a la facturation.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;cumul_montants_precedents;Cumul des montants precedemment factures.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;reprise_facturation;Montant de reprise de facturation.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;remise_eventuelle;Montant de remise eventuelle.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;memo1;Memo court 1.;VARCHAR(64);64;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;memo2;Memo court 2.;VARCHAR(64);64;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;memo3;Memo court 3.;VARCHAR(64);64;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;memo4;Memo court 4.;VARCHAR(64);64;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;memo5;Memo long 5.;VARCHAR(1000);1000;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;notes_personnelles;Notes personnelles de l'enqueteur.;TEXT;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+donnees_enqueteur;Reponses, corrections et informations terrain saisies par les enqueteurs.;proximite;Valeur de confirmation ou proximite selectionnee.;TEXT;-;oui;non;;non;non;;NULL autorise
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('enquete_archive_files_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('enquete_archive_files_id_seq'::regclass)
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;enquete_id;Reference vers l'enquete concernee.;INTEGER;-;non;non;donnees.id;oui;oui;;FK -> donnees.id | NOT NULL | UNIQUE | INDEX
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;filename;Nom du fichier stocke ou exporte.;VARCHAR(255);255;non;non;;non;non;;NOT NULL
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;filepath;Chemin de stockage du fichier sur disque.;VARCHAR(500);500;non;non;;non;non;;NOT NULL
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;type_export;Type de fichier exporte.;VARCHAR(20);20;non;non;;non;non;;NOT NULL
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;file_size;Taille du fichier en octets.;INTEGER;-;oui;non;;non;non;;NULL autorise
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;non;non;;non;non;;NOT NULL
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;utilisateur;Utilisateur ayant realise l'action.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+enquete_archive_files;Fichiers physiques d'archives/export lies a une enquete.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+enquete_archives;Historique logique des exportations d'enquetes.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('enquete_archives_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('enquete_archives_id_seq'::regclass)
+enquete_archives;Historique logique des exportations d'enquetes.;enquete_id;Reference vers l'enquete concernee.;INTEGER;-;non;non;donnees.id;non;non;;FK -> donnees.id | NOT NULL
+enquete_archives;Historique logique des exportations d'enquetes.;date_export;Date et heure de l'export.;TIMESTAMP;-;non;non;;non;non;;NOT NULL
+enquete_archives;Historique logique des exportations d'enquetes.;nom_fichier;Nom du fichier exporte.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+enquete_archives;Historique logique des exportations d'enquetes.;utilisateur;Utilisateur ayant realise l'action.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('enquete_facturation_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('enquete_facturation_id_seq'::regclass)
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;donnee_id;Reference vers l'enquete ou le dossier dans la table donnees.;INTEGER;-;non;non;donnees.id;composite;composite;;FK -> donnees.id | NOT NULL | UNIQUE composite | INDEX composite
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;donnee_enqueteur_id;Reference vers la reponse enqueteur liee.;INTEGER;-;non;non;donnees_enqueteur.id;composite;composite;;FK -> donnees_enqueteur.id | NOT NULL | UNIQUE composite | INDEX composite
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;tarif_eos_code;Code tarif EOS retenu pour la facturation client.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;tarif_eos_montant;Montant de base du tarif EOS.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;resultat_eos_montant;Montant EOS final apres ajustement.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;tarif_enqueteur_code;Code tarif enqueteur retenu.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;tarif_enqueteur_montant;Montant de base du tarif enqueteur.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;resultat_enqueteur_montant;Montant final verse a l'enqueteur.;NUMERIC(8, 2);8,2;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;paye;Indique si le paiement a ete effectue.;BOOLEAN;-;non;non;;non;non;;NOT NULL
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;date_paiement;Date de paiement de l'enqueteur.;DATE;-;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;reference_paiement;Reference du paiement.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+enquete_facturation;Montants de facturation client et de remuneration enqueteur par enquete.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+enquetes_terminees;Trace des enquetes confirmees/terminees.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('enquetes_terminees_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('enquetes_terminees_id_seq'::regclass)
+enquetes_terminees;Trace des enquetes confirmees/terminees.;donnee_id;Reference vers l'enquete ou le dossier dans la table donnees.;INTEGER;-;non;non;donnees.id;non;non;;FK -> donnees.id | NOT NULL
+enquetes_terminees;Trace des enquetes confirmees/terminees.;confirmed_at;Date et heure de confirmation.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+enquetes_terminees;Trace des enquetes confirmees/terminees.;confirmed_by;Utilisateur ayant confirme l'enquete.;VARCHAR(100);100;non;non;;non;non;;NOT NULL
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('enqueteurs_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('enqueteurs_id_seq'::regclass)
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;nom;Nom ou libelle principal.;VARCHAR(100);100;non;non;;non;non;;NOT NULL
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;prenom;Prenom.;VARCHAR(100);100;non;non;;non;non;;NOT NULL
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;email;Adresse email.;VARCHAR(120);120;non;non;;oui;oui;;NOT NULL | UNIQUE | INDEX
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;telephone;Numero de telephone.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;date_creation;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+enqueteurs;Referentiel des enqueteurs utilisateurs du systeme.;vpn_config_generated;Champ correspondant a VPN config generated.;BOOLEAN;-;oui;non;;non;non;;NULL autorise
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('export_batches_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('export_batches_id_seq'::regclass)
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;filename;Nom du fichier stocke ou exporte.;VARCHAR(255);255;non;non;;non;non;;NOT NULL
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;filepath;Chemin de stockage du fichier sur disque.;VARCHAR(500);500;non;non;;non;non;;NOT NULL
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;file_size;Taille du fichier en octets.;INTEGER;-;oui;non;;non;non;;NULL autorise
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;enquete_count;Nombre d'enquetes incluses dans le batch.;INTEGER;-;non;non;;non;non;;NOT NULL
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;non;non;;non;non;;NOT NULL
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;utilisateur;Utilisateur ayant realise l'action.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;enquete_ids;Liste des identifiants d'enquetes incluses.;TEXT;-;oui;non;;non;non;;NULL autorise
+export_batches;Historique des exports groupes contenant plusieurs enquetes.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+fichiers;Fichiers sources importes dans l'application.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('fichiers_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('fichiers_id_seq'::regclass)
+fichiers;Fichiers sources importes dans l'application.;nom;Nom du fichier importe.;VARCHAR(255);255;non;non;;non;non;;NOT NULL
+fichiers;Fichiers sources importes dans l'application.;chemin;Chemin d'origine ou de stockage du fichier.;VARCHAR(500);500;oui;non;;non;non;;NULL autorise
+fichiers;Fichiers sources importes dans l'application.;date_upload;Date et heure d'import du fichier.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+fichiers;Fichiers sources importes dans l'application.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('import_field_mappings_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('import_field_mappings_id_seq'::regclass)
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;import_profile_id;Reference vers le profil d'import.;INTEGER;-;non;non;import_profiles.id;non;oui;;FK -> import_profiles.id | NOT NULL | INDEX
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;internal_field;Nom du champ interne cible dans EOS.;VARCHAR(100);100;non;non;;non;oui;;NOT NULL | INDEX
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;start_pos;Position de debut dans un fichier texte fixe.;INTEGER;-;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;length;Longueur a extraire dans un fichier texte fixe.;INTEGER;-;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;column_name;Nom de colonne attendu dans un fichier Excel.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;column_index;Index de colonne alternatif dans un fichier Excel.;INTEGER;-;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;strip_whitespace;Indique si les espaces doivent etre supprimes.;BOOLEAN;-;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;default_value;Valeur par defaut si la source est vide.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;is_required;Indique si le champ est obligatoire.;BOOLEAN;-;oui;non;;non;non;;NULL autorise
+import_field_mappings;Regles de mapping entre colonnes source et champs internes EOS.;date_creation;Date et heure de creation de la ligne.;TIMESTAMP;-;non;non;;non;non;;NOT NULL
+import_profiles;Profils de parametrage d'import par client et type de fichier.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('import_profiles_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('import_profiles_id_seq'::regclass)
+import_profiles;Profils de parametrage d'import par client et type de fichier.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+import_profiles;Profils de parametrage d'import par client et type de fichier.;name;Nom du profil d'import.;VARCHAR(255);255;non;non;;non;non;;NOT NULL
+import_profiles;Profils de parametrage d'import par client et type de fichier.;file_type;Type de fichier supporte par le profil.;VARCHAR(50);50;non;non;;non;non;;NOT NULL
+import_profiles;Profils de parametrage d'import par client et type de fichier.;sheet_name;Nom de feuille Excel a lire.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+import_profiles;Profils de parametrage d'import par client et type de fichier.;encoding;Encodage du fichier source.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+import_profiles;Profils de parametrage d'import par client et type de fichier.;actif;Indique si l'element est actif.;BOOLEAN;-;non;non;;non;non;;NOT NULL
+import_profiles;Profils de parametrage d'import par client et type de fichier.;date_creation;Date et heure de creation de la ligne.;TIMESTAMP;-;non;non;;non;non;;NOT NULL
+import_profiles;Profils de parametrage d'import par client et type de fichier.;date_modification;Date et heure de derniere modification.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('partner_case_requests_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('partner_case_requests_id_seq'::regclass)
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;donnee_id;Reference vers l'enquete ou le dossier dans la table donnees.;INTEGER;-;non;non;donnees.id;composite;oui;;FK -> donnees.id | NOT NULL | UNIQUE composite | INDEX
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;request_code;Code normalise de la demande.;VARCHAR(20);20;non;non;;composite;composite;;NOT NULL | UNIQUE composite | INDEX composite
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;requested;Indique que la demande figure dans RECHERCHE.;BOOLEAN;-;oui;non;;non;non;true;NULL autorise | DEFAULT true
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;found;Indique que la demande a ete satisfaite.;BOOLEAN;-;oui;non;;non;non;false;NULL autorise | DEFAULT false
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;status;Statut metier de la ligne.;VARCHAR(10);10;oui;non;;non;oui;;NULL autorise | INDEX
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;memo;Commentaire ou justification libre.;TEXT;-;oui;non;;non;non;;NULL autorise
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;now();NULL autorise | DEFAULT now()
+partner_case_requests;Demandes normalisees detectees par dossier pour le mode PARTNER.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;now();NULL autorise | DEFAULT now()
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('partner_request_keywords_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('partner_request_keywords_id_seq'::regclass)
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;request_code;Code normalise de la demande.;VARCHAR(20);20;non;non;;non;oui;;NOT NULL | INDEX
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;pattern;Mot-cle a rechercher dans RECHERCHE.;VARCHAR(100);100;non;non;;non;non;;NOT NULL
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;is_regex;Indique si le motif est une expression reguliere.;BOOLEAN;-;oui;non;;non;non;false;NULL autorise | DEFAULT false
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;priority;Priorite de traitement ou d'evaluation.;INTEGER;-;oui;non;;non;non;0;NULL autorise | DEFAULT 0
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;now();NULL autorise | DEFAULT now()
+partner_request_keywords;Mots-cles servant a detecter les demandes PARTNER dans le champ RECHERCHE.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;now();NULL autorise | DEFAULT now()
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('partner_tarif_rules_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('partner_tarif_rules_id_seq'::regclass)
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;composite;composite;;FK -> clients.id | NOT NULL | UNIQUE composite | INDEX composite
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;tarif_lettre;Lettre tarifaire de reference.;VARCHAR(5);5;non;non;;composite;composite;;NOT NULL | UNIQUE composite | INDEX composite
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;request_key;Cle composee representant une combinaison de demandes.;VARCHAR(100);100;non;non;;composite;composite;;NOT NULL | UNIQUE composite | INDEX composite
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;amount;Montant applique par une regle tarifaire.;NUMERIC(10, 2);10,2;non;non;;non;non;;NOT NULL
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;now();NULL autorise | DEFAULT now()
+partner_tarif_rules;Regles tarifaires PARTNER selon la lettre et la combinaison de demandes.;updated_at;Date et heure de derniere mise a jour.;TIMESTAMP;-;oui;non;;non;non;now();NULL autorise | DEFAULT now()
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('sherlock_donnees_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('sherlock_donnees_id_seq'::regclass)
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;fichier_id;Reference vers le fichier source importe.;INTEGER;-;oui;non;fichiers.id;non;non;;FK -> fichiers.id | NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;created_at;Date et heure de creation de la ligne.;TIMESTAMP;-;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;dossier_id;Identifiant dossier venant de Sherlock.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;reference_interne;Reference interne du dossier.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;demande;Nature de la demande source.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_civilite;Donnee source etat civil - civilite.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_prenom;Donnee source etat civil - prenom.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_prenom2;Donnee source etat civil - prenom2.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_prenom3;Donnee source etat civil - prenom3.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_prenom4;Donnee source etat civil - prenom4.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_nom_usage;Donnee source etat civil - nom usage.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_nom_naissance;Donnee source etat civil - nom naissance.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_date_naissance;Donnee source etat civil - date naissance.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;naissance_cp;Champ correspondant a naissance CP.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_localite_naissance;Donnee source etat civil - localite naissance.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;naissance_insee;Champ correspondant a naissance INSEE.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ec_pays_naissance;Donnee source etat civil - pays naissance.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;client_commentaire;Commentaire fourni par le client dans Sherlock.;TEXT;-;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l1;Donnee source adresse/contact - l1.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l2;Donnee source adresse/contact - l2.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l3;Donnee source adresse/contact - l3.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l4_numero;Donnee source adresse/contact - l4 numero.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l4_type;Donnee source adresse/contact - l4 type.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l4_voie;Donnee source adresse/contact - l4 voie.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l5;Donnee source adresse/contact - l5.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l6_cedex;Donnee source adresse/contact - l6 cedex.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l6_cp;Donnee source adresse/contact - l6 CP.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l6_insee;Donnee source adresse/contact - l6 INSEE.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l6_localite;Donnee source adresse/contact - l6 localite.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_l7_pays;Donnee source adresse/contact - l7 pays.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_telephone;Donnee source adresse/contact - telephone.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_telephone_pro;Donnee source adresse/contact - telephone pro.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_telephone_mobile;Donnee source adresse/contact - telephone mobile.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;ad_email;Donnee source adresse/contact - email.;VARCHAR(255);255;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;tarif_a;Valeur tarifaire A recopiee depuis Sherlock.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;tarif_at;Valeur tarifaire AT recopiee depuis Sherlock.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;tarif_dcd;Valeur tarifaire DCD recopiee depuis Sherlock.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;resultat;Resultat retourne pour le dossier Sherlock.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;montant_ht;Montant hors taxes calcule ou importe.;DOUBLE PRECISION;53;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_civilite;Reponse enqueteur - etat civil - civilite.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_prenom;Reponse enqueteur - etat civil - prenom.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_prenom2;Reponse enqueteur - etat civil - prenom2.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_prenom3;Reponse enqueteur - etat civil - prenom3.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_prenom4;Reponse enqueteur - etat civil - prenom4.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_nom_usage;Reponse enqueteur - etat civil - nom usage.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_nom_naissance;Reponse enqueteur - etat civil - nom naissance.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_date_naissance;Reponse enqueteur - etat civil - date naissance.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_naissance_cp;Champ correspondant a rep naissance CP.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_localite_naissance;Reponse enqueteur - etat civil - localite naissance.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_naissance_insee;Champ correspondant a rep naissance INSEE.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ec_pays_naissance;Reponse enqueteur - etat civil - pays naissance.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_dcd_date;Reponse enqueteur - deces - date.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_dcd_numero_acte;Reponse enqueteur - deces - numero acte.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_dcd_localite;Reponse enqueteur - deces - localite.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_dcd_cp;Reponse enqueteur - deces - CP.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_dcd_insee;Reponse enqueteur - deces - INSEE.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_dcd_pays;Reponse enqueteur - deces - pays.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l1;Reponse enqueteur - adresse/contact - l1.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l2;Reponse enqueteur - adresse/contact - l2.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l3;Reponse enqueteur - adresse/contact - l3.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l4_numero;Reponse enqueteur - adresse/contact - l4 numero.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l4_type;Reponse enqueteur - adresse/contact - l4 type.;VARCHAR(50);50;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l4_voie;Reponse enqueteur - adresse/contact - l4 voie.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l5;Reponse enqueteur - adresse/contact - l5.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l6_cedex;Reponse enqueteur - adresse/contact - l6 cedex.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l6_cp;Reponse enqueteur - adresse/contact - l6 CP.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l6_insee;Reponse enqueteur - adresse/contact - l6 INSEE.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l6_localite;Reponse enqueteur - adresse/contact - l6 localite.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_l7_pays;Reponse enqueteur - adresse/contact - l7 pays.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+sherlock_donnees;Donnees importees depuis le format Sherlock, avec source et reponse enqueteur.;rep_ad_telephone;Reponse enqueteur - adresse/contact - telephone.;VARCHAR(20);20;oui;non;;non;non;;NULL autorise
+tarifs_client;Tarifs specifiques definis pour chaque client.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('tarifs_client_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('tarifs_client_id_seq'::regclass)
+tarifs_client;Tarifs specifiques definis pour chaque client.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;non;non;clients.id;non;oui;;FK -> clients.id | NOT NULL | INDEX
+tarifs_client;Tarifs specifiques definis pour chaque client.;code_lettre;Code lettre du tarif client.;VARCHAR(10);10;non;non;;non;non;;NOT NULL
+tarifs_client;Tarifs specifiques definis pour chaque client.;description;Description textuelle.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+tarifs_client;Tarifs specifiques definis pour chaque client.;montant;Montant financier associe.;NUMERIC(8, 2);8,2;non;non;;non;non;;NOT NULL
+tarifs_client;Tarifs specifiques definis pour chaque client.;date_debut;Date de debut de validite.;DATE;-;non;non;;non;non;;NOT NULL
+tarifs_client;Tarifs specifiques definis pour chaque client.;date_fin;Date de fin de validite.;DATE;-;oui;non;;non;non;;NULL autorise
+tarifs_client;Tarifs specifiques definis pour chaque client.;actif;Indique si l'element est actif.;BOOLEAN;-;oui;non;;non;non;;NULL autorise
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('tarifs_enqueteur_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('tarifs_enqueteur_id_seq'::regclass)
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;code;Code du tarif enqueteur.;VARCHAR(10);10;non;non;;non;non;;NOT NULL
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;description;Description textuelle.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;montant;Montant financier associe.;NUMERIC(8, 2);8,2;non;non;;non;non;;NOT NULL
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;enqueteur_id;Reference vers l'enqueteur concerne.;INTEGER;-;oui;non;enqueteurs.id;non;non;;FK -> enqueteurs.id | NULL autorise
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;date_debut;Date de debut de validite.;DATE;-;non;non;;non;non;;NOT NULL
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;date_fin;Date de fin de validite.;DATE;-;oui;non;;non;non;;NULL autorise
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;actif;Indique si l'element est actif.;BOOLEAN;-;oui;non;;non;non;;NULL autorise
+tarifs_enqueteur;Tarifs de remuneration des enqueteurs.;client_id;Reference vers le client proprietaire de la donnee.;INTEGER;-;oui;non;clients.id;non;oui;;FK -> clients.id | NULL autorise | INDEX
+tarifs_eos;Tarifs factures par EOS au client final.;id;Identifiant technique unique de la ligne.;INTEGER;-;non;oui;;non;non;nextval('tarifs_eos_id_seq'::regclass);PK | NOT NULL | DEFAULT nextval('tarifs_eos_id_seq'::regclass)
+tarifs_eos;Tarifs factures par EOS au client final.;code;Code du tarif EOS.;VARCHAR(10);10;non;non;;oui;oui;;NOT NULL | UNIQUE | INDEX
+tarifs_eos;Tarifs factures par EOS au client final.;description;Description textuelle.;VARCHAR(100);100;oui;non;;non;non;;NULL autorise
+tarifs_eos;Tarifs factures par EOS au client final.;montant;Montant financier associe.;NUMERIC(8, 2);8,2;non;non;;non;non;;NOT NULL
+tarifs_eos;Tarifs factures par EOS au client final.;date_debut;Date de debut de validite.;DATE;-;non;non;;non;non;;NOT NULL
+tarifs_eos;Tarifs factures par EOS au client final.;date_fin;Date de fin de validite.;DATE;-;oui;non;;non;non;;NULL autorise
+tarifs_eos;Tarifs factures par EOS au client final.;actif;Indique si l'element est actif.;BOOLEAN;-;oui;non;;non;non;;NULL autorise
