@@ -156,6 +156,11 @@ docs/_build/
 backend/exports/
 frontend/public/exports/
 
+# Fichiers locaux d'outillage et sauvegardes
+.claude/
+backups/
+pg_dump_commande.txt
+
 # Fichiers VPN générés
 backend/vpn_configs/
 *.ovpn.generated
