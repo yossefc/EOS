@@ -442,7 +442,7 @@ def import_csv_file(engine, filepath: str) -> dict:
 # ════════════════════════════════════════════════════════════════════════════
 
 def main():
-    backup_dir = sys.argv[1] if len(sys.argv) > 1 else 'reponses_EOS backup'
+    backup_dir = sys.argv[1] if len(sys.argv) > 1 else r'E:\LDMEOS\reponses_EOS backup'
     backup_dir = os.path.abspath(backup_dir)
 
     # ── Connexion ────────────────────────────────────────────────────────

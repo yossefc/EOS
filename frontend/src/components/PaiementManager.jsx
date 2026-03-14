@@ -321,7 +321,7 @@ const PaiementManager = () => {
         </div>
     );
     
-    // Rendu du détail des facturations d'un enquêteur
+    // Rendu du detail des facturations d'un enqueteur
     const renderFacturationsDetail = () => (
         <div className="space-y-4">
             <button
@@ -329,7 +329,7 @@ const PaiementManager = () => {
                 className="flex items-center gap-1 px-3 py-1 text-blue-600 hover:underline"
             >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Retour à la liste</span>
+                <span>Retour a la liste</span>
             </button>
             
             <div className="bg-white rounded-lg shadow">
@@ -347,7 +347,7 @@ const PaiementManager = () => {
                 ) : facturations.length === 0 ? (
                     <div className="p-8 text-center text-gray-500">
                         <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
-                        <p>Toutes les facturations ont été payées!</p>
+                        <p>Toutes les facturations ont ete payees!</p>
                     </div>
                 ) : (
                     <div className="p-4">
@@ -360,17 +360,17 @@ const PaiementManager = () => {
                                     className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                                 />
                                 <span className="text-sm">
-                                    Sélectionner toutes les facturations ({facturations.length})
+                                    Selectionner toutes les facturations ({facturations.length})
                                 </span>
                             </div>
                             
                             <div className="flex items-center gap-4">
                                 <div className="text-sm">
-                                    <span className="text-gray-600">Sélectionnés: </span>
+                                    <span className="text-gray-600">Selectionnes: </span>
                                     <span className="font-medium">{selectedFacturations.length} facturations</span>
                                     {selectedFacturations.length > 0 && (
                                         <span className="ml-2 font-medium text-green-600">
-                                            {montantTotalSelected.toFixed(2)} €
+                                            {montantTotalSelected.toFixed(2)} EUR
                                         </span>
                                     )}
                                 </div>
@@ -380,7 +380,7 @@ const PaiementManager = () => {
                                     className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50"
                                 >
                                     <FileDown className="w-4 h-4" />
-                                    <span>Générer PDF</span>
+                                    <span>Generer PDF</span>
                                 </button>
                             </div>
                         </div>
@@ -390,21 +390,18 @@ const PaiementManager = () => {
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-4 py-3 w-12"></th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            N° Dossier
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Éléments
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Résultat
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Date
-                                        </th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Montant
-                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No dossier</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prenom</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Elements</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resultat</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date retour</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date facturation</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code tarif</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -418,26 +415,41 @@ const PaiementManager = () => {
                                                     className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                                                 />
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {facturation.numeroDossier}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                {facturation.elements_retrouves || '-'}
-                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{facturation.numeroDossier}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{facturation.referenceDossier || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{facturation.nom || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{facturation.prenom || '-'}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    facturation.typeDemande === 'CON' || facturation.est_contestation
+                                                        ? 'bg-amber-100 text-amber-800'
+                                                        : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                    {facturation.typeDemande === 'CON' || facturation.est_contestation ? 'Contestation' : 'Enquete'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{facturation.elements_retrouves || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    facturation.code_resultat === 'P'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : facturation.code_resultat === 'N'
+                                                            ? 'bg-red-100 text-red-800'
+                                                            : facturation.code_resultat === 'H'
+                                                                ? 'bg-blue-100 text-blue-800'
+                                                                : 'bg-gray-100 text-gray-800'
+                                                }`}>
                                                     {facturation.code_resultat === 'P' ? 'Positif' : 
-                                                     facturation.code_resultat === 'N' ? 'Négatif' : 
-                                                     facturation.code_resultat === 'H' ? 'Confirmé' : 
+                                                     facturation.code_resultat === 'N' ? 'Negatif' : 
+                                                     facturation.code_resultat === 'H' ? 'Confirme' : 
                                                      facturation.code_resultat || '-'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                {facturation.date}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
-                                                {facturation.montant.toFixed(2)} €
-                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{facturation.status || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{facturation.date_retour || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{facturation.date_facturation || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{facturation.tarif_enqueteur_code || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">{facturation.montant.toFixed(2)} EUR</td>
                                         </tr>
                                     ))}
                                 </tbody>

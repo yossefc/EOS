@@ -436,7 +436,7 @@ if __name__ == '__main__':
     print("Base nettoyee.\n")
 
     # Find all .xls files
-    backup_dir = sys.argv[1] if len(sys.argv) > 1 else 'reponses_cr backup'
+    backup_dir = sys.argv[1] if len(sys.argv) > 1 else r'E:\LDMEOS\reponses_cr backup'
     files = sorted(glob.glob(os.path.join(backup_dir, 'cr_*.xls')))
     print(f"=== Import de {len(files)} fichiers .xls ===\n")
 

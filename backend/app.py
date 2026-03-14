@@ -1665,6 +1665,15 @@ def register_legacy_routes(app):
                                     has_historique_ids.add(d.id)
                                     break
 
+            # Pré-charger tous les enquêteurs en une seule requête (évite N+1)
+            enqueteur_ids = {d.enqueteurId for d in donnees if d.enqueteurId}
+            if enqueteur_ids:
+                enqueteurs_map = {
+                    e.id: e for e in Enqueteur.query.filter(Enqueteur.id.in_(enqueteur_ids)).all()
+                }
+            else:
+                enqueteurs_map = {}
+
             # Construire les rֳ©sultats avec donnֳ©es enrichies
             result = []
             for donnee in donnees:
@@ -1712,15 +1721,11 @@ def register_legacy_routes(app):
                 # Les enquֳ×tes avec statut 'confirmee' peuvent ֳ×tre validֳ©es par l'admin
                 donnee_dict['can_validate'] = has_response and donnee.statut_validation == 'confirmee'
                 
-                # Ajouter les informations de l'enquֳ×teur assignֳ©
+                # Ajouter les informations de l'enquêteur assigné (depuis le cache pré-chargé)
                 if donnee.enqueteurId:
-                    enqueteur = db.session.get(Enqueteur, donnee.enqueteurId)
-                    if enqueteur:
-                        donnee_dict['enqueteur_nom'] = enqueteur.nom
-                        donnee_dict['enqueteur_prenom'] = enqueteur.prenom
-                    else:
-                        donnee_dict['enqueteur_nom'] = None
-                        donnee_dict['enqueteur_prenom'] = None
+                    enqueteur = enqueteurs_map.get(donnee.enqueteurId)
+                    donnee_dict['enqueteur_nom'] = enqueteur.nom if enqueteur else None
+                    donnee_dict['enqueteur_prenom'] = enqueteur.prenom if enqueteur else None
                 else:
                     donnee_dict['enqueteur_nom'] = None
                     donnee_dict['enqueteur_prenom'] = None
@@ -2198,16 +2203,18 @@ def register_legacy_routes(app):
                             client_id=client.id,
                             date_butoir=date_butoir
                         )
-                        if not _clean_text_value(nouvelle_donnee.elementDemandes):
-                            inferred_demandes = _infer_element_demandes_from_recherche_text(
-                                getattr(nouvelle_donnee, 'recherche', None)
-                            )
-                            if inferred_demandes:
-                                nouvelle_donnee.elementDemandes = inferred_demandes
+                        # SherlockDonnee n'a pas les champs EOS standard (elementDemandes, typeDemande…)
+                        if hasattr(nouvelle_donnee, 'elementDemandes'):
+                            if not _clean_text_value(nouvelle_donnee.elementDemandes):
+                                inferred_demandes = _infer_element_demandes_from_recherche_text(
+                                    getattr(nouvelle_donnee, 'recherche', None)
+                                )
+                                if inferred_demandes:
+                                    nouvelle_donnee.elementDemandes = inferred_demandes
                         db.session.add(nouvelle_donnee)
                         db.session.flush()
 
-                        if nouvelle_donnee.typeDemande == 'CON':
+                        if hasattr(nouvelle_donnee, 'typeDemande') and nouvelle_donnee.typeDemande == 'CON':
                             contestation_identity = getattr(nouvelle_donnee, '_matching_identity', None) or {}
                             contestation_matches = getattr(nouvelle_donnee, '_matching_enquetes', []) or []
                             contestation_identity_matches.append({
@@ -2217,9 +2224,9 @@ def register_legacy_routes(app):
                                 'matches_count': len(contestation_matches),
                                 'matches': contestation_matches
                             })
-                        
+
                         # Crֳ©er DonneeEnqueteur vide si contestation (sans recopier l'original depuis donnees_enqueteur)
-                        if nouvelle_donnee.typeDemande == 'CON':
+                        if hasattr(nouvelle_donnee, 'typeDemande') and nouvelle_donnee.typeDemande == 'CON':
                             donnee_enqueteur = DonneeEnqueteur.query.filter_by(
                                 donnee_id=nouvelle_donnee.id
                             ).first()
@@ -3428,71 +3435,71 @@ def register_legacy_routes(app):
             # Mapping des champs - 65 champs (sans les tarifs)
             FIELDS_MAPPING = [
                 #('DossierId', 'dossier_id', ''),
-                ('Rֳ©fֳ©renceInterne', 'reference_interne', ''),
+                ('RéférenceInterne', 'reference_interne', ''),
                 ('EC-Nom Usage', 'ec_nom_usage', ''),
-                ('EC-Prֳ©nom', 'ec_prenom', ''),
+                ('EC-Prénom', 'ec_prenom', ''),
                 ('EC-Nom Naissance', 'ec_nom_naissance', ''),
-                ('EC-Civilitֳ©', 'ec_civilite', ''),
+                ('EC-Civilité', 'ec_civilite', ''),
                 ('Demande', 'demande', ''),
                 ('EC-Date Naissance', 'ec_date_naissance', ''),
-                ('EC-Localitֳ© Naissance', 'ec_localite_naissance', ''),
+                ('EC-Localité Naissance', 'ec_localite_naissance', ''),
                 ('Naissance CP', 'naissance_cp', ''),
                 ('Client-Commentaire', 'client_commentaire', ''),
-                #('EC-Prֳ©nom2', 'ec_prenom2', ''),
-                #('EC-Prֳ©nom3', 'ec_prenom3', ''),
-                #('EC-Prֳ©nom4', 'ec_prenom4', ''),
+                #('EC-Prénom2', 'ec_prenom2', ''),
+                #('EC-Prénom3', 'ec_prenom3', ''),
+                #('EC-Prénom4', 'ec_prenom4', ''),
                 #('Naissance INSEE', 'naissance_insee', ''),
                 #('EC-Pays Naissance', 'ec_pays_naissance', ''),
                 ('AD-L1', 'ad_l1', ''),
                 ('AD-L2', 'ad_l2', ''),
                 ('AD-L3', 'ad_l3', ''),
-                ('AD-L4 Numֳ©ro', 'ad_l4_numero', ''),
+                ('AD-L4 Numéro', 'ad_l4_numero', ''),
                 ('AD-L4 Type', 'ad_l4_type', ''),
                 ('AD-L4 Voie', 'ad_l4_voie', ''),
                 ('AD-L5', 'ad_l5', ''),
                 ('AD-L6 Cedex', 'ad_l6_cedex', ''),
                 ('AD-L6 CP', 'ad_l6_cp', ''),
                 ('AD-L6 INSEE', 'ad_l6_insee', ''),
-                ('AD-L6 Localitֳ©', 'ad_l6_localite', ''),
+                ('AD-L6 Localité', 'ad_l6_localite', ''),
                 ('AD-L7 Pays', 'ad_l7_pays', ''),
-                ('AD-Tֳ©lֳ©phone', 'ad_telephone', ''),
-                ('AD-Tֳ©lֳ©phonePro', 'ad_telephone_pro', ''),
-                ('AD-Tֳ©lֳ©phoneMobile', 'ad_telephone_mobile', ''),
+                ('AD-Téléphone', 'ad_telephone', ''),
+                ('AD-TéléphonePro', 'ad_telephone_pro', ''),
+                ('AD-TéléphoneMobile', 'ad_telephone_mobile', ''),
                 ('AD-Email', 'ad_email', ''),
-                #('Rֳ©sultat', 'resultat', ''),
+                #('Résultat', 'resultat', ''),
                 #('Montant HT', 'montant_ht', ''),
-                # Champs de rֳ©ponse enquֳ×teur (Rֳ©p-)
-                #('Rֳ©p-EC-Civilitֳ©', 'rep_ec_civilite', ''),
-                #('Rֳ©p-EC-Prֳ©nom', 'rep_ec_prenom', ''),
-                #('Rֳ©p-EC-Prֳ©nom2', 'rep_ec_prenom2', ''),
-                #('Rֳ©p-EC-Prֳ©nom3', 'rep_ec_prenom3', ''),
-                #('Rֳ©p-EC-Prֳ©nom4', 'rep_ec_prenom4', ''),
-                #('Rֳ©p-EC-Nom Usage', 'rep_ec_nom_usage', ''),
-                #('Rֳ©p-EC-Nom Naissance', 'rep_ec_nom_naissance', ''),
-                #('Rֳ©p-EC-Date Naissance', 'rep_ec_date_naissance', ''),
-                #('Rֳ©p-Naissance CP', 'rep_naissance_cp', ''),
-                #('Rֳ©p-EC-Localitֳ© Naissance', 'rep_ec_localite_naissance', ''),
-                #('Rֳ©p-Naissance INSEE', 'rep_naissance_insee', ''),
-                #('Rֳ©p-EC-Pays Naissance', 'rep_ec_pays_naissance', ''),
-                #('Rֳ©p-DCD-Date', 'rep_dcd_date', ''),
-                #('Rֳ©p-DCD-Numֳ©ro_Acte', 'rep_dcd_numero_acte', ''),
-                #('Rֳ©p-DCD-Localitֳ©', 'rep_dcd_localite', ''),
-                #('Rֳ©p-DCD-CP', 'rep_dcd_cp', ''),
-                #('Rֳ©p-DCD-INSEE', 'rep_dcd_insee', ''),
-                #('Rֳ©p-DCD-Pays', 'rep_dcd_pays', ''),
-                #('Rֳ©p-AD-L1', 'rep_ad_l1', ''),
-                #('Rֳ©p-AD-L2', 'rep_ad_l2', ''),
-                #('Rֳ©p-AD-L3', 'rep_ad_l3', ''),
-                #('Rֳ©p-AD-L4 Numֳ©ro', 'rep_ad_l4_numero', ''),
-                #('Rֳ©p-AD-L4 Type', 'rep_ad_l4_type', ''),
-                #('Rֳ©p-AD-L4 Voie', 'rep_ad_l4_voie', ''),
-                #('Rֳ©p-AD-L5', 'rep_ad_l5', ''),
-                #('Rֳ©p-AD-L6 Cedex', 'rep_ad_l6_cedex', ''),
-                #('Rֳ©p-AD-L6 CP', 'rep_ad_l6_cp', ''),
-                #('Rֳ©p-AD-L6 INSEE', 'rep_ad_l6_insee', ''),
-                #('Rֳ©p-AD-L6 Localitֳ©', 'rep_ad_l6_localite', ''),
-                #('Rֳ©p-AD-L7 Pays', 'rep_ad_l7_pays', ''),
-                #('Rֳ©p-AD-Tֳ©lֳ©phone', 'rep_ad_telephone', ''),
+                # Champs de réponse enquêteur (Rép-)
+                #('Rép-EC-Civilité', 'rep_ec_civilite', ''),
+                #('Rép-EC-Prénom', 'rep_ec_prenom', ''),
+                #('Rép-EC-Prénom2', 'rep_ec_prenom2', ''),
+                #('Rép-EC-Prénom3', 'rep_ec_prenom3', ''),
+                #('Rép-EC-Prénom4', 'rep_ec_prenom4', ''),
+                #('Rép-EC-Nom Usage', 'rep_ec_nom_usage', ''),
+                #('Rép-EC-Nom Naissance', 'rep_ec_nom_naissance', ''),
+                #('Rép-EC-Date Naissance', 'rep_ec_date_naissance', ''),
+                #('Rép-Naissance CP', 'rep_naissance_cp', ''),
+                #('Rép-EC-Localité Naissance', 'rep_ec_localite_naissance', ''),
+                #('Rép-Naissance INSEE', 'rep_naissance_insee', ''),
+                #('Rép-EC-Pays Naissance', 'rep_ec_pays_naissance', ''),
+                #('Rép-DCD-Date', 'rep_dcd_date', ''),
+                #('Rép-DCD-Numéro_Acte', 'rep_dcd_numero_acte', ''),
+                #('Rép-DCD-Localité', 'rep_dcd_localite', ''),
+                #('Rép-DCD-CP', 'rep_dcd_cp', ''),
+                #('Rép-DCD-INSEE', 'rep_dcd_insee', ''),
+                #('Rép-DCD-Pays', 'rep_dcd_pays', ''),
+                #('Rép-AD-L1', 'rep_ad_l1', ''),
+                #('Rép-AD-L2', 'rep_ad_l2', ''),
+                #('Rép-AD-L3', 'rep_ad_l3', ''),
+                #('Rép-AD-L4 Numéro', 'rep_ad_l4_numero', ''),
+                #('Rép-AD-L4 Type', 'rep_ad_l4_type', ''),
+                #('Rép-AD-L4 Voie', 'rep_ad_l4_voie', ''),
+                #('Rép-AD-L5', 'rep_ad_l5', ''),
+                #('Rép-AD-L6 Cedex', 'rep_ad_l6_cedex', ''),
+                #('Rép-AD-L6 CP', 'rep_ad_l6_cp', ''),
+                #('Rép-AD-L6 INSEE', 'rep_ad_l6_insee', ''),
+                #('Rép-AD-L6 Localité', 'rep_ad_l6_localite', ''),
+                #('Rép-AD-L7 Pays', 'rep_ad_l7_pays', ''),
+                #('Rép-AD-Téléphone', 'rep_ad_telephone', ''),
             ]
             
             def format_date(date_str):

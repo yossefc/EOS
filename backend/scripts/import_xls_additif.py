@@ -486,7 +486,7 @@ def import_file(engine, filepath):
 # ---------------------------------------------------------------------------
 
 def main():
-    backup_dir = sys.argv[1] if len(sys.argv) > 1 else 'reponses_cr backup'
+    backup_dir = sys.argv[1] if len(sys.argv) > 1 else r'E:\LDMEOS\reponses_cr backup'
     backup_dir = os.path.abspath(backup_dir)
 
     log.info('=' * 70)

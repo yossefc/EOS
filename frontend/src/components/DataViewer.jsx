@@ -502,7 +502,17 @@ const DataViewer = () => {
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Export_Nouvelles_Enquetes_${new Date().toISOString().split('T')[0]}.docx`);
+
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = `Export_${client?.nom || client?.code || 'Client'}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19).replace('T', '_')}.docx`;
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+
+        link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
         link.remove();

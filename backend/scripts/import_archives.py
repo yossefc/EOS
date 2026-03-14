@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Definir DATABASE_URL si non defini (PostgreSQL)
 if not os.environ.get('DATABASE_URL'):
-    os.environ['DATABASE_URL'] = 'postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db'
+    os.environ['DATABASE_URL'] = 'postgresql+psycopg2://postgres:postgres@localhost:5432/eos_db'
 
 from app import create_app
 from extensions import db
@@ -45,9 +45,9 @@ logger = logging.getLogger(__name__)
 
 # Chemins des dossiers backup (relatifs a la racine du projet)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CR_BACKUP_DIR = os.path.join(PROJECT_ROOT, 'reponses_cr backup')
-CRCONT_BACKUP_DIR = os.path.join(PROJECT_ROOT, 'reponses_crcont backup')
-EOS_BACKUP_DIR = os.path.join(PROJECT_ROOT, 'reponses_EOS backup')
+CR_BACKUP_DIR = r'E:\LDMEOS\reponses_cr backup'
+CRCONT_BACKUP_DIR = r'E:\LDMEOS\reponses_crcont backup'
+EOS_BACKUP_DIR = r'E:\LDMEOS\reponses_EOS backup'
 
 PARTNER_CLIENT_ID = 11
 EOS_CLIENT_ID = 1

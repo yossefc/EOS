@@ -406,7 +406,7 @@ def generate_facturation_client_pdf(client_nom, facturations, montant_total, dat
 
         # Tableau détaillé
         data = [
-            ["N° Dossier", "Nom", "Prénom", "Éléments", "Date archivage", "Montant HT"]
+            ["N° Dossier", "Nom", "Prénom", "Éléments", "Date retour", "Montant HT"]
         ]
 
         for f in facturations:

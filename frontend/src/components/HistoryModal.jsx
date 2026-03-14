@@ -156,12 +156,14 @@ const HistoryModal = ({ isOpen, onClose, donneeId }) => {
                 <thead className="bg-gray-50 text-gray-700">
                   <tr>
                     <th className="px-3 py-2 text-left">Date</th>
+                    <th className="px-3 py-2 text-left">Client</th>
                     <th className="px-3 py-2 text-left">Dossier</th>
                     <th className="px-3 py-2 text-left">Nom / Prenom</th>
                     <th className="px-3 py-2 text-left">Element demande</th>
                     <th className="px-3 py-2 text-left">Resultat</th>
                     <th className="px-3 py-2 text-left">Element retrouve</th>
                     <th className="px-3 py-2 text-left">Memo personnel</th>
+                    <th className="px-3 py-2 text-right">Montant</th>
                     <th className="px-3 py-2 text-left">Enqueteur</th>
                     <th className="px-3 py-2 text-left">Donnees saisies</th>
                   </tr>
@@ -170,6 +172,11 @@ const HistoryModal = ({ isOpen, onClose, donneeId }) => {
                   {rows.map((row, idx) => (
                     <tr key={row.id} className={`align-top ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
                       <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.date)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                          {row.client_nom || `Client ${row.client_id}`}
+                        </span>
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         #{row.id} {row.numeroDossier ? `(${row.numeroDossier})` : ''}
                       </td>
@@ -188,6 +195,16 @@ const HistoryModal = ({ isOpen, onClose, donneeId }) => {
                         ) : (
                           '-'
                         )}
+                      </td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        {row.montant_eos != null ? (
+                          <div>
+                            <div className="font-semibold text-blue-700">{row.montant_eos.toFixed(2)} €</div>
+                            {row.montant_enqueteur != null && (
+                              <div className="text-xs text-green-600">{row.montant_enqueteur.toFixed(2)} € enq.</div>
+                            )}
+                          </div>
+                        ) : <span className="text-gray-400">-</span>}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-start gap-2">

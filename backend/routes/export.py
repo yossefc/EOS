@@ -22,6 +22,16 @@ CODE_PRESTATAIRE = os.getenv('CODE_PRESTATAIRE', 'XXX')  # 3 lettres
 
 # ========== FONCTIONS DE FORMATAGE POUR EXPORT EOS ==========
 
+def sanitize_filename_part(value):
+    """Nettoie une portion de nom de fichier en conservant uniquement ASCII simple."""
+    if not value:
+        return "Client"
+
+    cleaned = clean_special_chars(str(value).strip())
+    cleaned = re.sub(r'[^A-Za-z0-9]+', '_', cleaned)
+    cleaned = re.sub(r'_+', '_', cleaned).strip('_')
+    return cleaned or "Client"
+
 def clean_special_chars(text):
     """Nettoie les caractères spéciaux pour l'encodage cp1252"""
     if text is None:
@@ -399,10 +409,12 @@ def export_enquetes():
         temp_file.close()
         
         # Envoyer le fichier au client
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        client_part = sanitize_filename_part(client.nom or client.code)
         return send_file(
             temp_file.name,
             as_attachment=True,
-            download_name=f"Export_Nouvelles_Enquetes_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
+            download_name=f"Export_{client_part}_{timestamp}.docx",
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
         

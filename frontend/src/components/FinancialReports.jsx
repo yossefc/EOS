@@ -24,7 +24,6 @@ const COLORS = {
 const FinancialReports = () => {
     const [periodeStats, setPeriodeStats] = useState([]);
     const [tarifStats, setTarifStats] = useState([]);
-    const [enqueteurStats, setEnqueteurStats] = useState([]);
     const [globalStats, setGlobalStats] = useState(null);
     const [statsEOS, setStatsEOS] = useState(null);
     const [statsPartner, setStatsPartner] = useState(null);
@@ -32,7 +31,15 @@ const FinancialReports = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Période sélectionnée pour les filtres
+    // Dates personnalisées
+    const todayStr = new Date().toISOString().split('T')[0];
+    const [dateDebut, setDateDebut] = useState(() => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 1);
+        return d.toISOString().split('T')[0];
+    });
+    const [dateFin, setDateFin] = useState(todayStr);
+    // Garde une trace du preset actif pour le surlignage des boutons
     const [selectedPeriod, setSelectedPeriod] = useState('12months');
 
     // MULTI-CLIENT: États pour les clients
@@ -60,30 +67,64 @@ const FinancialReports = () => {
         }
     }, []);
 
+    // Applique un preset et met à jour les dates
+    const applyPreset = useCallback((preset) => {
+        const now = new Date();
+        const fmt = (d) => d.toISOString().split('T')[0];
+        let debut, fin = fmt(now);
+        if (preset === '1month') {
+            debut = fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+            fin = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
+        } else if (preset === '12months') {
+            const d = new Date(now); d.setFullYear(d.getFullYear() - 1);
+            debut = fmt(d);
+        } else if (preset === '24months') {
+            const d = new Date(now); d.setFullYear(d.getFullYear() - 2);
+            debut = fmt(d);
+        } else if (preset === 'current') {
+            debut = fmt(new Date(now.getFullYear(), 0, 1));
+        } else if (preset === 'all') {
+            debut = '2024-01-01';
+        }
+        setDateDebut(debut);
+        setDateFin(fin);
+        setSelectedPeriod(preset);
+    }, []);
+
     // Fonction pour récupérer toutes les données
     const fetchAllData = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
 
-            // 📊 Récupérer les statistiques par période (1, 12 ou 24 mois)
-            let periodCount;
-            if (selectedPeriod === '1month') periodCount = 1;
-            else if (selectedPeriod === '12months') periodCount = 12;
-            else if (selectedPeriod === '24months') periodCount = 24;
-            else periodCount = 12; // Fallback pour 'current' ou autre (à adapter selon besoin réel)
+            // 📊 Récupérer les statistiques par période (dates personnalisées)
             const clientParam = selectedClientId ? `&client_id=${selectedClientId}` : '';
-            const periodRes = await axios.get(`${API_URL}/api/paiement/stats/periodes?mois=${periodCount}${clientParam}`);
+            const dateParams = `date_debut=${dateDebut}&date_fin=${dateFin}`;
+            const periodRes = await axios.get(
+                `${API_URL}/api/paiement/stats/periodes?${dateParams}${clientParam}`
+            );
 
             if (periodRes.data.success) {
                 setPeriodeStats(periodRes.data.data);
             }
 
             // 📈 Récupérer les statistiques globales
-            const globalRes = await axios.get(`${API_URL}/api/tarification/stats/global${selectedClientId ? `?client_id=${selectedClientId}` : ''}`);
+            const globalRes = await axios.get(
+                `${API_URL}/api/tarification/stats/global?${dateParams}${selectedClientId ? `&client_id=${selectedClientId}` : ''}`
+            );
 
             if (globalRes.data.success) {
                 setGlobalStats(globalRes.data.data);
+            }
+
+            const tarifRes = await axios.get(
+                `${API_URL}/api/tarification/stats/tarifs?${dateParams}${selectedClientId ? `&client_id=${selectedClientId}` : ''}`
+            );
+
+            if (tarifRes.data.success) {
+                setTarifStats(tarifRes.data.data);
+            } else {
+                setTarifStats([]);
             }
 
             // 📊 Si "Tous les clients" est sélectionné, récupérer aussi EOS et PARTNER séparément
@@ -92,14 +133,18 @@ const FinancialReports = () => {
                 const clientPartner = clients.find(c => c.code !== 'EOS');
 
                 if (clientEOS) {
-                    const eosRes = await axios.get(`${API_URL}/api/tarification/stats/global?client_id=${clientEOS.id}`);
+                    const eosRes = await axios.get(
+                        `${API_URL}/api/tarification/stats/global?${dateParams}&client_id=${clientEOS.id}`
+                    );
                     if (eosRes.data.success) {
                         setStatsEOS(eosRes.data.data);
                     }
                 }
 
                 if (clientPartner) {
-                    const partnerRes = await axios.get(`${API_URL}/api/tarification/stats/global?client_id=${clientPartner.id}`);
+                    const partnerRes = await axios.get(
+                        `${API_URL}/api/tarification/stats/global?${dateParams}&client_id=${clientPartner.id}`
+                    );
                     if (partnerRes.data.success) {
                         setStatsPartner(partnerRes.data.data);
                     }
@@ -109,33 +154,13 @@ const FinancialReports = () => {
                 setStatsPartner(null);
             }
 
-            // 🧪 Statistiques simulées par type de tarif
-            const mockTarifStats = [
-                { code: 'A', description: 'Adresse seule', count: 124, montant: 992.00 },
-                { code: 'AT', description: 'Adresse et téléphone', count: 248, montant: 5456.00 },
-                { code: 'ATB', description: 'Adresse, téléphone et banque', count: 76, montant: 1824.00 },
-                { code: 'D', description: 'Décès', count: 12, montant: 120.00 },
-                { code: 'ATBE', description: 'Adresse, téléphone, banque et employeur', count: 42, montant: 1092.00 }
-            ];
-            setTarifStats(mockTarifStats);
-
-            // 🧪 Statistiques simulées par enquêteur
-            const mockEnqueteurStats = [
-                { id: 1, nom: 'Dupont', prenom: 'Jean', count: 87, montant: 1914.00, status: { positive: 68, negative: 19 } },
-                { id: 2, nom: 'Martin', prenom: 'Sophie', count: 124, montant: 2728.00, status: { positive: 102, negative: 22 } },
-                { id: 3, nom: 'Bernard', prenom: 'Philippe', count: 56, montant: 1232.00, status: { positive: 48, negative: 8 } },
-                { id: 4, nom: 'Petit', prenom: 'Marie', count: 103, montant: 2266.00, status: { positive: 85, negative: 18 } },
-                { id: 5, nom: 'Lefebvre', prenom: 'Thomas', count: 132, montant: 2904.00, status: { positive: 112, negative: 20 } }
-            ];
-            setEnqueteurStats(mockEnqueteurStats);
-
         } catch (err) {
             console.error("Erreur lors de la récupération des données:", err);
             setError("Erreur lors du chargement des données");
         } finally {
             setLoading(false);
         }
-    }, [selectedPeriod, selectedClientId, clients]);
+    }, [dateDebut, dateFin, selectedClientId, clients]);
 
     useEffect(() => {
         fetchClients();
@@ -165,36 +190,21 @@ const FinancialReports = () => {
             alert("Veuillez sélectionner un client (EOS ou PARTNER) pour exporter le PDF de facturation.");
             return;
         }
-        // Construire l'URL avec les filtres de période
         let url = `${API_URL}/api/paiement/facturation-client-pdf/${selectedClientId}`;
-        const params = [];
-
-        // Ajouter les filtres de date basés sur la période sélectionnée
-        const now = new Date();
-        if (selectedPeriod === '1month') {
-            const debut = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
-            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
-        } else if (selectedPeriod === '12months') {
-            const debut = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
-            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
-        } else if (selectedPeriod === '24months') {
-            const debut = new Date(now.getFullYear() - 2, now.getMonth(), 1);
-            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
-            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
-        } else if (selectedPeriod === 'current') {
-            const debut = new Date(now.getFullYear(), 0, 1);
-            params.push(`date_debut=${debut.toISOString().split('T')[0]}`);
-            params.push(`date_fin=${now.toISOString().split('T')[0]}`);
-        }
-
-        if (params.length > 0) {
-            url += '?' + params.join('&');
-        }
-
+        url += `?date_debut=${dateDebut}&date_fin=${dateFin}`;
         window.open(url, '_blank');
     };
+
+    // Statistiques agrégées sur la période sélectionnée (depuis periodeStats)
+    const periodeTotaux = periodeStats.reduce(
+        (acc, stat) => ({
+            total_eos: acc.total_eos + (stat.montant_facture || 0),
+            total_enqueteurs: acc.total_enqueteurs + (stat.montant_enqueteurs || 0),
+            marge: acc.marge + (stat.marge || 0),
+            nb_enquetes: acc.nb_enquetes + (stat.nb_enquetes || 0),
+        }),
+        { total_eos: 0, total_enqueteurs: 0, marge: 0, nb_enquetes: 0 }
+    );
 
     // Mise en forme des données pour les graphiques
     const prepareChartData = () => {
@@ -213,17 +223,7 @@ const FinancialReports = () => {
             count: tarif.count,
             description: tarif.description
         }));
-
-        // Pour la répartition par enquêteur
-        const enqueteurData = enqueteurStats.map(enq => ({
-            name: `${enq.prenom} ${enq.nom}`,
-            montant: enq.montant,
-            count: enq.count,
-            positive: enq.status.positive,
-            negative: enq.status.negative
-        }));
-
-        return { monthlyData, tarifData, enqueteurData };
+        return { monthlyData, tarifData };
     };
 
     const { monthlyData, tarifData } = prepareChartData();
@@ -298,17 +298,59 @@ const FinancialReports = () => {
                         </div>
                     )}
 
-                    <div>
-                        <select
-                            value={selectedPeriod}
-                            onChange={(e) => setSelectedPeriod(e.target.value)}
-                            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
-                        >
-                            <option value="1month">Dernier mois</option>
-                            <option value="12months">12 derniers mois</option>
-                            <option value="24months">24 derniers mois</option>
-                            <option value="current">Année en cours</option>
-                        </select>
+                    {/* Sélection de période par date */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Presets rapides */}
+                        {[
+                            { key: '1month', label: '1M' },
+                            { key: '12months', label: '12M' },
+                            { key: '24months', label: '24M' },
+                            { key: 'current', label: 'Année' },
+                            { key: 'all', label: 'Tout' },
+                        ].map(p => (
+                            <button
+                                key={p.key}
+                                onClick={() => applyPreset(p.key)}
+                                className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                                    selectedPeriod === p.key
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                }`}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                        {/* Séparateur */}
+                        <span className="text-gray-300 text-sm">|</span>
+                        {/* De */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-500">De</span>
+                            <input
+                                type="date"
+                                value={dateDebut}
+                                onChange={(e) => { setDateDebut(e.target.value); setSelectedPeriod('custom'); }}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        {/* À */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-500">À</span>
+                            <input
+                                type="date"
+                                value={dateFin}
+                                onChange={(e) => { setDateFin(e.target.value); setSelectedPeriod('custom'); }}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        {/* Bouton appliquer quand custom */}
+                        {selectedPeriod === 'custom' && (
+                            <button
+                                onClick={fetchAllData}
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
+                            >
+                                Appliquer
+                            </button>
+                        )}
                     </div>
                     <button
                         onClick={handleGenerateReport}
@@ -335,14 +377,14 @@ const FinancialReports = () => {
 
             {/* Contenu principal */}
             <div className="space-y-6">
-                {/* Statistiques globales en cartes */}
+                {/* Statistiques sur la période sélectionnée (en cartes) */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-white p-4 rounded-lg shadow border">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-sm text-gray-500">Total facturé (EOS)</p>
                                 <p className="text-2xl font-bold text-blue-700 mt-1">
-                                    {globalStats?.total_eos.toFixed(2) || 0} €
+                                    {periodeTotaux.total_eos.toFixed(2)} €
                                 </p>
                             </div>
                             <div className="p-2 bg-blue-100 rounded-full">
@@ -350,7 +392,7 @@ const FinancialReports = () => {
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                            Pour {globalStats?.enquetes_positives || 0} enquêtes positives
+                            Sur la période sélectionnée
                         </p>
                     </div>
 
@@ -359,7 +401,7 @@ const FinancialReports = () => {
                             <div>
                                 <p className="text-sm text-gray-500">Payé aux enquêteurs</p>
                                 <p className="text-2xl font-bold text-green-700 mt-1">
-                                    {globalStats?.total_enqueteurs.toFixed(2) || 0} €
+                                    {periodeTotaux.total_enqueteurs.toFixed(2)} €
                                 </p>
                             </div>
                             <div className="p-2 bg-green-100 rounded-full">
@@ -367,7 +409,9 @@ const FinancialReports = () => {
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                            Représente {globalStats ? (globalStats.total_enqueteurs / globalStats.total_eos * 100).toFixed(1) : 0}% du CA
+                            {periodeTotaux.total_eos > 0
+                                ? `Représente ${(periodeTotaux.total_enqueteurs / periodeTotaux.total_eos * 100).toFixed(1)}% du CA`
+                                : 'Sur la période sélectionnée'}
                         </p>
                     </div>
 
@@ -376,7 +420,7 @@ const FinancialReports = () => {
                             <div>
                                 <p className="text-sm text-gray-500">Marge brute</p>
                                 <p className="text-2xl font-bold text-indigo-700 mt-1">
-                                    {globalStats?.marge.toFixed(2) || 0} €
+                                    {periodeTotaux.marge.toFixed(2)} €
                                 </p>
                             </div>
                             <div className="p-2 bg-indigo-100 rounded-full">
@@ -384,7 +428,9 @@ const FinancialReports = () => {
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                            Taux de marge: {globalStats?.pourcentage_marge.toFixed(1) || 0}%
+                            Taux: {periodeTotaux.total_eos > 0
+                                ? `${(periodeTotaux.marge / periodeTotaux.total_eos * 100).toFixed(1)}%`
+                                : '0%'}
                         </p>
                     </div>
 
@@ -393,7 +439,7 @@ const FinancialReports = () => {
                             <div>
                                 <p className="text-sm text-gray-500">Enquêtes traitées</p>
                                 <p className="text-2xl font-bold text-gray-700 mt-1">
-                                    {globalStats?.enquetes_traitees || 0}
+                                    {periodeTotaux.nb_enquetes}
                                 </p>
                             </div>
                             <div className="p-2 bg-gray-100 rounded-full">
@@ -401,7 +447,7 @@ const FinancialReports = () => {
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                            Dont {globalStats?.enquetes_positives || 0} positives ({globalStats ? (globalStats.enquetes_positives / globalStats.enquetes_traitees * 100).toFixed(1) : 0}%)
+                            Sur la période sélectionnée
                         </p>
                     </div>
                 </div>
@@ -624,7 +670,7 @@ const FinancialReports = () => {
                                             {stat.marge.toFixed(2)} €
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                                            {(stat.marge / stat.montant_facture * 100).toFixed(1)}%
+                                            {stat.montant_facture > 0 ? (stat.marge / stat.montant_facture * 100).toFixed(1) : '0.0'}%
                                         </td>
                                     </tr>
                                 ))}
@@ -647,8 +693,11 @@ const FinancialReports = () => {
                                         {periodeStats.reduce((sum, stat) => sum + stat.marge, 0).toFixed(2)} €
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-                                        {(periodeStats.reduce((sum, stat) => sum + stat.marge, 0) /
-                                            periodeStats.reduce((sum, stat) => sum + stat.montant_facture, 0) * 100).toFixed(1)}%
+                                        {(() => {
+                                            const totalMarge = periodeStats.reduce((sum, stat) => sum + stat.marge, 0);
+                                            const totalFacture = periodeStats.reduce((sum, stat) => sum + stat.montant_facture, 0);
+                                            return totalFacture > 0 ? (totalMarge / totalFacture * 100).toFixed(1) : '0.0';
+                                        })()}%
                                     </td>
                                 </tr>
                             </tfoot>

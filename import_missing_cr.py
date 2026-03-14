@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 # Configuration
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:iseeyou@localhost/eos_db')
-CR_FOLDER = r"d:\EOS\reponses_cr backup"
+CR_FOLDER = r"E:\LDMEOS\reponses_cr backup"
 
 def normalize_text(text):
     """Normalise le texte pour comparaison"""

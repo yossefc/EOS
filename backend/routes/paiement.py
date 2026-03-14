@@ -69,9 +69,15 @@ def get_facturations_enqueteur(enqueteur_id):
         facturations = db.session.query(
             EnqueteFacturation.id,
             Donnee.numeroDossier,
+            Donnee.referenceDossier,
+            Donnee.nom,
+            Donnee.prenom,
             Donnee.typeDemande,  # Ajout du type de demande pour identifier les contestations
+            Donnee.est_contestation,
             DonneeEnqueteur.elements_retrouves,
+            DonneeEnqueteur.date_retour,
             EnqueteFacturation.resultat_enqueteur_montant,
+            EnqueteFacturation.tarif_enqueteur_code,
             EnqueteFacturation.created_at,
             DonneeEnqueteur.code_resultat
         ).join(
@@ -89,7 +95,21 @@ def get_facturations_enqueteur(enqueteur_id):
 
         # Convertir le résultat en liste de dictionnaires
         facturations_liste = []
-        for id, numeroDossier, typeDemande, elements_retrouves, montant, created_at, code_resultat in facturations:
+        for (
+            id,
+            numeroDossier,
+            referenceDossier,
+            nom,
+            prenom,
+            typeDemande,
+            est_contestation,
+            elements_retrouves,
+            date_retour,
+            montant,
+            tarif_enqueteur_code,
+            created_at,
+            code_resultat
+        ) in facturations:
             # Pour les contestations en cours, ajouter un montant forfaitaire
             if typeDemande == 'CON' and not code_resultat:
                 status = "Contestation en cours"
@@ -103,11 +123,18 @@ def get_facturations_enqueteur(enqueteur_id):
             facturations_liste.append({
                 'id': id,
                 'numeroDossier': numeroDossier,
-                'typeDemande': typeDemande,  # Pour identifier les contestations
+                'referenceDossier': referenceDossier,
+                'nom': nom,
+                'prenom': prenom,
+                'typeDemande': typeDemande,
+                'est_contestation': est_contestation,
                 'elements_retrouves': elements_retrouves,
                 'montant': montant_affiche,
-                'date': created_at.strftime('%Y-%m-%d'),
+                'date_retour': date_retour.strftime('%Y-%m-%d') if date_retour else None,
+                'date_facturation': created_at.strftime('%Y-%m-%d'),
+                'date': date_retour.strftime('%Y-%m-%d') if date_retour else created_at.strftime('%Y-%m-%d'),
                 'code_resultat': code_resultat,
+                'tarif_enqueteur_code': tarif_enqueteur_code,
                 'status': status
             })
 
@@ -383,21 +410,31 @@ def get_stats_periodes():
     try:
         # Paramètres
         nb_mois = request.args.get('mois', 12, type=int)
-        client_id = request.args.get('client_id', type=int)  # ✅ AJOUT: Filtre optionnel
-        
+        client_id = request.args.get('client_id', type=int)
+        date_debut_str = request.args.get('date_debut')  # YYYY-MM-DD optionnel
+        date_fin_str = request.args.get('date_fin')       # YYYY-MM-DD optionnel
+
         if client_id:
             logger.info(f"Stats périodes filtrées pour client_id={client_id}")
         else:
             logger.info("Stats périodes pour TOUS les clients")
-        
-        # Date de début (mois actuel - nb_mois)
+
         now = datetime.now()
-        date_debut = datetime(now.year, now.month, 1)
-        for _ in range(nb_mois):
-            if date_debut.month == 1:
-                date_debut = datetime(date_debut.year - 1, 12, 1)
-            else:
-                date_debut = datetime(date_debut.year, date_debut.month - 1, 1)
+
+        # Priorité : date_debut/date_fin si fournis, sinon nb_mois
+        if date_debut_str:
+            d = datetime.strptime(date_debut_str, '%Y-%m-%d')
+            date_debut = datetime(d.year, d.month, 1)
+        else:
+            date_debut = datetime(now.year, now.month, 1)
+            for _ in range(nb_mois):
+                if date_debut.month == 1:
+                    date_debut = datetime(date_debut.year - 1, 12, 1)
+                else:
+                    date_debut = datetime(date_debut.year, date_debut.month - 1, 1)
+
+        if date_fin_str:
+            now = datetime.strptime(date_fin_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
 
         # Liste des mois à couvrir
         periodes = []
@@ -423,8 +460,14 @@ def get_stats_periodes():
         
         for periode in periodes:
             # Base query pour enquêtes traitées
-            # Utilise EnqueteFacturation.created_at (= datedenvoie des archives)
-            # pour que le comptage soit cohérent avec les montants facturés
+            # Utilise date_retour comme référence de période
+            # Fallback: updated_at (archivage individuel) puis created_at
+            date_ref_enquetes = func.coalesce(
+                DonneeEnqueteur.date_retour,
+                func.cast(Donnee.updated_at, db.Date),
+                func.cast(EnqueteFacturation.created_at, db.Date)
+            )
+
             query_enquetes = db.session.query(func.count(EnqueteFacturation.id)).join(
                 Donnee, EnqueteFacturation.donnee_id == Donnee.id
             ).join(
@@ -438,16 +481,24 @@ def get_stats_periodes():
             nb_enquetes = query_enquetes.filter(
                 DonneeEnqueteur.code_resultat.isnot(None),
                 Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee']),
-                EnqueteFacturation.created_at >= periode['debut'],
-                EnqueteFacturation.created_at < periode['next']
+                date_ref_enquetes >= periode['debut'].date(),
+                date_ref_enquetes <= periode['fin'].date()
             ).scalar() or 0
 
-            # Base query pour facturations
+            # Base query pour facturations - utilise date_retour comme référence
+            date_ref_fact = func.coalesce(
+                DonneeEnqueteur.date_retour,
+                func.cast(Donnee.updated_at, db.Date),
+                func.cast(EnqueteFacturation.created_at, db.Date)
+            )
+
             query_fact = db.session.query(EnqueteFacturation).join(
                 Donnee, EnqueteFacturation.donnee_id == Donnee.id
+            ).join(
+                DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
             ).filter(
-                EnqueteFacturation.created_at >= periode['debut'],
-                EnqueteFacturation.created_at < periode['next'],
+                date_ref_fact >= periode['debut'].date(),
+                date_ref_fact <= periode['fin'].date(),
                 Donnee.statut_validation.in_(['confirmee', 'archive', 'archivee'])
             )
             
@@ -664,10 +715,17 @@ def generer_pdf_facturation_client(client_id):
         date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date() if date_debut_str else None
         date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date() if date_fin_str else None
 
-        # Date d'archivage effective:
-        # 1. exported_at si renseigné (exports PARTNER récents)
-        # 2. sinon created_at de la facturation (= datedenvoie pour EOS)
-        effective_archive_date = func.coalesce(Donnee.exported_at, EnqueteFacturation.created_at)
+        # Date de référence effective (priorité):
+        # 1. date_retour si renseignée (date réelle de retour du dossier)
+        # 2. exported_at si renseigné (exports PARTNER récents)
+        # 3. updated_at de la donnee (= date d'archivage individuel)
+        # 4. created_at de la facturation (dernier recours)
+        effective_archive_date = func.coalesce(
+            func.cast(DonneeEnqueteur.date_retour, db.DateTime),
+            Donnee.exported_at,
+            Donnee.updated_at,
+            EnqueteFacturation.created_at
+        )
 
         # Requête: EnqueteFacturation + Donnee + DonneeEnqueteur pour ce client,
         # limitée aux enquêtes réellement archivées.
@@ -712,8 +770,8 @@ def generer_pdf_facturation_client(client_id):
             montant = float(facturation.resultat_eos_montant or 0)
             montant_total += montant
 
-            # Numéro de dossier: numeroDossier si présent, sinon ID interne
-            num_dossier = donnee.numeroDossier or f'#{donnee.id}'
+            # Numéro de dossier: numeroDossier (CR/CRCONT) → referenceDossier (EOS) → ID interne
+            num_dossier = donnee.numeroDossier or donnee.referenceDossier or f'#{donnee.id}'
 
             # Élément trouvé: elements_retrouves, sinon adresse (PARTNER), sinon code résultat
             elements = donnee_enqueteur.elements_retrouves
@@ -721,7 +779,7 @@ def generer_pdf_facturation_client(client_id):
                 adr = ' '.join(filter(None, [donnee_enqueteur.adresse1, donnee_enqueteur.ville]))
                 elements = adr or donnee_enqueteur.code_resultat or '-'
 
-            # Date d'archivage (coalesce exported_at / ef.created_at)
+            # Date retour (coalesce date_retour / exported_at / ef.created_at)
             date_str = date_archive.strftime('%d/%m/%Y') if date_archive else '-'
 
             facturations_details.append({

@@ -6,14 +6,14 @@ warnings.filterwarnings('ignore')
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if not os.environ.get('DATABASE_URL'):
-    os.environ['DATABASE_URL'] = 'postgresql+psycopg2://eos_user:eos_password@localhost:5432/eos_db'
+    os.environ['DATABASE_URL'] = 'postgresql+psycopg2://postgres:postgres@localhost:5432/eos_db'
 
 from app import create_app
 from extensions import db
 from models.models import Donnee
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-cr_dir = os.path.join(BASE_DIR, 'reponses_cr backup')
+cr_dir = r'E:\LDMEOS\reponses_cr backup'
 
 app = create_app()
 with app.app_context():

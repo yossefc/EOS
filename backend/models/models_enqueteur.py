@@ -6,6 +6,7 @@ class DonneeEnqueteur(db.Model):
     __tablename__ = 'donnees_enqueteur'
     __table_args__ = (
         db.Index('idx_donnee_enqueteur_client_id', 'client_id'),  # MULTI-CLIENT
+        db.Index('idx_donnee_enqueteur_donnee_id', 'donnee_id'),  # FK la plus filtrée
     )
 
     id = db.Column(db.Integer, primary_key=True)

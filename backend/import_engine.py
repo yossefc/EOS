@@ -12,15 +12,34 @@ from extensions import db
 logger = logging.getLogger(__name__)
 
 
+def fix_mojibake(name):
+    """
+    Corrige les noms de colonnes mal encodés (UTF-8 lu comme Latin-1).
+    Ex: "EC-LocalitÃ© Naissance" → "EC-Localité Naissance"
+    """
+    if not name:
+        return name
+    try:
+        # Tenter de réinterpréter Latin-1 bytes → UTF-8
+        fixed = name.encode('latin-1').decode('utf-8')
+        # Vérifier que le résultat est plus "propre" (moins de caractères ≥ U+0080 non-accentués)
+        orig_non_ascii = sum(1 for c in name if ord(c) > 127)
+        fixed_non_ascii = sum(1 for c in fixed if ord(c) > 127)
+        if fixed_non_ascii < orig_non_ascii:
+            return fixed
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        pass
+    return name
+
+
 def normalize_column_name(name):
-    """Normalise un nom de colonne en enlevant les accents et en mettant en majuscules"""
+    """Normalise un nom de colonne en enlevant les accents et en mettant en majuscules.
+    Corrige aussi le mojibake (UTF-8 lu comme Latin-1) avant normalisation."""
     if not name:
         return ""
-    # Enlever les accents
-    name_str = str(name)
+    name_str = fix_mojibake(str(name))
     nfd = unicodedata.normalize('NFD', name_str)
     without_accents = ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
-    # Mettre en majuscules et enlever espaces superflus
     return without_accents.upper().strip()
 
 
@@ -213,13 +232,15 @@ class ImportEngine:
 
                     if use_yaml_mapping:
                         # Convertir la row pandas en dict pour _apply_client_mapping
+                        # fix_mojibake corrige les noms de colonnes mal encodés (UTF-8 lu en Latin-1)
                         raw_record = {}
                         for col in df.columns:
                             val = row[col]
+                            fixed_col = fix_mojibake(str(col).strip())
                             if pd.isna(val):
-                                raw_record[str(col).strip()] = None
+                                raw_record[fixed_col] = None
                             else:
-                                raw_record[str(col).strip()] = str(val).strip()
+                                raw_record[fixed_col] = str(val).strip()
 
                         record = self._apply_client_mapping(raw_record)
                     else:

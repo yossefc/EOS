@@ -1,7 +1,7 @@
 # backend/routes/tarification.py
 
 from flask import Blueprint, request, jsonify
-from models.tarifs import TarifEOS, TarifEnqueteur, EnqueteFacturation
+from models.tarifs import TarifEOS, TarifEnqueteur, TarifClient, EnqueteFacturation
 from services.tarification_service import TarificationService
 from extensions import db
 import logging
@@ -554,9 +554,24 @@ def get_global_stats():
         
         # ✅ AJOUT: Paramètre optionnel client_id pour filtrage
         client_id = request.args.get('client_id', type=int)
+        date_debut_str = request.args.get('date_debut')
+        date_fin_str = request.args.get('date_fin')
+
+        date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date() if date_debut_str else None
+        date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date() if date_fin_str else None
         
         # Base query pour facturations
-        query_base = db.session.query(EnqueteFacturation)
+        query_base = db.session.query(EnqueteFacturation).join(
+            Donnee, EnqueteFacturation.donnee_id == Donnee.id
+        ).join(
+            DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
+        )
+
+        date_ref_fact = func.coalesce(
+            DonneeEnqueteur.date_retour,
+            func.cast(Donnee.updated_at, db.Date),
+            func.cast(EnqueteFacturation.created_at, db.Date)
+        )
         
         # ✅ AJOUT: Appliquer filtre client si fourni
         if client_id:
@@ -564,6 +579,11 @@ def get_global_stats():
             logger.info(f"Stats globales filtrées pour client_id={client_id}")
         else:
             logger.info("Stats globales pour TOUS les clients")
+
+        if date_debut:
+            query_base = query_base.filter(date_ref_fact >= date_debut)
+        if date_fin:
+            query_base = query_base.filter(date_ref_fact <= date_fin)
         
         # Calcul du total facturé
         total_eos = query_base.with_entities(
@@ -576,12 +596,19 @@ def get_global_stats():
         ).scalar() or 0
         
         # Base query pour enquêtes traitées
-        query_enquetes = db.session.query(DonneeEnqueteur)
+        query_enquetes = db.session.query(DonneeEnqueteur).join(
+            Donnee, DonneeEnqueteur.donnee_id == Donnee.id
+        )
+        date_ref_enquetes = func.coalesce(
+            DonneeEnqueteur.date_retour,
+            func.cast(Donnee.updated_at, db.Date)
+        )
         if client_id:
-            # ✅ AJOUT: Filtrer par client via JOIN avec donnees
-            query_enquetes = query_enquetes.join(
-                Donnee, DonneeEnqueteur.donnee_id == Donnee.id
-            ).filter(Donnee.client_id == client_id)
+            query_enquetes = query_enquetes.filter(Donnee.client_id == client_id)
+        if date_debut:
+            query_enquetes = query_enquetes.filter(date_ref_enquetes >= date_debut)
+        if date_fin:
+            query_enquetes = query_enquetes.filter(date_ref_enquetes <= date_fin)
         
         # Nombre d'enquêtes traitées
         enquetes_traitees = query_enquetes.filter(
@@ -600,10 +627,18 @@ def get_global_stats():
         # Dernière date de paiement
         query_paiement = db.session.query(
             func.max(EnqueteFacturation.date_paiement)
+        ).join(
+            Donnee, EnqueteFacturation.donnee_id == Donnee.id
+        ).join(
+            DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
         ).filter(EnqueteFacturation.paye == True)
         
         if client_id:
             query_paiement = query_paiement.filter(EnqueteFacturation.client_id == client_id)
+        if date_debut:
+            query_paiement = query_paiement.filter(EnqueteFacturation.date_paiement >= date_debut)
+        if date_fin:
+            query_paiement = query_paiement.filter(EnqueteFacturation.date_paiement <= date_fin)
         
         derniere_date = query_paiement.scalar()
         
@@ -611,6 +646,8 @@ def get_global_stats():
             'success': True,
             'data': {
                 'client_id': client_id,  # ✅ AJOUT: Indiquer le filtre appliqué
+                'date_debut': date_debut.strftime('%Y-%m-%d') if date_debut else None,
+                'date_fin': date_fin.strftime('%Y-%m-%d') if date_fin else None,
                 'total_eos': float(total_eos),
                 'total_enqueteurs': float(total_enqueteurs),
                 'marge': marge,
@@ -622,6 +659,92 @@ def get_global_stats():
         })
     except Exception as e:
         logger.error(f"Erreur lors du calcul des statistiques globales: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@tarification_bp.route('/api/tarification/stats/tarifs', methods=['GET'])
+def get_tarif_stats():
+    """Retourne la repartition des facturations par code tarif sur une periode."""
+    try:
+        from sqlalchemy import func
+
+        client_id = request.args.get('client_id', type=int)
+        date_debut_str = request.args.get('date_debut')
+        date_fin_str = request.args.get('date_fin')
+
+        date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date() if date_debut_str else None
+        date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date() if date_fin_str else None
+
+        date_ref_fact = func.coalesce(
+            DonneeEnqueteur.date_retour,
+            func.cast(Donnee.updated_at, db.Date),
+            func.cast(EnqueteFacturation.created_at, db.Date)
+        )
+
+        query = db.session.query(
+            EnqueteFacturation.tarif_eos_code.label('code'),
+            func.count(EnqueteFacturation.id).label('count'),
+            func.sum(EnqueteFacturation.resultat_eos_montant).label('montant')
+        ).join(
+            Donnee, EnqueteFacturation.donnee_id == Donnee.id
+        ).join(
+            DonneeEnqueteur, EnqueteFacturation.donnee_enqueteur_id == DonneeEnqueteur.id
+        ).filter(
+            EnqueteFacturation.tarif_eos_code.isnot(None),
+            EnqueteFacturation.tarif_eos_code != ''
+        )
+
+        if client_id:
+            query = query.filter(EnqueteFacturation.client_id == client_id)
+        if date_debut:
+            query = query.filter(date_ref_fact >= date_debut)
+        if date_fin:
+            query = query.filter(date_ref_fact <= date_fin)
+
+        rows = query.group_by(
+            EnqueteFacturation.tarif_eos_code
+        ).order_by(
+            func.sum(EnqueteFacturation.resultat_eos_montant).desc()
+        ).all()
+
+        eos_descriptions = {
+            tarif.code: tarif.description
+            for tarif in TarifEOS.query.all()
+            if tarif.code
+        }
+
+        client_descriptions = {}
+        client_tarifs_query = TarifClient.query
+        if client_id:
+            client_tarifs_query = client_tarifs_query.filter(TarifClient.client_id == client_id)
+        for tarif in client_tarifs_query.all():
+            if tarif.code_lettre and tarif.description:
+                client_descriptions[tarif.code_lettre] = tarif.description
+
+        data = []
+        for row in rows:
+            code = row.code
+            data.append({
+                'code': code,
+                'description': client_descriptions.get(code) or eos_descriptions.get(code) or code,
+                'count': int(row.count or 0),
+                'montant': float(row.montant or 0),
+            })
+
+        return jsonify({
+            'success': True,
+            'data': data,
+            'meta': {
+                'client_id': client_id,
+                'date_debut': date_debut.strftime('%Y-%m-%d') if date_debut else None,
+                'date_fin': date_fin.strftime('%Y-%m-%d') if date_fin else None,
+            }
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors du calcul des statistiques par tarif: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)

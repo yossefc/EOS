@@ -30,7 +30,7 @@ with app.app_context():
     print("1. ANALYSE PARTNER CR - Format A (65 colonnes)")
     print("=" * 80)
 
-    cr_dir = os.path.join(BASE_DIR, 'reponses_cr backup')
+    cr_dir = r'E:\LDMEOS\reponses_cr backup'
     # Prendre un fichier Format A (65 cols)
     xls_files = [f for f in os.listdir(cr_dir) if f.endswith('.xls')]
 
@@ -181,7 +181,7 @@ with app.app_context():
     print("3. ANALYSE PARTNER CRCONT (contestations)")
     print("=" * 80)
 
-    crcont_dir = os.path.join(BASE_DIR, 'reponses_crcont backup')
+    crcont_dir = r'E:\LDMEOS\reponses_crcont backup'
     crcont_files = [f for f in os.listdir(crcont_dir) if f.endswith('.xls')]
 
     crcont_sample = None
@@ -236,7 +236,7 @@ with app.app_context():
     print("4. ANALYSE EOS CSV")
     print("=" * 80)
 
-    eos_dir = os.path.join(BASE_DIR, 'reponses_EOS backup')
+    eos_dir = r'E:\LDMEOS\reponses_EOS backup'
     csv_files = [f for f in os.listdir(eos_dir) if f.endswith('.csv')]
 
     if csv_files:
