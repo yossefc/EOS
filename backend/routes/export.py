@@ -17,7 +17,7 @@ from extensions import db
 logger = logging.getLogger(__name__)
 
 # Configuration pour l'export EOS
-CODE_PRESTATAIRE = os.getenv('CODE_PRESTATAIRE', 'XXX')  # 3 lettres
+CODE_PRESTATAIRE = os.getenv('CODE_PRESTATAIRE', 'LDM')  # 3 lettres
 
 
 # ========== FONCTIONS DE FORMATAGE POUR EXPORT EOS ==========
@@ -31,6 +31,15 @@ def sanitize_filename_part(value):
     cleaned = re.sub(r'[^A-Za-z0-9]+', '_', cleaned)
     cleaned = re.sub(r'_+', '_', cleaned).strip('_')
     return cleaned or "Client"
+
+def get_export_label_for_client(client_code, default_label="Client"):
+    """Retourne le libellé métier attendu dans les noms de fichiers exportés."""
+    code = (client_code or "").upper()
+    if code == "PARTNER":
+        return "CR"
+    if code == "EOS":
+        return "LDM"
+    return default_label
 
 def clean_special_chars(text):
     """Nettoie les caractères spéciaux pour l'encodage cp1252"""
@@ -410,7 +419,9 @@ def export_enquetes():
         
         # Envoyer le fichier au client
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        client_part = sanitize_filename_part(client.nom or client.code)
+        client_part = sanitize_filename_part(
+            get_export_label_for_client(client.code, client.nom or client.code)
+        )
         return send_file(
             temp_file.name,
             as_attachment=True,
@@ -1640,7 +1651,7 @@ def create_export_batch():
         batches_dir = os.path.join(base_dir, 'exports', 'batches')
         os.makedirs(batches_dir, exist_ok=True)
         
-        # Créer un nom de fichier selon le format EOS : XXXExp_AAAAMMJJ.txt
+        # Créer un nom de fichier selon le format EOS : LDMExp_AAAAMMJJ.txt
         export_date = datetime.date.today()  # Date d'export pour facturation
         date_str = export_date.strftime('%Y%m%d')
         filename = f"{CODE_PRESTATAIRE}Exp_{date_str}.txt"

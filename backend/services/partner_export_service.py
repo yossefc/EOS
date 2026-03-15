@@ -176,6 +176,11 @@ class PartnerExportService:
         section.left_margin = Inches(0.75)
         section.right_margin = Inches(0.75)
 
+        # Police gras taille 20 par défaut pour tout le document
+        normal_style = doc.styles['Normal']
+        normal_style.font.size = Pt(20)
+        normal_style.font.bold = True
+
         report_no = self._get_report_number('enquete_positive')
         date_export = datetime.now().strftime('%d/%m/%Y')
 
@@ -210,13 +215,17 @@ class PartnerExportService:
                 p_lettre = doc.add_paragraph(lettre_text)
                 p_lettre.runs[0].bold = True
 
-            # Naissance
-            if donnee.dateNaissance:
-                jour = donnee.dateNaissance.day
-                mois = donnee.dateNaissance.month
-                annee = donnee.dateNaissance.year
-                lieu = donnee.lieuNaissance or ''
-                doc.add_paragraph(f"Ne le {jour}/{mois}/{annee} a {lieu}".rstrip())
+            # Naissance (données originales de l'import)
+            date_nais = donnee.dateNaissance
+            lieu_nais = donnee.lieuNaissance or ''
+            if date_nais or lieu_nais:
+                if date_nais:
+                    nais_str = f"Ne le {date_nais.day}/{date_nais.month}/{date_nais.year}"
+                    if lieu_nais:
+                        nais_str += f" a {lieu_nais}"
+                else:
+                    nais_str = f"Ne le  a {lieu_nais}"
+                doc.add_paragraph(nais_str.strip())
 
             # Ligne vide avant bloc résultat
             doc.add_paragraph()
@@ -314,22 +323,23 @@ class PartnerExportService:
         
         workbook = xlwt.Workbook()
         sheet = workbook.add_sheet('Enquetes Positives')
-        
-        # Style pour l'en-tête
-        header_style = xlwt.XFStyle()
-        font = xlwt.Font()
-        font.bold = True
-        header_style.font = font
-        
+
+        # Style commun : gras taille 20
+        cell_style = xlwt.XFStyle()
+        cell_font = xlwt.Font()
+        cell_font.bold = True
+        cell_font.height = 400  # 20pt (xlwt: 1/20 point, donc 20*20=400)
+        cell_style.font = cell_font
+
         # Écrire les en-têtes
         for col_idx, col_name in enumerate(columns):
-            sheet.write(0, col_idx, col_name, header_style)
-        
+            sheet.write(0, col_idx, col_name, cell_style)
+
         # Écrire les données
         for row_idx, donnee_obj in enumerate(enquetes, start=1):
             donnee = NanCleaner(donnee_obj)
             donnee_enqueteur = NanCleaner(donnee_obj.donnee_enqueteur) if donnee_obj.donnee_enqueteur else None
-            
+
             # Construire la ligne de données
             row_data = []
             
@@ -440,10 +450,10 @@ class PartnerExportService:
             
             # Resultat
             row_data.append('POS')
-            
+
             # Écrire la ligne
             for col_idx, value in enumerate(row_data):
-                sheet.write(row_idx, col_idx, value)
+                sheet.write(row_idx, col_idx, value, cell_style)
         
         # Sauvegarder dans un BytesIO
         output = BytesIO()
@@ -465,24 +475,25 @@ class PartnerExportService:
         
         workbook = xlwt.Workbook()
         sheet = workbook.add_sheet('Enquetes Negatives')
-        
-        # Style pour l'en-tête
-        header_style = xlwt.XFStyle()
-        font = xlwt.Font()
-        font.bold = True
-        header_style.font = font
-        
+
+        # Style commun : gras taille 20
+        cell_style = xlwt.XFStyle()
+        cell_font = xlwt.Font()
+        cell_font.bold = True
+        cell_font.height = 400  # 20pt
+        cell_style.font = cell_font
+
         # Écrire les en-têtes (toujours, même si 0 enquêtes)
         for col_idx, col_name in enumerate(columns):
-            sheet.write(0, col_idx, col_name, header_style)
-        
+            sheet.write(0, col_idx, col_name, cell_style)
+
         # Écrire les données (si présentes)
         logger.info(f"Génération Excel enquêtes négatives: {len(enquetes)} lignes")
         for row_idx, donnee_obj in enumerate(enquetes, start=1):
             donnee = NanCleaner(donnee_obj)
             batch_total = self._get_batch_total(donnee)
             reference = self._format_reference_enquete(donnee, batch_total)
-            
+
             row_data = [
                 donnee.nom or '',
                 donnee.prenom or '',
@@ -490,9 +501,9 @@ class PartnerExportService:
                 donnee.numeroDossier or '',
                 ''  # memo vide
             ]
-            
+
             for col_idx, value in enumerate(row_data):
-                sheet.write(row_idx, col_idx, value)
+                sheet.write(row_idx, col_idx, value, cell_style)
         
         # Sauvegarder dans un BytesIO
         output = BytesIO()
@@ -510,14 +521,19 @@ class PartnerExportService:
             raise Exception("python-docx n'est pas disponible")
         
         doc = Document()
-        
+
         # Configuration des marges
         section = doc.sections[0]
         section.top_margin = Inches(0.5)
         section.bottom_margin = Inches(0.5)
         section.left_margin = Inches(0.75)
         section.right_margin = Inches(0.75)
-        
+
+        # Police gras taille 20 par défaut pour tout le document
+        normal_style = doc.styles['Normal']
+        normal_style.font.size = Pt(20)
+        normal_style.font.bold = True
+
         report_no = self._get_report_number('contestation_positive')
         date_export = datetime.now().strftime('%d/%m/%Y')
         
@@ -556,14 +572,17 @@ class PartnerExportService:
                 p_lettre = doc.add_paragraph(lettre_text)
                 p_lettre.runs[0].bold = True
             
-            # Naissance si dispo
-            if donnee.dateNaissance:
-                jour = donnee.dateNaissance.day
-                mois = donnee.dateNaissance.month
-                annee = donnee.dateNaissance.year
-                lieu = donnee.lieuNaissance or ''
-                naissance = f"Ne le {jour}/{mois}/{annee} a {lieu}"
-                doc.add_paragraph(naissance)
+            # Naissance (données originales de l'import)
+            date_nais = donnee.dateNaissance
+            lieu_nais = donnee.lieuNaissance or ''
+            if date_nais or lieu_nais:
+                if date_nais:
+                    nais_str = f"Ne le {date_nais.day}/{date_nais.month}/{date_nais.year}"
+                    if lieu_nais:
+                        nais_str += f" a {lieu_nais}"
+                else:
+                    nais_str = f"Ne le  a {lieu_nais}"
+                doc.add_paragraph(nais_str.strip())
             
             # Adresse résultat
             if donnee_enqueteur and (donnee_enqueteur.adresse1 or donnee_enqueteur.adresse2 or
@@ -616,30 +635,31 @@ class PartnerExportService:
         
         workbook = xlwt.Workbook()
         sheet = workbook.add_sheet('Contestations Negatives')
-        
-        # Style pour l'en-tête
-        header_style = xlwt.XFStyle()
-        font = xlwt.Font()
-        font.bold = True
-        header_style.font = font
-        
+
+        # Style commun : gras taille 20
+        cell_style = xlwt.XFStyle()
+        cell_font = xlwt.Font()
+        cell_font.bold = True
+        cell_font.height = 400  # 20pt
+        cell_style.font = cell_font
+
         # Écrire les en-têtes (toujours, même si 0 contestations)
         for col_idx, col_name in enumerate(columns):
-            sheet.write(0, col_idx, col_name, header_style)
-        
+            sheet.write(0, col_idx, col_name, cell_style)
+
         # Écrire les données (si présentes)
         logger.info(f"Génération Excel contestations négatives: {len(contestations)} lignes")
         for row_idx, donnee_obj in enumerate(contestations, start=1):
             donnee = NanCleaner(donnee_obj)
             batch_total = self._get_batch_total(donnee)
             reference = self._format_reference_contestation(donnee, batch_total)
-            
+
             # nom = nom_complet ou nom standard
             nom = donnee.nom_complet or donnee.nom or ''
-            
+
             # prenom = "TRES URGENT" si urgent, sinon vide
             prenom = "TRES URGENT" if (donnee.urgence == '1' or donnee.urgence == 'O') else ''
-            
+
             row_data = [
                 nom,
                 prenom,
@@ -647,9 +667,9 @@ class PartnerExportService:
                 donnee.numeroDossier or '',
                 'NEGATIF'
             ]
-            
+
             for col_idx, value in enumerate(row_data):
-                sheet.write(row_idx, col_idx, value)
+                sheet.write(row_idx, col_idx, value, cell_style)
         
         # Sauvegarder dans un BytesIO
         output = BytesIO()

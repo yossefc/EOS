@@ -129,7 +129,7 @@ const EnqueteExporter = () => {
       
       // Extraire le nom du fichier depuis les headers si disponible
       const contentDisposition = response.headers['content-disposition'];
-      let filename = `XXXExp_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.txt`;
+      let filename = `LDMExp_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.txt`;
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
         if (filenameMatch) {
@@ -173,8 +173,19 @@ const EnqueteExporter = () => {
       const link = document.createElement('a');
       link.href = url;
       
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T');
-      const filename = `export_partner_${exportType}_${timestamp[0]}_${timestamp[1].split('-')[0]}.zip`;
+      const contentDisposition = response.headers['content-disposition'];
+      let filename;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      if (!filename) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T');
+        filename = `export_CR_${exportType}_${timestamp[0]}_${timestamp[1].split('-')[0]}.zip`;
+      }
       
       link.setAttribute('download', filename);
       document.body.appendChild(link);

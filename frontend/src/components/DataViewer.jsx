@@ -504,7 +504,12 @@ const DataViewer = () => {
         link.href = url;
 
         const contentDisposition = response.headers['content-disposition'];
-        let filename = `Export_${client?.nom || client?.code || 'Client'}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19).replace('T', '_')}.docx`;
+        const exportLabel = client?.code === 'PARTNER'
+          ? 'CR'
+          : client?.code === 'EOS'
+            ? 'LDM'
+            : (client?.nom || client?.code || 'Client');
+        let filename = `Export_${exportLabel}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19).replace('T', '_')}.docx`;
         if (contentDisposition) {
           const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
           if (filenameMatch) {

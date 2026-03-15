@@ -822,6 +822,19 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
     setSuggestions(prev => ({ ...prev, codesPostaux: [], postalTarget: null }));
   };
 
+  const handleConfirmOriginalAddress = () => {
+    setFormData(prev => ({
+      ...prev,
+      adresse1: data.adresse1_origine || '',
+      adresse2: data.adresse2_origine || '',
+      adresse3: "confirmation d'adresse",
+      adresse4: data.adresse4_origine || '',
+      code_postal: data.codePostal_origine || '',
+      ville: data.ville_origine || '',
+      pays_residence: data.paysResidence_origine || prev.pays_residence,
+    }));
+  };
+
   // Validation
   const validateFormData = () => {
     if (clientCode !== 'EOS') return null;
@@ -1513,6 +1526,18 @@ const UpdateModal = ({ isOpen, onClose, data }) => {
             {/* TAB: Adresse */}
             {activeTab === 'adresse' && (
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                {!isDisabled && (
+                  <div className="col-span-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmOriginalAddress}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Check className="w-4 h-4" />
+                      Confirmer l'adresse d'origine
+                    </button>
+                  </div>
+                )}
                 <Field label="Ligne 1 (Étage, Appartement)" name="adresse1" value={formData.adresse1} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
                 <Field label="Ligne 2 (Bâtiment, Escalier)" name="adresse2" value={formData.adresse2} onChange={handleInputChange} disabled={isDisabled} maxLength={32} />
 
